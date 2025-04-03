@@ -251,70 +251,54 @@ PreferredSizeWidget appBar(BuildContext context, String title, VoidCallback onNe
     preferredSize: const Size.fromHeight(100),
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      color: Colors.white,
       child: SafeArea(
         bottom: false,
         child: SizedBox(
           height: 60,
-          child: Row(
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              // Left drawer icon
-              GestureDetector(
-                onTap: () => Scaffold.of(context).openDrawer(),
-                child: const Icon(Icons.menu, color: Colors.black),
+              // 👈 Center logo
+              Image.asset(
+                'assets/images/Group.png',
+                width: 44,
+                height: 44,
               ),
 
-              const Spacer(),
-
-              // Logo + Title
+              // 👈 Row for left and right buttons
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Image.asset(
-                    'assets/images/Group.png', // update with your logo
-                    width: 24,
-                    height: 24,
+                  // Left menu icon
+                  GestureDetector(
+                    onTap: () => Scaffold.of(context).openDrawer(),
+                    child: const Icon(Icons.menu, color: Colors.black),
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w400,
-                    ),
+
+                  // Right-side icons
+                  Row(
+                    children: [
+                      const Icon(Icons.notifications_none_outlined, color: Colors.black),
+                      const SizedBox(width: 16),
+                      GestureDetector(
+                        onTap: onNewChatTap,
+                        child: SvgPicture.asset(
+                          "assets/images/Frame 38.svg",
+                          width: 28,
+                          height: 28,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-
-              const Spacer(),
-
-              // Notification
-              const Icon(Icons.notifications_none_outlined, color: Colors.black),
-              const SizedBox(width: 16),
-
-              // Chat add icon (SVG)
-              GestureDetector(
-                onTap: onNewChatTap,
-                child: SvgPicture.asset(
-                  "assets/images/Frame 38.svg", // ensure this SVG is accurate
-                  width: 28,
-                  height: 28,
-                ),
               ),
             ],
           ),
         ),
       ),
     ),
+
   );
 }
 
