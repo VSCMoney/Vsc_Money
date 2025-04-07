@@ -1225,32 +1225,32 @@ _scrollToBottom();
     });
 
     // Listen for live streaming message updates
-    widget.chatService.currentMessageStream.listen((updatedMessage) {
-      if (!mounted) return;
-
-      if (_currentStreamingId == updatedMessage.id) {
-        final index = messages.indexWhere((m) =>
-        m['role'] == 'bot' && m['id'] == updatedMessage.id);
-
-        if (index != -1 && mounted) {
-          setState(() {
-            messages[index] = {
-              ...messages[index],
-              'msg': updatedMessage.text as Object,
-              'isComplete': updatedMessage.isComplete as Object,
-            };
-            if (updatedMessage.isComplete) {
-              _isTyping = false;
-              _showOnlyLatestDuringTyping = false; // Enable full scrolling after message is complete
-            }
-          });
-
-          _scrollToBottom();
-        }
-      }
-    }, onError: (e) {
-      print('Stream listen error: $e');
-    });
+    // widget.chatService.currentMessageStream.listen((updatedMessage) {
+    //   if (!mounted) return;
+    //
+    //   if (_currentStreamingId == updatedMessage.id) {
+    //     final index = messages.indexWhere((m) =>
+    //     m['role'] == 'bot' && m['id'] == updatedMessage.id);
+    //
+    //     if (index != -1 && mounted) {
+    //       setState(() {
+    //         messages[index] = {
+    //           ...messages[index],
+    //           'msg': updatedMessage.text as Object,
+    //           'isComplete': updatedMessage.isComplete as Object,
+    //         };
+    //         if (updatedMessage.isComplete) {
+    //           _isTyping = false;
+    //           _showOnlyLatestDuringTyping = false; // Enable full scrolling after message is complete
+    //         }
+    //       });
+    //
+    //       _scrollToBottom();
+    //     }
+    //   }
+    // }, onError: (e) {
+    //   print('Stream listen error: $e');
+    // });
   }
 
   // Convert from ChatSession messages to local UI format
@@ -1309,10 +1309,61 @@ _scrollToBottom();
     super.dispose();
   }
 
+  // void _sendMessage() async {
+  //   if (!mounted || _controller.text.trim().isEmpty) return;
+  //
+  //   FocusScope.of(context).unfocus();
+  //   final userMessage = _controller.text.trim();
+  //
+  //   setState(() {
+  //     messages.add({'role': 'user', 'msg': userMessage, 'isComplete': true});
+  //     messages.add({'role': 'bot', 'msg': '', 'isComplete': false});
+  //     _controller.clear();
+  //     _isTyping = true;
+  //     _showOnlyLatestDuringTyping = true; // Show only latest while message is being typed
+  //   });
+  //
+  //   _scrollToBottom();
+  //
+  //   try {
+  //     final responseStream = await widget.chatService.sendMessageWithStreaming(
+  //       sessionId: widget.session.id,
+  //       message: userMessage,
+  //     );
+  //
+  //     _streamSubscription?.cancel();
+  //     _streamSubscription = responseStream.listen((message) {
+  //       if (!mounted) return;
+  //       _currentStreamingId = message.id;
+  //
+  //       final lastIndex = messages.length - 1;
+  //       if (lastIndex >= 0 && messages[lastIndex]['role'] == 'bot') {
+  //         setState(() {
+  //           messages[lastIndex] = {
+  //             ...messages[lastIndex],
+  //             'id': message.id,
+  //             'msg': message.text,
+  //             'isComplete': message.isComplete,
+  //           };
+  //           if (message.isComplete) {
+  //             _isTyping = false;
+  //             _showOnlyLatestDuringTyping = false; // Enable full scrolling after message is complete
+  //           }
+  //         });
+  //
+  //         _scrollToBottom();
+  //       }
+  //     });
+  //   } catch (e) {
+  //     print("Error: $e");
+  //   }
+  // }
+
+
+
   void _sendMessage() async {
     if (!mounted || _controller.text.trim().isEmpty) return;
 
-    FocusScope.of(context).unfocus();
     final userMessage = _controller.text.trim();
 
     setState(() {
@@ -1320,7 +1371,7 @@ _scrollToBottom();
       messages.add({'role': 'bot', 'msg': '', 'isComplete': false});
       _controller.clear();
       _isTyping = true;
-      _showOnlyLatestDuringTyping = true; // Show only latest while message is being typed
+      _showOnlyLatestDuringTyping = true;
     });
 
     _scrollToBottom();
@@ -1331,59 +1382,52 @@ _scrollToBottom();
         message: userMessage,
       );
 
-      _streamSubscription?.cancel();
-      _streamSubscription = responseStream.listen((message) {
-        if (!mounted) return;
-        _currentStreamingId = message.id;
-
+      responseStream.listen((botMessage) {
         final lastIndex = messages.length - 1;
         if (lastIndex >= 0 && messages[lastIndex]['role'] == 'bot') {
           setState(() {
             messages[lastIndex] = {
-              ...messages[lastIndex],
-              'id': message.id,
-              'msg': message.text,
-              'isComplete': message.isComplete,
+              'role': 'bot',
+              'msg': botMessage.text,
+              'isComplete': true,
             };
-            if (message.isComplete) {
-              _isTyping = false;
-              _showOnlyLatestDuringTyping = false; // Enable full scrolling after message is complete
-            }
+            _isTyping = false;
+            _showOnlyLatestDuringTyping = false;
           });
-
           _scrollToBottom();
         }
       });
     } catch (e) {
-      print("Error: $e");
+      print("❌ Error sending message: $e");
     }
   }
 
-  void _stopResponse() {
-    try {
-      _streamSubscription?.cancel();
-      widget.chatService.stopResponse(
-        widget.session.id,
-        _currentStreamingId,
-      );
-    } catch (e) {
-      print('Error stopping response: $e');
-    }
 
-    if (mounted) {
-      setState(() {
-        final lastIndex = messages.length - 1;
-        if (lastIndex >= 0) {
-          messages[lastIndex] = {
-            ...messages[lastIndex],
-            'isComplete': true as Object,
-          };
-        }
-        _isTyping = false;
-        _showOnlyLatestDuringTyping = false; // Enable full scrolling after stopping response
-      });
-    }
-  }
+  // void _stopResponse() {
+  //   try {
+  //     _streamSubscription?.cancel();
+  //     widget.chatService.stopResponse(
+  //       widget.session.id,
+  //       _currentStreamingId,
+  //     );
+  //   } catch (e) {
+  //     print('Error stopping response: $e');
+  //   }
+  //
+  //   if (mounted) {
+  //     setState(() {
+  //       final lastIndex = messages.length - 1;
+  //       if (lastIndex >= 0) {
+  //         messages[lastIndex] = {
+  //           ...messages[lastIndex],
+  //           'isComplete': true as Object,
+  //         };
+  //       }
+  //       _isTyping = false;
+  //       _showOnlyLatestDuringTyping = false; // Enable full scrolling after stopping response
+  //     });
+  //   }
+  // }
 
   void _scrollToBottom() {
     // Add a slight delay to ensure rendering is complete
@@ -1702,7 +1746,7 @@ _scrollToBottom();
                           if (!mounted) return;
 
                           if (_isTyping) {
-                            _stopResponse();
+                            // _stopResponse();
                           } else {
                             _sendMessage();
                           }

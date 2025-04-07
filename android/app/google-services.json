@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "717280964807",
+    "project_id": "mystic-primacy-455711-q3",
+    "storage_bucket": "mystic-primacy-455711-q3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:717280964807:android:dccb26f76d03fab6b48ee2",
+        "android_client_info": {
+          "package_name": "com.vsc.money"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "717280964807-a8nn2mrc40rgror2k16vq245j1su9ill.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vsc.money",
+            "certificate_hash": "101cf180b7cda524c20396a427daab3ac4dcee17"
+          }
+        },
+        {
+          "client_id": "717280964807-u70hba5fssjfgso792lj65e9k9asjq46.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwDzL_Rm0txF4-SsS7XL9nNcmAVuTCiz0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "717280964807-u70hba5fssjfgso792lj65e9k9asjq46.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "717280964807-tb0as8l7bun9n349gjftd6vdu7341ndi.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.vsc.money"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

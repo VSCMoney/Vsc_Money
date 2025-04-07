@@ -7,10 +7,6 @@ import '../main.dart';
 import '../screens/presentation/onboarding/onoarding_page.dart';
 
 
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:vscmoney/main.dart';
-import 'package:vscmoney/screens/presentation/auth/auth_screen.dart';
 import 'package:vscmoney/screens/presentation/auth/otp_screen.dart';
 import 'package:vscmoney/screens/presentation/home/assets.dart';
 import 'package:vscmoney/screens/presentation/home/chat_screen.dart';

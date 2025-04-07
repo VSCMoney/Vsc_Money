@@ -1,0 +1,30 @@
+[
+    {
+        "merged": "com.vsc.money.app-debug-59:/mipmap-mdpi_ic_launcher.png.flat",
+        "source": "com.vsc.money.app-main-61:/mipmap-mdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.vsc.money.app-debug-59:/xml_file_path.xml.flat",
+        "source": "com.vsc.money.app-main-61:/xml/file_path.xml"
+    },
+    {
+        "merged": "com.vsc.money.app-debug-59:/drawable-v21_launch_background.xml.flat",
+        "source": "com.vsc.money.app-main-61:/drawable-v21/launch_background.xml"
+    },
+    {
+        "merged": "com.vsc.money.app-debug-59:/mipmap-hdpi_ic_launcher.png.flat",
+        "source": "com.vsc.money.app-main-61:/mipmap-hdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.vsc.money.app-debug-59:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "com.vsc.money.app-main-61:/mipmap-xxxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.vsc.money.app-debug-59:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "com.vsc.money.app-main-61:/mipmap-xhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.vsc.money.app-debug-59:/mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "com.vsc.money.app-main-61:/mipmap-xxhdpi/ic_launcher.png"
+    }
+]
