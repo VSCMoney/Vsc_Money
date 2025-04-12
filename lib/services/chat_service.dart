@@ -3,9 +3,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/constants.dart';
+import '../models/chat_history_model.dart';
 import '../models/chat_message.dart';
 import '../models/chat_session.dart';
 
@@ -259,89 +261,264 @@ import '../models/chat_session.dart';
 import 'package:http/http.dart' as http;
 
 
+// class ChatService {
+//   List<ChatSession> _sessions = [];
+//   late SharedPreferences _prefs;
+//
+//   final _apiUrl = 'https://fastapi-app-717280964807.asia-south1.run.app/ask'; // Your Cloud Run API
+//
+//   Future<void> initialize() async {
+//     _prefs = await SharedPreferences.getInstance();
+//     await _loadSessions();
+//   }
+//
+//   Future<void> _loadSessions() async {
+//     final data = _prefs.getStringList('chat_sessions') ?? [];
+//     _sessions = data.map((s) => ChatSession.fromJson(jsonDecode(s))).toList();
+//   }
+//
+//   Future<void> _saveSessions() async {
+//     final data = _sessions.map((s) => jsonEncode(s.toJson())).toList();
+//     await _prefs.setStringList('chat_sessions', data);
+//   }
+//
+//   List<ChatSession> getAllSessions() => _sessions;
+//
+//   Stream<List<ChatSession>> get sessions async* {
+//     yield _sessions;
+//   }
+//
+//   ChatSession createNewSession() {
+//     final session = ChatSession(
+//       id: DateTime.now().millisecondsSinceEpoch.toString(),
+//       title: 'New Chat',
+//       createdAt: DateTime.now(),
+//       messages: [],
+//     );
+//     _sessions.insert(0, session);
+//     _saveSessions();
+//     return session;
+//   }
+//
+//   Future<Stream<ChatMessage>> sendMessageWithStreaming({
+//     required String sessionId,
+//     required String message,
+//   }) async {
+//     final sessionIndex = _sessions.indexWhere((s) => s.id == sessionId);
+//     if (sessionIndex == -1) throw Exception('Session not found');
+//
+//     // Save user message locally
+//     final userMessage = ChatMessage(
+//       id: DateTime.now().millisecondsSinceEpoch.toString(),
+//       text: message,
+//       isUser: true,
+//       timestamp: DateTime.now(),
+//     );
+//     _sessions[sessionIndex].messages.add(userMessage);
+//     await _saveSessions();
+//
+//     final response = await http.post(
+//       Uri.parse(_apiUrl),
+//       headers: {'Content-Type': 'application/json'},
+//       body: jsonEncode({'question': message}),
+//     );
+//
+//     if (response.statusCode != 200) throw Exception("API failed");
+//
+//     final decoded = jsonDecode(response.body);
+//     final botText = decoded['answer'] ?? '...';
+//
+//     final botMessage = ChatMessage(
+//       id: DateTime.now().millisecondsSinceEpoch.toString(),
+//       text: botText,
+//       isUser: false,
+//       timestamp: DateTime.now(),
+//       isComplete: true,
+//     );
+//
+//     _sessions[sessionIndex].messages.add(botMessage);
+//     await _saveSessions();
+//
+//     final controller = StreamController<ChatMessage>();
+//     controller.add(botMessage);
+//     controller.close();
+//     return controller.stream;
+//   }
+//
+//   void dispose() {}
+// }
+
+
+
+
 class ChatService {
-  List<ChatSession> _sessions = [];
-  late SharedPreferences _prefs;
 
-  final _apiUrl = 'https://fastapi-app-717280964807.asia-south1.run.app/ask'; // Your Cloud Run API
+  final String baseUrl = 'https://fastapi-chatbot-717280964807.asia-south1.run.app/chat'; // ✅ include /chat
+  // Replace with deployed URL
+  //final String baseUrl= 'http://127.0.0.1:8000/chat';
+  final String authToken;
 
-  Future<void> initialize() async {
-    _prefs = await SharedPreferences.getInstance();
-    await _loadSessions();
-  }
+  ChatService({required this.authToken});
 
-  Future<void> _loadSessions() async {
-    final data = _prefs.getStringList('chat_sessions') ?? [];
-    _sessions = data.map((s) => ChatSession.fromJson(jsonDecode(s))).toList();
-  }
-
-  Future<void> _saveSessions() async {
-    final data = _sessions.map((s) => jsonEncode(s.toJson())).toList();
-    await _prefs.setStringList('chat_sessions', data);
-  }
-
-  List<ChatSession> getAllSessions() => _sessions;
-
-  Stream<List<ChatSession>> get sessions async* {
-    yield _sessions;
-  }
-
-  ChatSession createNewSession() {
-    final session = ChatSession(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: 'New Chat',
-      createdAt: DateTime.now(),
-      messages: [],
+  Future<ChatSession> createSession(String title) async {
+    print("📡 Calling createSessions...");
+    print(authToken);
+    print("Create Session Called");
+    final res = await http.post(
+      Uri.parse('$baseUrl/createSession'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $authToken',
+      },
+      body: jsonEncode({'title': title}),
     );
-    _sessions.insert(0, session);
-    _saveSessions();
-    return session;
+    if (res.statusCode != 200) throw Exception('Failed to create session');
+    final data = jsonDecode(res.body);
+    return ChatSession(id: data['session_id'], title: title, createdAt: DateTime.now(), messages: []);
+  }
+
+  Future<List<ChatSession>> fetchSessions() async {
+    print("📡 Calling fetchSessions...");
+    final res = await http.get(
+      Uri.parse('$baseUrl/sessions'),  // Make sure baseUrl ends with /chat
+      headers: {
+        'Authorization': 'Bearer $authToken',
+      },
+    );
+
+    debugPrint("📩 Sessions Response [${res.statusCode}]: ${res.body}");
+
+    if (res.statusCode != 200) throw Exception('Failed to load sessions');
+
+    final List data = jsonDecode(res.body);
+    return data.map((json) => ChatSession.fromJson(json)).toList();
+  }
+
+  Future<List<ChatHistoryItem>> fetchMessages(String sessionId) async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/history/$sessionId'),
+      headers: {'Authorization': 'Bearer $authToken'},
+    );
+    if (res.statusCode != 200) throw Exception('Failed to load messages');
+    final List data = jsonDecode(res.body);
+    return data.map((m) => ChatHistoryItem.fromJson(m)).toList();
+  }
+
+
+  Future<void> stopResponse(String sessionId, String messageId) async {
+    try {
+      await http.post(
+        Uri.parse('$baseUrl/message/stop'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $authToken',
+        },
+        body: jsonEncode({
+          'session_id': sessionId,
+          'message_id': messageId,
+        }),
+      );
+    } catch (e) {
+      debugPrint("❌ Error sending stop request: $e");
+    }
+  }
+
+
+  // 🔥 Add this method
+  Future<void> updateSessionTitle(String sessionId, String newTitle) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/session/$sessionId/title'),
+      headers: {
+        'Authorization': 'Bearer $authToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'title': newTitle}),
+    );
+
+    if (response.statusCode != 200) {
+      print("❌ Failed to update session title: ${response.body}");
+    } else {
+      print("✅ Session title updated");
+    }
   }
 
   Future<Stream<ChatMessage>> sendMessageWithStreaming({
     required String sessionId,
     required String message,
   }) async {
-    final sessionIndex = _sessions.indexWhere((s) => s.id == sessionId);
-    if (sessionIndex == -1) throw Exception('Session not found');
-
-    // Save user message locally
-    final userMessage = ChatMessage(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      text: message,
-      isUser: true,
-      timestamp: DateTime.now(),
-    );
-    _sessions[sessionIndex].messages.add(userMessage);
-    await _saveSessions();
-
-    final response = await http.post(
-      Uri.parse(_apiUrl),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'question': message}),
+    final request = http.Request(
+      'POST',
+      Uri.parse('$baseUrl/message/stream'),
     );
 
-    if (response.statusCode != 200) throw Exception("API failed");
+    request.headers.addAll({
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $authToken',
+    });
 
-    final decoded = jsonDecode(response.body);
-    final botText = decoded['answer'] ?? '...';
+    request.body = jsonEncode({'session_id': sessionId ?? "", 'question': utf8.decode(message.codeUnits),});
+    debugPrint("📤 Sending request to stream message: $message");
 
-    final botMessage = ChatMessage(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      text: botText,
-      isUser: false,
-      timestamp: DateTime.now(),
-      isComplete: true,
-    );
+    final response = await request.send();
+    debugPrint("📥 Stream response status: ${response.statusCode}");
 
-    _sessions[sessionIndex].messages.add(botMessage);
-    await _saveSessions();
+    if (response.statusCode != 200) {
+      final errorBody = await response.stream.bytesToString();
+      debugPrint("❌ Streaming error body: $errorBody");
+      throw Exception("Streaming failed");
+    }
 
     final controller = StreamController<ChatMessage>();
-    controller.add(botMessage);
-    controller.close();
+    final messageId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    response.stream.transform(utf8.decoder).listen(
+          (chunk) {
+        debugPrint("📩 Raw chunk received: ${chunk.length} chars");
+
+        // Process the SSE format
+        for (var line in chunk.split('\n')) {
+          if (line.startsWith('data:')) {
+            try {
+              final jsonText = line.substring(5).trim();
+              final decoded = jsonDecode(jsonText);
+              final text = decoded['text'] ?? '';
+
+              debugPrint("🔄 Processed text: ${text.length} chars");
+
+              controller.add(ChatMessage(
+                id: messageId,
+                text: text,
+                isUser: false,
+                timestamp: DateTime.now(),
+                isComplete: false,
+              ));
+            } catch (e) {
+              debugPrint("❌ Error parsing JSON from line: $line");
+              debugPrint("❌ Error: $e");
+            }
+          }
+        }
+      },
+      onDone: () {
+        debugPrint("✅ Stream complete");
+        controller.add(ChatMessage(
+          id: messageId,
+          text: '',
+          isUser: false,
+          timestamp: DateTime.now(),
+          isComplete: true,
+        ));
+        controller.close();
+      },
+      onError: (e) {
+        debugPrint("❌ Stream error: $e");
+        controller.addError(e);
+        controller.close();
+      },
+    );
+
     return controller.stream;
   }
-
-  void dispose() {}
 }
+
+

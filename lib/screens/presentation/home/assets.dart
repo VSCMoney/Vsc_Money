@@ -216,21 +216,10 @@ class _AssetsState extends State<Assets> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: PreferredSize(
-          preferredSize: const Size.fromHeight(50),
-          child: TabBar(
-            unselectedLabelColor: Colors.grey.shade300,
-            controller: _tabController,
-            indicatorColor: Colors.deepOrange,
-            indicatorWeight: 5,
-            indicatorSize: TabBarIndicatorSize.tab,
-            tabs: const [
-              Tab(text: 'Portfolio'),
-              Tab(text: 'Watchlist'),
-            ],
-          ),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(100),
+        child: Builder(
+          builder: (context) => appBars(context, "Portfolio", () {}),
         ),
       ),
       body: TabBarView(
@@ -699,4 +688,72 @@ class BottomNavBar extends StatelessWidget {
       ],
     );
   }
+}
+
+
+
+
+PreferredSizeWidget appBars(BuildContext context, String title, VoidCallback onNewChatTap) {
+  return PreferredSize(
+    preferredSize: const Size.fromHeight(150),
+    child: Card(
+      elevation: 1.0,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        color: Colors.white,
+        child: SafeArea(
+          bottom: false,
+          child: SizedBox(
+            height: 60,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // 👈 Center logo
+                Text("Portfolio" , style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                    fontSize: 18
+                ),),
+
+                // 👈 Row for left and right buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Left menu icon
+                    // ✅ Wrap this with Builder to get the right context
+                    Builder(
+                      builder: (BuildContext scaffoldContext) {
+                        return GestureDetector(
+                          onTap: () {
+                            print("jdn");
+                            // ✅ This will definitely open the drawer
+                            Scaffold.of(scaffoldContext).openDrawer();
+                          },
+                          child: SvgPicture.asset('assets/images/drawer.svg'),
+                        );
+                      },
+                    ),
+
+
+
+                    // Right-side icons
+                    Row(
+                      children: [
+                        GestureDetector(
+                            onTap: (){
+
+                            },
+                            child: const Icon(Icons.notifications_none_outlined, color: Colors.black)),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+
+  );
 }

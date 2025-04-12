@@ -1,10 +1,9 @@
-// lib/models/chat_message.dart
 class ChatMessage {
   final String id;
   final String text;
   final bool isUser;
   final DateTime timestamp;
-  final bool isComplete; // Indicates if the streaming message is complete
+  final bool isComplete;
 
   ChatMessage({
     required this.id,
@@ -14,39 +13,15 @@ class ChatMessage {
     this.isComplete = true,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'text': text,
-      'isUser': isUser,
-      'timestamp': timestamp.toIso8601String(),
-      'isComplete': isComplete,
-    };
-  }
-
-  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+  factory ChatMessage.fromBackend(Map<String, dynamic> json) {
     return ChatMessage(
-      id: json['id'],
-      text: json['text'],
-      isUser: json['isUser'],
-      timestamp: DateTime.parse(json['timestamp']),
-      isComplete: json['isComplete'] ?? true,
-    );
-  }
-
-  ChatMessage copyWith({
-    String? id,
-    String? text,
-    bool? isUser,
-    DateTime? timestamp,
-    bool? isComplete,
-  }) {
-    return ChatMessage(
-      id: id ?? this.id,
-      text: text ?? this.text,
-      isUser: isUser ?? this.isUser,
-      timestamp: timestamp ?? this.timestamp,
-      isComplete: isComplete ?? this.isComplete,
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      text: json['text'] ?? '',
+      isUser: json['is_user'] ?? false,
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'])
+          : DateTime.now(),
+      isComplete: true,
     );
   }
 }

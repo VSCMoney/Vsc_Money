@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vscmoney/screens/presentation/auth/auth_screen.dart';
+import 'package:vscmoney/screens/presentation/auth/phone_otp_scree.dart';
 
 import '../main.dart';
 import '../screens/presentation/onboarding/onoarding_page.dart';
@@ -21,7 +22,7 @@ GlobalKey<NavigatorState>(debugLabel: 'root');
 class AppRouter {
   static final router = GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/onboarding',
+    initialLocation: '/phone_otp',
     debugLogDiagnostics: true,
     routes: [
 
@@ -69,7 +70,7 @@ class AppRouter {
         name: 'otp',
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
-          child: const OtpVerificationScreen(),
+          child: const OtpVerification(),
           transitionsBuilder: slideLeftTransition,
         ),
       ),
@@ -118,6 +119,15 @@ class AppRouter {
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
           child: const Assets(),
+          transitionsBuilder: slideLeftTransition,
+        ),
+      ),
+      GoRoute(
+        path: '/phone_otp',
+        name: 'phone_otp',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const PhoneOtpScreen(),
           transitionsBuilder: slideLeftTransition,
         ),
       ),

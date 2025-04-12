@@ -3,7 +3,7 @@ import 'chat_message.dart';
 
 class ChatSession {
   final String id;
-  final String title;
+   String title;
   final DateTime createdAt;
   final List<ChatMessage> messages;
 
@@ -14,37 +14,20 @@ class ChatSession {
     required this.messages,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'createdAt': createdAt.toIso8601String(),
-      'messages': messages.map((msg) => msg.toJson()).toList(),
-    };
-  }
-
   factory ChatSession.fromJson(Map<String, dynamic> json) {
     return ChatSession(
-      id: json['id'],
-      title: json['title'],
-      createdAt: DateTime.parse(json['createdAt']),
-      messages: (json['messages'] as List)
-          .map((msgJson) => ChatMessage.fromJson(msgJson))
-          .toList(),
+      id: json['session_id'] ?? json['id'],
+      title: json['title'] ?? "New Chat",
+      createdAt: DateTime.parse(json['created_at'] ?? DateTime.now().toIso8601String()),
+      messages: [],
     );
   }
 
-  ChatSession copyWith({
-    String? id,
-    String? title,
-    DateTime? createdAt,
-    List<ChatMessage>? messages,
-  }) {
-    return ChatSession(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      createdAt: createdAt ?? this.createdAt,
-      messages: messages ?? this.messages,
-    );
+  Map<String, dynamic> toJson() {
+    return {
+      'session_id': id,
+      'title': title,
+      'created_at': createdAt.toIso8601String(),
+    };
   }
 }

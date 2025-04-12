@@ -149,7 +149,7 @@ class InvestmentPlanScreen extends StatelessWidget {
               physics: const BouncingScrollPhysics(),
               child: Column(
                 children: [
-                  const SizedBox(height: 60),
+                  const SizedBox(height: 90),
                   Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -204,7 +204,7 @@ class InvestmentPlanScreen extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             Image.asset(
-                              'assets/images/Group.png',
+                              'assets/images/onboard.png',
                               height: 18,
                               width: 18,
                             ),
@@ -237,7 +237,7 @@ class InvestmentPlanScreen extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 32,
                                 fontWeight: FontWeight.w500,
-                                fontStyle: FontStyle.normal,
+                                fontStyle: FontStyle.italic,
                               ),
                             ),
                             SizedBox(height: 26),

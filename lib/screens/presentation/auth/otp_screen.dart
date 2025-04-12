@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pinput/pinput.dart';
 import 'package:provider/provider.dart';
@@ -7,15 +9,17 @@ import 'package:vscmoney/screens/presentation/home/home_screen.dart';
 import '../../../controllers/auth_controller.dart';
 import '../../../services/auth_service.dart';
 import '../../widgets/common_button.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-// class OtpVerificationScreen extends StatefulWidget {
-//   const OtpVerificationScreen({super.key});
+// class OtpVerification extends StatefulWidget {
+//   final String? phoneNumber;
+//   const OtpVerification({super.key, this.phoneNumber});
 //
 //   @override
-//   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
+//   State<OtpVerification> createState() => _OtpVerificationState();
 // }
 //
-// class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
+// class _OtpVerificationState extends State<OtpVerification> {
 //   int seconds = 30;
 //
 //
@@ -23,6 +27,7 @@ import '../../widgets/common_button.dart';
 //   void initState() {
 //     super.initState();
 //     _startTimer();
+//     _sendOtp();
 //   }
 //
 //   void _startTimer() {
@@ -37,6 +42,130 @@ import '../../widgets/common_button.dart';
 //         return false;
 //       }
 //     });
+//   }
+//
+//
+//
+//
+//   final FirebaseAuth _auth = FirebaseAuth.instance;
+//   final TextEditingController _otpController = TextEditingController();
+//   String? _verificationId;
+//   bool isLoading = false;
+//   int? _resendToken;
+//
+//
+//   void _sendOtp() async {
+//     setState(() => isLoading = true);
+//
+//     try {
+//       await _auth.verifyPhoneNumber(
+//         phoneNumber: widget.phoneNumber,
+//         timeout: const Duration(seconds: 60),
+//         verificationCompleted: (PhoneAuthCredential credential) async {
+//           // Auto-verification (typically on Android)
+//           setState(() => isLoading = true);
+//           try {
+//             await _auth.signInWithCredential(credential);
+//             _navigateToHome();
+//           } catch (e) {
+//             setState(() => isLoading = false);
+//             _showErrorSnackBar("Auto-verification failed: $e");
+//           }
+//         },
+//         verificationFailed: (FirebaseAuthException e) {
+//           setState(() => isLoading = false);
+//           _showErrorSnackBar(e.message ?? "Verification failed");
+//         },
+//         codeSent: (String verificationId, int? resendToken) {
+//           setState(() {
+//             _verificationId = verificationId;
+//             _resendToken = resendToken;
+//             isLoading = false;
+//           });
+//           _showSuccessSnackBar("OTP sent successfully");
+//         },
+//         codeAutoRetrievalTimeout: (String verificationId) {
+//           setState(() {
+//             _verificationId = verificationId;
+//           });
+//         },
+//         forceResendingToken: _resendToken,
+//       );
+//     } catch (e) {
+//       setState(() => isLoading = false);
+//       _showErrorSnackBar("Error sending OTP: $e");
+//       print(e);
+//     }
+//   }
+//
+//
+//
+//
+//   void _verifyOtpManually() async {
+//     final otp = _otpController.text.trim();
+//     if (otp.length != 6 || _verificationId == null) {
+//       _showErrorSnackBar("Enter a valid 6-digit OTP");
+//       return;
+//     }
+//
+//     setState(() => isLoading = true);
+//     try {
+//       final credential = PhoneAuthProvider.credential(
+//         verificationId: _verificationId!,
+//         smsCode: otp,
+//       );
+//
+//       final userCredential = await _auth.signInWithCredential(credential);
+//       final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+//       if (idToken != null) {
+//         final controller = Provider.of<AuthController>(context, listen: false);
+//         await controller.verifyPhoneOtp(idToken,context);
+//       }
+//
+//       //final idToken = await userCredential.user?.getIdToken();
+//
+//       if (idToken != null) {
+//         final controller = Provider.of<AuthController>(context, listen: false);
+//         await controller.verifyPhoneOtp(idToken,context);
+//         _navigateToHome();
+//       } else {
+//         _showErrorSnackBar("Could not get ID token from Firebase");
+//       }
+//     } catch (e) {
+//       setState(() => isLoading = false);
+//       _showErrorSnackBar("OTP verification failed: $e");
+//     }
+//   }
+//
+//
+//   void _showErrorSnackBar(String message) {
+//     if (!mounted) return;
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(
+//         content: Text(message),
+//         backgroundColor: Colors.red,
+//       ),
+//     );
+//   }
+//
+//   void _showSuccessSnackBar(String message) {
+//     if (!mounted) return;
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(
+//         content: Text(message),
+//         backgroundColor: Colors.green,
+//       ),
+//     );
+//   }
+//
+//   void _navigateToHome() {
+//     if (!mounted) return;
+//     // Use GoRouter to navigate and clear history
+//     GoRouter.of(context).goNamed('home');
+//   }
+//
+//   void _resendOtp() {
+//     _sendOtp();
 //   }
 //
 //   @override
@@ -61,18 +190,12 @@ import '../../widgets/common_button.dart';
 //             children: [
 //               const SizedBox(height: 48),
 //               // Logo
-//               Row(
+//               Column(
 //                 mainAxisAlignment: MainAxisAlignment.center,
 //                 children: [
-//                   Image.asset('assets/images/Group.png', height: 24, width: 24),
-//                   const SizedBox(width: 8),
-//                   const Text(
-//                     "Penny",
-//                     style: TextStyle(
-//                       fontSize: 18,
-//                       fontWeight: FontWeight.w600,
-//                     ),
-//                   ),
+//                   Image.asset('assets/images/new_app_logo.png', width:80, height: 50),
+//                   const SizedBox(width: 16),
+//                   Image.asset('assets/images/Vitty.ai.png', width: 80, height: 50),
 //                 ],
 //               ),
 //               const SizedBox(height: 48),
@@ -86,8 +209,8 @@ import '../../widgets/common_button.dart';
 //                 ),
 //               ),
 //               const SizedBox(height: 12),
-//               const Text(
-//                 'An authentication code has been sent to\nyour mobile number',
+//                Text(
+//                 'An authentication code has been sent to\n${widget.phoneNumber}',
 //                 textAlign: TextAlign.center,
 //                 style: TextStyle(
 //                   fontSize: 18,
@@ -98,12 +221,13 @@ import '../../widgets/common_button.dart';
 //               const SizedBox(height: 32),
 //               // OTP fields
 //               Pinput(
+//                 controller: _otpController,
 //                 mainAxisAlignment: MainAxisAlignment.spaceAround,
-//                 length: 4,
+//                 length: 6,
 //                 defaultPinTheme: defaultPinTheme,
 //                 focusedPinTheme: defaultPinTheme.copyWith(
 //                   decoration: BoxDecoration(
-//                     border: Border.all(color: Colors.orange, width: 5),
+//                     border: Border.all(color: Colors.orange, width: 3),
 //                   ),
 //                 ),
 //                 submittedPinTheme: defaultPinTheme,
@@ -113,20 +237,21 @@ import '../../widgets/common_button.dart';
 //               // Verify Button
 //               CommonButton(
 //                 label: 'Verify',
-//                 onPressed: () {
-//                   // Navigator.pushReplacement(
-//                   //   context,
-//                   //   MaterialPageRoute(builder: (context) =>  DashboardScreen()),
-//                   // );
-//                   context.goNamed('home');
-//                 },
+//                 onPressed: isLoading ? null : _verifyOtpManually,
 //               ),
+//
+//
 //               const SizedBox(height: 16),
-//               Text(
-//                 seconds > 0 ? "00:${seconds.toString().padLeft(2, '0')}" : "Expired",
-//                 style: const TextStyle(
-//                   fontWeight: FontWeight.bold,
-//                   fontSize: 16,
+//               GestureDetector(
+//                 onTap: (){
+//                   isLoading ? null : _resendOtp();
+//                 },
+//                 child: Text(
+//                   'Resend OTP',
+//                   style: const TextStyle(
+//                     fontWeight: FontWeight.bold,
+//                     fontSize: 16,
+//                   ),
 //                 ),
 //               ),
 //             ],
@@ -138,98 +263,654 @@ import '../../widgets/common_button.dart';
 // }
 
 
-import 'package:flutter/material.dart';
+
+
+
+
+// class OtpVerificationScreen extends StatefulWidget {
+//   final String? phoneNumber;
+//
+//   const OtpVerificationScreen({super.key, this.phoneNumber});
+//
+//   @override
+//   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
+// }
+//
+// class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
+//   final FirebaseAuth _auth = FirebaseAuth.instance;
+//   final TextEditingController _otpController = TextEditingController();
+//   String? _verificationId;
+//   bool isLoading = false;
+//   int? _resendToken;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _sendOtp();
+//   }
+//
+//   void _sendOtp() async {
+//     setState(() => isLoading = true);
+//
+//     try {
+//       await _auth.verifyPhoneNumber(
+//         phoneNumber: widget.phoneNumber,
+//         timeout: const Duration(seconds: 60),
+//         verificationCompleted: (PhoneAuthCredential credential) async {
+//           // Auto-verification (typically on Android)
+//           setState(() => isLoading = true);
+//           try {
+//             await _auth.signInWithCredential(credential);
+//             _navigateToHome();
+//           } catch (e) {
+//             setState(() => isLoading = false);
+//             _showErrorSnackBar("Auto-verification failed: $e");
+//           }
+//         },
+//         verificationFailed: (FirebaseAuthException e) {
+//           setState(() => isLoading = false);
+//           _showErrorSnackBar(e.message ?? "Verification failed");
+//         },
+//         codeSent: (String verificationId, int? resendToken) {
+//           setState(() {
+//             _verificationId = verificationId;
+//             _resendToken = resendToken;
+//             isLoading = false;
+//           });
+//           _showSuccessSnackBar("OTP sent successfully");
+//         },
+//         codeAutoRetrievalTimeout: (String verificationId) {
+//           setState(() {
+//             _verificationId = verificationId;
+//           });
+//         },
+//         forceResendingToken: _resendToken,
+//       );
+//     } catch (e) {
+//       setState(() => isLoading = false);
+//       _showErrorSnackBar("Error sending OTP: $e");
+//       print(e);
+//     }
+//   }
+//
+//
+//
+//
+//   void _verifyOtpManually() async {
+//     final otp = _otpController.text.trim();
+//     if (otp.length != 6 || _verificationId == null) {
+//       _showErrorSnackBar("Enter a valid 6-digit OTP");
+//       return;
+//     }
+//
+//     setState(() => isLoading = true);
+//     try {
+//       final credential = PhoneAuthProvider.credential(
+//         verificationId: _verificationId!,
+//         smsCode: otp,
+//       );
+//
+//       final userCredential = await _auth.signInWithCredential(credential);
+//       final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+//       if (idToken != null) {
+//         final controller = Provider.of<AuthController>(context, listen: false);
+//         await controller.verifyPhoneOtp(idToken);
+//       }
+//
+//       //final idToken = await userCredential.user?.getIdToken();
+//
+//       if (idToken != null) {
+//         final controller = Provider.of<AuthController>(context, listen: false);
+//         await controller.verifyPhoneOtp(idToken);
+//         _navigateToHome();
+//       } else {
+//         _showErrorSnackBar("Could not get ID token from Firebase");
+//       }
+//     } catch (e) {
+//       setState(() => isLoading = false);
+//       _showErrorSnackBar("OTP verification failed: $e");
+//     }
+//   }
+//
+//
+//   void _showErrorSnackBar(String message) {
+//     if (!mounted) return;
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(
+//         content: Text(message),
+//         backgroundColor: Colors.red,
+//       ),
+//     );
+//   }
+//
+//   void _showSuccessSnackBar(String message) {
+//     if (!mounted) return;
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(
+//         content: Text(message),
+//         backgroundColor: Colors.green,
+//       ),
+//     );
+//   }
+//
+//   void _navigateToHome() {
+//     if (!mounted) return;
+//     // Use GoRouter to navigate and clear history
+//     GoRouter.of(context).goNamed('home');
+//   }
+//
+//   void _resendOtp() {
+//     _sendOtp();
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       appBar: AppBar(title: const Text("Verify OTP")),
+//       body: Padding(
+//         padding: const EdgeInsets.all(20),
+//         child: Column(
+//           crossAxisAlignment: CrossAxisAlignment.stretch,
+//           children: [
+//             Text(
+//               "OTP sent to ${widget.phoneNumber}",
+//               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+//             ),
+//             const SizedBox(height: 20),
+//             TextField(
+//               controller: _otpController,
+//               keyboardType: TextInputType.number,
+//               maxLength: 6,
+//               decoration: const InputDecoration(
+//                 labelText: "Enter OTP",
+//                 border: OutlineInputBorder(),
+//               ),
+//             ),
+//             const SizedBox(height: 20),
+//             ElevatedButton(
+//               onPressed: isLoading ? null : _verifyOtpManually,
+//               style: ElevatedButton.styleFrom(
+//                 padding: const EdgeInsets.symmetric(vertical: 15),
+//               ),
+//               child: isLoading
+//                   ? const CircularProgressIndicator()
+//                   : const Text("Verify OTP"),
+//             ),
+//             const SizedBox(height: 15),
+//             TextButton(
+//               onPressed: isLoading ? null : _resendOtp,
+//               child: const Text("Resend OTP"),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }
+
+
+
+// import 'dart:async';
+// import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:flutter/material.dart';
+// import 'package:sms_autofill/sms_autofill.dart';
+// import 'package:provider/provider.dart';
+// import '../../../controllers/auth_controller.dart';
+//
+// class OtpVerification extends StatefulWidget {
+//   final String? phoneNumber;
+//   const OtpVerification({super.key, this.phoneNumber});
+//
+//   @override
+//   State<OtpVerification> createState() => _OtpVerificationState();
+// }
+//
+// class _OtpVerificationState extends State<OtpVerification> with CodeAutoFill {
+//   final FirebaseAuth _auth = FirebaseAuth.instance;
+//   final TextEditingController _otpController = TextEditingController();
+//   String? _verificationId;
+//   int _seconds = 30;
+//   bool isLoading = false;
+//   int? _resendToken;
+//   Timer? _resendTimer;
+//   bool _canResend = false;
+//   final FocusNode _focusNode = FocusNode();
+//   Future<void> _printAppSignature() async {
+//     final signature = await SmsAutoFill().getAppSignature;
+//     debugPrint("📲 App Signature (paste this in SMS): $signature");
+//   }
+//
+//
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     listenForCode();
+//     _printAppSignature();
+//     _sendOtp();
+//     _requestSMSPermission();
+//     _startTimer();
+//
+//     Future.delayed(Duration(milliseconds: 200), () {
+//       _focusNode.requestFocus(); // 👈 triggers the keyboard
+//     });
+//   }
+//
+//   @override
+//   void codeUpdated() {
+//     final newCode = code;
+//     if (newCode != null && newCode.length == 6) {
+//       _otpController.text = newCode;
+//       _verifyOtpManually();
+//     }
+//   }
+//
+//
+//   Future<void> _requestSMSPermission() async {
+//     try {
+//       // Request SMS permission
+//       await SmsAutoFill().listenForCode();
+//     } on PlatformException catch (e) {
+//       print('Failed to get SMS permission: ${e.message}');
+//     }
+//   }
+//
+//   void _startTimer() {
+//     _resendTimer?.cancel(); // cancel existing if any
+//     setState(() {
+//       _seconds = 30;
+//       _canResend = false;
+//     });
+//
+//     _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+//       if (_seconds > 0) {
+//         setState(() => _seconds--);
+//       } else {
+//         timer.cancel();
+//         setState(() => _canResend = true);
+//       }
+//     });
+//   }
+//
+//   void _resendOtp() {
+//     if (!_canResend) return;
+//
+//     _otpController.clear(); // clear previous OTP
+//     _verificationId = null; // reset previous verification ID
+//
+//     _sendOtp();     // 🔁 Send OTP again
+//     _startTimer();  // 🔁 Restart timer
+//     listenForCode(); // 🔁 Start listening again
+//   }
+//
+//
+//
+//   void _sendOtp() async {
+//     setState(() => isLoading = true);
+//     try {
+//       await _auth.verifyPhoneNumber(
+//         phoneNumber: widget.phoneNumber!,
+//         timeout: const Duration(seconds: 60),
+//         verificationCompleted: (PhoneAuthCredential credential) async {
+//           await _auth.signInWithCredential(credential);
+//           final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+//           if (idToken != null) {
+//             final controller = Provider.of<AuthController>(context, listen: false);
+//             await controller.verifyPhoneOtp(idToken, context);
+//           }
+//         },
+//         verificationFailed: (FirebaseAuthException e) {
+//           _showErrorSnackBar(e.message ?? 'Verification failed');
+//         },
+//         codeSent: (String verificationId, int? resendToken) {
+//           setState(() {
+//             _verificationId = verificationId;
+//             _resendToken = resendToken;
+//             isLoading = false;
+//             _seconds = 30;
+//           });
+//         },
+//         forceResendingToken: _resendToken,
+//         codeAutoRetrievalTimeout: (String verificationId) {
+//           _verificationId = verificationId;
+//         },
+//       );
+//     } catch (e) {
+//       _showErrorSnackBar("Error sending OTP: $e");
+//     }
+//   }
+//
+//   void _verifyOtpManually() async {
+//     final otp = _otpController.text.trim();
+//     if (otp.length != 6 || _verificationId == null) {
+//       _showErrorSnackBar("Enter a valid 6-digit OTP");
+//       return;
+//     }
+//
+//     setState(() => isLoading = true);
+//
+//     try {
+//       final credential = PhoneAuthProvider.credential(
+//         verificationId: _verificationId!,
+//         smsCode: otp,
+//       );
+//
+//       await _auth.signInWithCredential(credential);
+//       final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+//
+//       if (idToken != null) {
+//         final controller = Provider.of<AuthController>(context, listen: false);
+//         await controller.verifyPhoneOtp(idToken, context);
+//       } else {
+//         _showErrorSnackBar("Could not retrieve token");
+//       }
+//     } catch (e) {
+//       _showErrorSnackBar("OTP verification failed");
+//     } finally {
+//       if (mounted) setState(() => isLoading = false);
+//     }
+//   }
+//
+//   void _showErrorSnackBar(String message) {
+//     if (!mounted) return;
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(content: Text(message), backgroundColor: Colors.red),
+//     );
+//   }
+//
+//   @override
+//   void dispose() {
+//     _focusNode.dispose();
+//     _resendTimer?.cancel();
+//     cancel(); // sms_autofill listener
+//     _otpController.dispose();
+//     super.dispose();
+//   }
+//
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final isResendAvailable = _seconds == 0;
+//     final defaultPinTheme = PinTheme(
+//       width: 60,
+//       height: 60,
+//       textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+//       decoration: BoxDecoration(
+//         color: Colors.white,
+//         borderRadius: BorderRadius.circular(12),
+//         border: Border.all(color: Colors.grey.shade400),
+//       ),
+//     );
+//     return Scaffold(
+//       backgroundColor: Colors.white,
+//       body: SafeArea(
+//         child: LayoutBuilder(builder: (context, constraints) {
+//           return SingleChildScrollView(
+//             child: ConstrainedBox(
+//               constraints: BoxConstraints(minHeight: constraints.maxHeight),
+//               child: IntrinsicHeight(
+//                 child: Padding(
+//                   padding: const EdgeInsets.symmetric(horizontal: 24),
+//                   child: Column(
+//                     children: [
+//                       const SizedBox(height: 48),
+//                       Image.asset('assets/images/new_app_logo.png', height: 50),
+//                       const SizedBox(height: 12),
+//                       Image.asset('assets/images/Vitty.ai.png', height: 30),
+//                       const SizedBox(height: 48),
+//                       const Text(
+//                         "Verify Code",
+//                         style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+//                       ),
+//                       const SizedBox(height: 8),
+//                       Text(
+//                         "An authentication code has been sent to\n${widget.phoneNumber}",
+//                         textAlign: TextAlign.center,
+//                         style: const TextStyle(fontSize: 16),
+//                       ),
+//                       const SizedBox(height: 32),
+//
+//
+//                       Pinput(
+//                         focusNode: _focusNode,
+//                         controller: _otpController,
+//                         length: 6,
+//                         defaultPinTheme: defaultPinTheme,
+//                         focusedPinTheme: defaultPinTheme.copyWith(
+//                           decoration: BoxDecoration(
+//                             border: Border.all(color: Colors.orange, width: 3),
+//                           ),
+//                         ),
+//                         submittedPinTheme: defaultPinTheme,
+//                         keyboardType: TextInputType.number,
+//                         onCompleted: (value) {
+//                           _verifyOtpManually(); // optional fallback for manual
+//                         },
+//                       ),
+//
+//
+//                       const SizedBox(height: 24),
+//                       CommonButton(
+//                         label: "Verify",
+//                         onPressed: isLoading ? null : _verifyOtpManually,
+//                       ),
+//
+//                       const SizedBox(height: 16),
+//                       // GestureDetector(
+//                       //   onTap: _canResend ? _sendOtp : null,
+//                       //   child: Text(
+//                       //     _canResend ? "Resend OTP" : "Resend (${_seconds})",
+//                       //     style: TextStyle(
+//                       //       fontSize: 16,
+//                       //       fontWeight: FontWeight.bold,
+//                       //       color: _canResend ? Colors.black : Colors.grey,
+//                       //     ),
+//                       //   ),
+//                       // ),
+//                       GestureDetector(
+//                         onTap: _canResend ? _resendOtp : null,
+//                         child: Text(
+//                           _canResend ? "Resend OTP" : "Resend ($_seconds)",
+//                           style: TextStyle(
+//                             fontSize: 16,
+//                             fontWeight: FontWeight.bold,
+//                             color: _canResend ? Colors.black : Colors.grey,
+//                           ),
+//                         ),
+//                       ),
+//
+//                       const Spacer(),
+//                     ],
+//                   ),
+//                 ),
+//               ),
+//             ),
+//           );
+//         }),
+//       ),
+//     );
+//   }
+// }
+//
+//
+//
+//
+// class OtpBox extends StatelessWidget {
+//   final TextEditingController controller;
+//   const OtpBox({super.key, required this.controller});
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return SizedBox(
+//       width: 60,
+//       height: 60,
+//       child: TextField(
+//         controller: controller,
+//         textAlign: TextAlign.center,
+//         maxLength: 1,
+//         keyboardType: TextInputType.number,
+//         decoration: InputDecoration(
+//           counterText: "",
+//           border: OutlineInputBorder(
+//             borderRadius: BorderRadius.circular(12),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
+
+
+
+
+
+
+
+
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:sms_autofill/sms_autofill.dart';
+import 'package:provider/provider.dart';
+import '../../../controllers/auth_controller.dart';
 import 'package:pinput/pinput.dart';
+import '../../widgets/common_button.dart';
 
-class OtpVerificationScreen extends StatefulWidget {
+class OtpVerification extends StatefulWidget {
   final String? phoneNumber;
-
-  const OtpVerificationScreen({super.key, this.phoneNumber});
+  const OtpVerification({super.key, this.phoneNumber});
 
   @override
-  State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
+  State<OtpVerification> createState() => _OtpVerificationState();
 }
 
-class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
+class _OtpVerificationState extends State<OtpVerification> with CodeAutoFill {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final TextEditingController _otpController = TextEditingController();
   String? _verificationId;
+  int _seconds = 30;
   bool isLoading = false;
   int? _resendToken;
+  Timer? _resendTimer;
+  bool _canResend = false;
+  final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
+    // Initialize SMS auto-fill
+    listenForCode();
+
+    // Print app signature for debugging
+    _printAppSignature();
+
+    // Send initial OTP
     _sendOtp();
+
+    // Start resend timer
+    _startTimer();
+
+    // Focus on OTP input
+    Future.delayed(const Duration(milliseconds: 200), () {
+      _focusNode.requestFocus();
+    });
+  }
+
+  // Print app signature for SMS retrieval
+  Future<void> _printAppSignature() async {
+    final signature = await SmsAutoFill().getAppSignature;
+    debugPrint("📲 App Signature: $signature");
+  }
+
+  @override
+  void codeUpdated() {
+    // Automatically triggered when SMS is received
+    final newCode = code;
+    if (newCode != null && newCode.length == 6) {
+      // Automatically fill and verify OTP
+      _otpController.text = newCode;
+      _verifyOtpManually();
+    }
+  }
+
+  void _startTimer() {
+    _resendTimer?.cancel();
+    setState(() {
+      _seconds = 30;
+      _canResend = false;
+    });
+
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_seconds > 0) {
+        setState(() => _seconds--);
+      } else {
+        timer.cancel();
+        setState(() => _canResend = true);
+      }
+    });
+  }
+
+  void _resendOtp() {
+    if (!_canResend) return;
+
+    _otpController.clear();
+    _verificationId = null;
+
+    _sendOtp();
+    _startTimer();
+    listenForCode(); // Restart SMS listener
   }
 
   void _sendOtp() async {
     setState(() => isLoading = true);
-
     try {
       await _auth.verifyPhoneNumber(
-        phoneNumber: widget.phoneNumber,
+        phoneNumber: widget.phoneNumber!,
         timeout: const Duration(seconds: 60),
         verificationCompleted: (PhoneAuthCredential credential) async {
-          // Auto-verification (typically on Android)
-          setState(() => isLoading = true);
-          try {
-            await _auth.signInWithCredential(credential);
-            _navigateToHome();
-          } catch (e) {
-            setState(() => isLoading = false);
-            _showErrorSnackBar("Auto-verification failed: $e");
-          }
+          // Automatic verification (mostly on Android)
+          await _autoVerifyCredential(credential);
         },
         verificationFailed: (FirebaseAuthException e) {
+          _showErrorSnackBar(e.message ?? 'Verification failed');
           setState(() => isLoading = false);
-          _showErrorSnackBar(e.message ?? "Verification failed");
         },
         codeSent: (String verificationId, int? resendToken) {
           setState(() {
             _verificationId = verificationId;
             _resendToken = resendToken;
             isLoading = false;
+            _seconds = 30;
           });
-          _showSuccessSnackBar("OTP sent successfully");
+          SmsAutoFill().listenForCode();
         },
-        codeAutoRetrievalTimeout: (String verificationId) {
-          setState(() {
-            _verificationId = verificationId;
-          });
-        },
+
         forceResendingToken: _resendToken,
+        codeAutoRetrievalTimeout: (String verificationId) {
+          _verificationId = verificationId;
+        },
       );
     } catch (e) {
-      setState(() => isLoading = false);
       _showErrorSnackBar("Error sending OTP: $e");
-      print(e);
+      setState(() => isLoading = false);
     }
   }
 
-  // void _verifyOtpManually() async {
-  //   final otp = _otpController.text.trim();
-  //   if (otp.length != 6 || _verificationId == null) {
-  //     _showErrorSnackBar("Enter a valid 6-digit OTP");
-  //     return;
-  //   }
-  //
-  //   setState(() => isLoading = true);
-  //   try {
-  //     final credential = PhoneAuthProvider.credential(
-  //       verificationId: _verificationId!,
-  //       smsCode: otp,
-  //     );
-  //
-  //     await _auth.signInWithCredential(credential);
-  //     _navigateToHome();
-  //   } catch (e) {
-  //     setState(() => isLoading = false);
-  //     _showErrorSnackBar("OTP verification failed: $e");
-  //   }
-  // }
+  Future<void> _autoVerifyCredential(PhoneAuthCredential credential) async {
+    try {
+      await _auth.signInWithCredential(credential);
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
 
+      if (idToken != null) {
+        final controller = Provider.of<AuthController>(context, listen: false);
+        await controller.verifyPhoneOtp(idToken, context);
+      } else {
+        _showErrorSnackBar("Could not retrieve token");
+      }
+    } catch (e) {
+      _showErrorSnackBar("Auto-verification failed: $e");
+    }
+  }
 
   void _verifyOtpManually() async {
     final otp = _otpController.text.trim();
@@ -239,132 +920,123 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     }
 
     setState(() => isLoading = true);
+
     try {
       final credential = PhoneAuthProvider.credential(
         verificationId: _verificationId!,
         smsCode: otp,
       );
 
-      final userCredential = await _auth.signInWithCredential(credential);
-      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
-      if (idToken != null) {
-        final controller = Provider.of<AuthController>(context, listen: false);
-        await controller.verifyPhoneOtp(idToken);
-      }
-
-      //final idToken = await userCredential.user?.getIdToken();
-
-      if (idToken != null) {
-        final controller = Provider.of<AuthController>(context, listen: false);
-        await controller.verifyPhoneOtp(idToken);
-        _navigateToHome();
-      } else {
-        _showErrorSnackBar("Could not get ID token from Firebase");
-      }
+      await _autoVerifyCredential(credential);
     } catch (e) {
-      setState(() => isLoading = false);
-      _showErrorSnackBar("OTP verification failed: $e");
+      _showErrorSnackBar("OTP verification failed");
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
   }
-
 
   void _showErrorSnackBar(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
 
-  void _showSuccessSnackBar(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  void _navigateToHome() {
-    if (!mounted) return;
-    // Use GoRouter to navigate and clear history
-    GoRouter.of(context).goNamed('home');
-  }
-
-  void _resendOtp() {
-    _sendOtp();
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _resendTimer?.cancel();
+    cancel(); // Cancel SMS auto-fill listener
+    _otpController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Verify OTP")),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              "OTP sent to ${widget.phoneNumber}",
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _otpController,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              decoration: const InputDecoration(
-                labelText: "Enter OTP",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: isLoading ? null : _verifyOtpManually,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 15),
-              ),
-              child: isLoading
-                  ? const CircularProgressIndicator()
-                  : const Text("Verify OTP"),
-            ),
-            const SizedBox(height: 15),
-            TextButton(
-              onPressed: isLoading ? null : _resendOtp,
-              child: const Text("Resend OTP"),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-
-
-
-class OtpBox extends StatelessWidget {
-  final TextEditingController controller;
-  const OtpBox({super.key, required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
+    final defaultPinTheme = PinTheme(
       width: 60,
       height: 60,
-      child: TextField(
-        controller: controller,
-        textAlign: TextAlign.center,
-        maxLength: 1,
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          counterText: "",
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+      textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade400),
+      ),
+    );
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 48),
+                          Image.asset('assets/images/new_app_logo.png', height: 50),
+                          const SizedBox(height: 12),
+                          Image.asset('assets/images/Vitty.ai.png', height: 30),
+                          const SizedBox(height: 48),
+                          const Text(
+                            "Verify Code",
+                            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "An authentication code has been sent to\n${widget.phoneNumber}",
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Pinput with auto-fill and auto-verify
+                          Pinput(
+                            focusNode: _focusNode,
+                            controller: _otpController,
+                            length: 6,
+                            defaultPinTheme: defaultPinTheme,
+                            focusedPinTheme: defaultPinTheme.copyWith(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.orange, width: 3),
+                              ),
+                            ),
+                            submittedPinTheme: defaultPinTheme,
+                            keyboardType: TextInputType.number,
+                            onCompleted: (_) => _verifyOtpManually(),
+                          ),
+
+                          const SizedBox(height: 24),
+                          CommonButton(
+                            label: "Verify",
+                            onPressed: isLoading ? null : _verifyOtpManually,
+                          ),
+
+                          const SizedBox(height: 16),
+                          GestureDetector(
+                            onTap: _canResend ? _resendOtp : null,
+                            child: Text(
+                              _canResend ? "Resend OTP" : "Resend ($_seconds)",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: _canResend ? Colors.black : Colors.grey,
+                              ),
+                            ),
+                          ),
+
+                          const Spacer(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
         ),
       ),
     );

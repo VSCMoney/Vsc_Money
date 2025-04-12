@@ -187,6 +187,7 @@
 
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
 
 class Goal {
@@ -245,6 +246,12 @@ class _GoalsPageState extends State<GoalsPage> {
     final sortedGoals = _sortedGoals;
 
     return Scaffold(
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(100),
+        child: Builder(
+          builder: (context) => appBars(context, "Portfolio", () {}),
+        ),
+      ),
       backgroundColor: Colors.white,
       floatingActionButton: FloatingActionButton(
         shape: const CircleBorder(),
@@ -576,4 +583,74 @@ class _GoalsPageState extends State<GoalsPage> {
       ));
     });
   }
+}
+
+
+
+
+
+
+PreferredSizeWidget appBars(BuildContext context, String title, VoidCallback onNewChatTap) {
+  return PreferredSize(
+    preferredSize: const Size.fromHeight(150),
+    child: Card(
+      elevation: 1.0,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        color: Colors.white,
+        child: SafeArea(
+          bottom: false,
+          child: SizedBox(
+            height: 60,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // 👈 Center logo
+                Text("Goals" , style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                    fontSize: 18
+                ),),
+
+                // 👈 Row for left and right buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Left menu icon
+                    // ✅ Wrap this with Builder to get the right context
+                    Builder(
+                      builder: (BuildContext scaffoldContext) {
+                        return GestureDetector(
+                          onTap: () {
+                            print("jdn");
+                            // ✅ This will definitely open the drawer
+                            Scaffold.of(scaffoldContext).openDrawer();
+                          },
+                          child: SvgPicture.asset('assets/images/drawer.svg'),
+                        );
+                      },
+                    ),
+
+
+
+                    // Right-side icons
+                    Row(
+                      children: [
+                        GestureDetector(
+                            onTap: (){
+
+                            },
+                            child: const Icon(Icons.notifications_none_outlined, color: Colors.black)),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+
+  );
 }

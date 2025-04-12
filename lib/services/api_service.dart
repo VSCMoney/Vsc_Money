@@ -5,10 +5,13 @@ import 'package:flutter/foundation.dart';
 import '../controllers/session_manager.dart';
 
 class ApiService {
-  final String _baseUrl = "http://127.0.0.1:8000/api/v1";
+  final String _baseUrl = "https://fastapi-chatbot-717280964807.asia-south1.run.app/api/v1";
+   //final String _baseUrl= 'http://127.0.0.1:8000/api/v1';
+
 
   Future<dynamic> post({required String endpoint, Map<String, dynamic>? body}) async {
     final uri = Uri.parse("$_baseUrl$endpoint");
+    print(_baseUrl);
 
     try {
       final res = await http.post(

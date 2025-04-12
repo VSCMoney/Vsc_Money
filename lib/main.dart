@@ -1,11 +1,14 @@
+import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuth;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:vscmoney/providers/auth_provider.dart';
 import 'package:vscmoney/routes/AppRoutes.dart';
 import 'package:vscmoney/screens/presentation/auth/auth_screen.dart';
 import 'package:vscmoney/screens/presentation/home/home_screen.dart';
 import 'package:vscmoney/screens/presentation/onboarding/onoarding_page.dart';
+import 'package:vscmoney/services/chat_service.dart';
 
 
 import 'controllers/auth_controller.dart';
@@ -61,55 +64,100 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
+
     _controller = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
 
     _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0.0, 0.6, curve: Curves.easeIn)),
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
+      ),
     );
 
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0.6, 1.0, curve: Curves.easeOut)),
+    _scaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+      ),
     );
 
     _controller.forward();
 
-    Future.delayed(const Duration(milliseconds: 2000), () => _handleSessionCheck());
+    // Give time for animations to complete
+    Future.delayed(const Duration(milliseconds: 2500), _handleSessionCheck);
   }
 
   Future<void> _handleSessionCheck() async {
-    // final isLoggedIn = await SessionManager.isLoggedIn();
-    // final refreshed = await SessionManager.tryRefreshToken();
-    //
-    // if (isLoggedIn && refreshed) {
-    //   _navigateTo(const DashboardScreen());
-    // } else {
-    //   await SessionManager.clearToken();
-    //   _navigateTo(const RouterApp());
-    // }8
-
     final controller = Provider.of<AuthController>(context, listen: false);
-    final refreshed = await controller.checkTokenValidityAndRefresh();
-    if (refreshed && controller.currentUser != null) {
-      _navigateTo(const DashboardScreen());
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+
+    if (firebaseUser != null) {
+      try {
+        final idToken = await firebaseUser.getIdToken();
+        print("MY FIREBASE ID TOKEN");
+        print(idToken);
+        await controller.verifyPhoneOtp(idToken ?? "", context);
+        if (!mounted) return;
+       // _navigateTo(const DashboardScreen());
+      } catch (e) {
+        await SessionManager.clearToken();
+        _navigateTo(const RouterApp());
+      }
     } else {
+      await SessionManager.clearToken();
       _navigateTo(const RouterApp());
     }
-
   }
 
+  bool _navigated = false;
+
   void _navigateTo(Widget screen) {
-    if (!mounted) return;
+    if (_navigated) return;
+    _navigated = true;
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 800),
         pageBuilder: (_, __, ___) => screen,
-        transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+        transitionsBuilder: (_, animation, __, child) => FadeTransition(
+          opacity: animation,
+          child: child,
+        ),
       ),
     );
   }
+
+
+
+  // void navigateToDashboard(BuildContext context) async {
+  //   // ✅ Firebase user already verified at this point
+  //   final user = FirebaseAuth.instance.currentUser;
+  //   final idToken = await user?.getIdToken();
+  //   final token = SessionManager.token;
+  //
+  //   if (idToken != null) {
+  //     // Save token locally if needed
+  //     await SessionManager.saveTokens(token!,user?.uid ?? "");
+  //
+  //     // 💬 Create new chat session automatically
+  //     final newSession = await ChatService(authToken: token).createSession("New Chat");
+  //
+  //     // ✅ Navigate to dashboard and pass the session
+  //     Navigator.pushReplacement(
+  //       context,
+  //       MaterialPageRoute(
+  //         builder: (_) => DashboardScreen(initialSession: newSession),
+  //       ),
+  //     );
+  //   } else {
+  //     Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => RouterApp()));
+  //   }
+  // }
+
+
 
   @override
   void dispose() {
@@ -124,28 +172,35 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       body: Center(
         child: AnimatedBuilder(
           animation: _controller,
-          builder: (_, child) {
-            return FadeTransition(
-              opacity: _opacityAnimation,
+          builder: (context, child) {
+            return Opacity(
+              opacity: _opacityAnimation.value,
               child: Transform.scale(
                 scale: _scaleAnimation.value,
-                child: Hero(
-                  tag: 'penny_logo',
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Image.asset('assets/images/Group.png', width: 100, height: 100),
-                      const SizedBox(width: 16),
-                      const Text(
-                        'Penny',
-                        style: TextStyle(
-                          fontSize: 48,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFE97733),
-                        ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Hero(
+                      tag: 'penny_logo',
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Image.asset('assets/images/new_app_logo.png', width:100, height: 80),
+                          const SizedBox(width: 16),
+                          Image.asset('assets/images/Vitty.ai.png', width: 150, height: 100),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+
+                    const Text(
+                      'वित्तीय',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFFE83F04),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -155,6 +210,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     );
   }
 }
+
 
 
 

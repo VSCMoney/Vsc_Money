@@ -80,8 +80,10 @@
 // Modify your onboarding_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vscmoney/screens/presentation/auth/auth_screen.dart';
+import 'package:vscmoney/screens/presentation/onboarding/onboarding_page_3.dart';
 import 'package:vscmoney/screens/presentation/onboarding/onboarding_screen_1.dart';
 import 'package:vscmoney/screens/presentation/onboarding/onboarding_screen_2.dart';
 import '../../widgets/common_button.dart';
@@ -109,7 +111,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               Expanded(
                 child: PageView.builder(
                   controller: _controller,
-                  itemCount: 2,
+                  itemCount: 3,
                   onPageChanged: (index) {
                     setState(() {
                       _currentPage = index;
@@ -119,6 +121,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     if (index == 0) {
                       return InvestmentPlanScreen();
                     } else if (index == 1) {
+                      return GoalsOnbording();
+                    }else if(index == 2){
                       return OnboardingScreen();
                     }
                     return null;
@@ -133,7 +137,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 child: CommonButton(
                   label: 'Continue',
                   onPressed: () {
-                    if (_currentPage < 1) {
+                    if (_currentPage < 2) {
                       _controller.animateToPage(
                         _currentPage + 1,
                         duration: const Duration(milliseconds: 400),
@@ -153,11 +157,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
           // Add this destination for the Hero animation
           Positioned(
             top: 60,
-            right: 20,
+            left: 180,
             child: Hero(
               tag: 'penny_logo',
-              child: Image.asset(
-                'assets/images/Group.png', // Update with your logo path
+              child: SvgPicture.asset(
+                'assets/images/Vitty_logo.svg', // Update with your logo path
                 width: 40,
                 height: 40,
               ),

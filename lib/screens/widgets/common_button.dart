@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../../constants/colors.dart';
 
 class CommonButton extends StatelessWidget {
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final String label;
-  const CommonButton({super.key, required this.onPressed, required this.label});
+  const CommonButton({super.key,  this.onPressed, required this.label});
 
   @override
   Widget build(BuildContext context) {
