@@ -1,29 +1,29 @@
 {
     "logs": [
         {
-            "outputFile": "com.vsc.money.app-mergeDebugResources-57:/values-night-v8/values-night-v8.xml",
+            "outputFile": "com.vsc.money.app-mergeDebugResources-67:/values-night-v8/values-night-v8.xml",
             "map": [
                 {
                     "source": "/Users/piyushgoyal/vscmoney/android/app/src/main/res/values-night/styles.xml",
                     "from": {
-                        "startLines": "3,14",
+                        "startLines": "3,18",
                         "startColumns": "4,4",
-                        "startOffsets": "172,817",
-                        "endLines": "7,16",
+                        "startOffsets": "172,1088",
+                        "endLines": "11,20",
                         "endColumns": "12,12",
-                        "endOffsets": "475,981"
+                        "endOffsets": "746,1252"
                     },
                     "to": {
-                        "startLines": "2,6",
+                        "startLines": "2,10",
                         "startColumns": "4,4",
-                        "startOffsets": "55,236",
-                        "endLines": "5,8",
+                        "startOffsets": "55,507",
+                        "endLines": "9,12",
                         "endColumns": "12,12",
-                        "endOffsets": "231,400"
+                        "endOffsets": "502,671"
                     }
                 },
                 {
-                    "source": "/Users/piyushgoyal/.gradle/caches/8.10.2/transforms/8672542fff6e2103c63e7b98b328f638/transformed/appcompat-1.1.0/res/values-night-v8/values-night-v8.xml",
+                    "source": "/Users/piyushgoyal/.gradle/caches/8.9/transforms/7201879f7d5a968041bbec6edd66e814/transformed/appcompat-1.2.0/res/values-night-v8/values-night-v8.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9",
                         "startColumns": "4,4,4,4,4,4,4,4",
@@ -32,11 +32,11 @@
                         "endOffsets": "120,204,288,384,486,588,682,771"
                     },
                     "to": {
-                        "startLines": "9,10,11,12,13,14,15,16",
+                        "startLines": "13,14,15,16,17,18,19,20",
                         "startColumns": "4,4,4,4,4,4,4,4",
-                        "startOffsets": "405,475,559,643,739,841,943,1037",
+                        "startOffsets": "676,746,830,914,1010,1112,1214,1308",
                         "endColumns": "69,83,83,95,101,101,93,88",
-                        "endOffsets": "470,554,638,734,836,938,1032,1121"
+                        "endOffsets": "741,825,909,1005,1107,1209,1303,1392"
                     }
                 }
             ]

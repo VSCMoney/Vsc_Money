@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="default_web_client_id" translatable="false">717280964807-u70hba5fssjfgso792lj65e9k9asjq46.apps.googleusercontent.com</string>
+    <string name="gcm_defaultSenderId" translatable="false">717280964807</string>
+    <string name="google_api_key" translatable="false">AIzaSyDwDzL_Rm0txF4-SsS7XL9nNcmAVuTCiz0</string>
+    <string name="google_app_id" translatable="false">1:717280964807:android:dccb26f76d03fab6b48ee2</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyDwDzL_Rm0txF4-SsS7XL9nNcmAVuTCiz0</string>
+    <string name="google_storage_bucket" translatable="false">mystic-primacy-455711-q3.firebasestorage.app</string>
+    <string name="project_id" translatable="false">mystic-primacy-455711-q3</string>
+</resources>

@@ -189,6 +189,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
+import 'package:vscmoney/screens/widgets/drawer.dart';
+
+import 'home_screen.dart';
 
 class Goal {
   final String id;
@@ -246,11 +249,30 @@ class _GoalsPageState extends State<GoalsPage> {
     final sortedGoals = _sortedGoals;
 
     return Scaffold(
+      // appBar: PreferredSize(
+      //   preferredSize: const Size.fromHeight(100),
+      //   child: Builder(
+      //     builder: (context) => appBar(context, "Portfolio", () {},showNewChatButton: false),
+      //   ),
+      // ),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(100),
         child: Builder(
-          builder: (context) => appBars(context, "Portfolio", () {}),
+          builder: (context) {
+            return appBar(
+              context,
+              "Portfolio",
+              () {
+
+              },
+              true,
+              showNewChatButton: false,
+            );
+          },
         ),
+      ),
+      drawer: CustomDrawer(
+        selectedRoute: "Goals",
       ),
       backgroundColor: Colors.white,
       floatingActionButton: FloatingActionButton(

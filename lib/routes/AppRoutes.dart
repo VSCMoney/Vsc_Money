@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vscmoney/screens/presentation/auth/auth_screen.dart';
 import 'package:vscmoney/screens/presentation/auth/phone_otp_scree.dart';
+import 'package:vscmoney/screens/presentation/auth/profile_screen.dart';
 
 import '../main.dart';
 import '../screens/presentation/onboarding/onoarding_page.dart';
@@ -16,16 +17,31 @@ import 'package:vscmoney/screens/presentation/home/portfolio_screen.dart';
 import 'package:vscmoney/screens/presentation/onboarding/onboarding_screen_1.dart';
 import 'package:vscmoney/screens/presentation/onboarding/onboarding_screen_2.dart';
 
-final GlobalKey<NavigatorState> _rootNavigatorKey =
-GlobalKey<NavigatorState>(debugLabel: 'root');
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
+
 
 class AppRouter {
   static final router = GoRouter(
-    navigatorKey: _rootNavigatorKey,
-    initialLocation: '/phone_otp',
+    navigatorKey: rootNavigatorKey,
+    initialLocation: '/splash',
     debugLogDiagnostics: true,
     routes: [
-
+      GoRoute(
+        path: '/splash',
+        name: 'splash',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const SplashScreen(),
+          transitionsBuilder: slideUpTransition,
+        ),
+      ),
+      // GoRoute(
+      //   path: '/splash',
+      //   pageBuilder: (context, state) => const MaterialPage(
+      //     child: SplashScreen(),
+      //     maintainState: true,
+      //   ),
+      // ),
       // Onboarding flow
       GoRoute(
         path: '/onboarding',
@@ -68,13 +84,16 @@ class AppRouter {
       GoRoute(
         path: '/otp',
         name: 'otp',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const OtpVerification(),
-          transitionsBuilder: slideLeftTransition,
-        ),
+        pageBuilder: (context, state) {
+          final extra = state.extra as Map?;
+          final phone = extra?['phone'] as String?;
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: OtpVerification(phoneNumber: phone),
+            transitionsBuilder: slideLeftTransition,
+          );
+        },
       ),
-
       // Home flow
       GoRoute(
         path: '/home',
@@ -85,6 +104,25 @@ class AppRouter {
           transitionsBuilder: fadeTransition,
         ),
       ),
+      // GoRoute(
+      //   path: '/home',
+      //   pageBuilder: (context, state) {
+      //     return CustomTransitionPage(
+      //       key: state.pageKey,
+      //       child: const DashboardScreen(),
+      //       transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      //         return FadeTransition(
+      //           opacity: animation,
+      //           child: child,
+      //         );
+      //       },
+      //     );
+      //   },
+      // ),
+
+
+
+
       GoRoute(
         path: '/chat',
         name: 'chat',
@@ -128,6 +166,15 @@ class AppRouter {
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
           child: const PhoneOtpScreen(),
+          transitionsBuilder: slideLeftTransition,
+        ),
+      ),
+      GoRoute(
+        path: '/enter_name',
+        name: 'enter_name',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const EnterNameScreen(),
           transitionsBuilder: slideLeftTransition,
         ),
       ),

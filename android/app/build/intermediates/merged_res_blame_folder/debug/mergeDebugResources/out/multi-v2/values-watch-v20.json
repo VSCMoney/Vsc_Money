@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.vsc.money.app-mergeDebugResources-57:/values-watch-v20/values-watch-v20.xml",
+            "outputFile": "com.vsc.money.app-mergeDebugResources-67:/values-watch-v20/values-watch-v20.xml",
             "map": [
                 {
-                    "source": "/Users/piyushgoyal/.gradle/caches/8.10.2/transforms/3f009cc0cc89a8c0423bd2e6d62ba835/transformed/jetified-play-services-auth-21.0.0/res/values-watch-v20/values.xml",
+                    "source": "/Users/piyushgoyal/.gradle/caches/8.9/transforms/cc6e884f0f248536aa87da2f90c148a8/transformed/jetified-play-services-auth-21.2.0/res/values-watch-v20/values.xml",
                     "from": {
                         "startLines": "4,5,6,7,8,9,10,11",
                         "startColumns": "0,0,0,0,0,0,0,0",
@@ -21,7 +21,7 @@
                     }
                 },
                 {
-                    "source": "/Users/piyushgoyal/.gradle/caches/8.10.2/transforms/8672542fff6e2103c63e7b98b328f638/transformed/appcompat-1.1.0/res/values-watch-v20/values-watch-v20.xml",
+                    "source": "/Users/piyushgoyal/.gradle/caches/8.9/transforms/7201879f7d5a968041bbec6edd66e814/transformed/appcompat-1.2.0/res/values-watch-v20/values-watch-v20.xml",
                     "from": {
                         "startLines": "2,5,8",
                         "startColumns": "4,4,4",

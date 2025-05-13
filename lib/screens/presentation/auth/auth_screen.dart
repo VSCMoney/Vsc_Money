@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vscmoney/screens/presentation/auth/otp_screen.dart';
@@ -211,7 +212,9 @@ class _AuthScreenState extends State<AuthScreen> {
     }
 
     // Format phone number properly (with country code)
-    final fullPhone = phone.startsWith("+") ? phone : "+91$phone"; // Assuming India
+    //final fullPhone = phone.startsWith("+") ? phone : "+91$phone"; // Assuming India
+    final fullPhone =  "+91$phone"; // Assuming India
+    print("This is phone number $phone");
 
     Navigator.push(
       context,
@@ -361,6 +364,5 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 }
-
 
 

@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "717280964807-ib15b3e1s6vnmt92hrhsjkscf87064q7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vsc.money",
+            "certificate_hash": "e8daf25c0a1ed9eb2aa25d261a288ad2e1f8f250"
+          }
+        },
+        {
           "client_id": "717280964807-u70hba5fssjfgso792lj65e9k9asjq46.apps.googleusercontent.com",
           "client_type": 3
         }

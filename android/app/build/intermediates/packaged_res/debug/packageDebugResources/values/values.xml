@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="ic_launcher_background">#ffffff</color>
     <string name="default_web_client_id" translatable="false">717280964807-u70hba5fssjfgso792lj65e9k9asjq46.apps.googleusercontent.com</string>
     <string name="gcm_defaultSenderId" translatable="false">717280964807</string>
     <string name="google_api_key" translatable="false">AIzaSyDwDzL_Rm0txF4-SsS7XL9nNcmAVuTCiz0</string>
@@ -10,6 +11,10 @@
     <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
         
         <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>

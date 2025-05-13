@@ -4,27 +4,43 @@ import '../../constants/colors.dart';
 
 class CommonButton extends StatelessWidget {
   final VoidCallback? onPressed;
-  final String label;
-  const CommonButton({super.key,  this.onPressed, required this.label});
+  final String? label;
+  final Widget? child;
+
+  const CommonButton({
+    super.key,
+    this.onPressed,
+    this.label,
+    this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
     return SizedBox(
-      width: double.infinity,
-      height: 56,
+      width: screenWidth,
+      height: screenHeight * 0.060,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.blackButton,
+          backgroundColor: AppColors.primary,
+         // padding: EdgeInsets.symmetric(vertical: screenHeight * 0.015),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(8),
           ),
         ),
         onPressed: onPressed,
-        child: Text(
-          label,
-          style: const TextStyle(fontSize: 18, color: Colors.white),
-        ),
+        child: child ??
+            Text(
+              label ?? '',
+              style: TextStyle(
+                fontSize: screenWidth * 0.045, // Responsive font size
+                color: Colors.white,
+                fontFamily: 'DM Sans'
+              ),
+            ),
       ),
     );
   }
 }
+

@@ -3,9 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pinput/pinput.dart';
-import 'package:provider/provider.dart';
 import 'package:vscmoney/screens/presentation/home/home_screen.dart';
+import 'package:vscmoney/services/locator.dart';
 
+import '../../../constants/colors.dart';
 import '../../../controllers/auth_controller.dart';
 import '../../../services/auth_service.dart';
 import '../../widgets/common_button.dart';
@@ -731,10 +732,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 //     );
 //   }
 // }
-//
-//
-//
-//
+
+
+
+
 // class OtpBox extends StatelessWidget {
 //   final TextEditingController controller;
 //   const OtpBox({super.key, required this.controller});
@@ -771,7 +772,6 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:sms_autofill/sms_autofill.dart';
-import 'package:provider/provider.dart';
 import '../../../controllers/auth_controller.dart';
 import 'package:pinput/pinput.dart';
 import '../../widgets/common_button.dart';
@@ -785,62 +785,52 @@ class OtpVerification extends StatefulWidget {
 }
 
 class _OtpVerificationState extends State<OtpVerification> with CodeAutoFill {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
   final TextEditingController _otpController = TextEditingController();
-  String? _verificationId;
-  int _seconds = 30;
-  bool isLoading = false;
-  int? _resendToken;
-  Timer? _resendTimer;
-  bool _canResend = false;
   final FocusNode _focusNode = FocusNode();
+  final AuthService _authService = locator<AuthService>();
+
+  late StreamSubscription<AuthState> _stateSub;
+
+  bool isLoading = false;
+  int _seconds = 30;
+  Timer? _timer;
+  bool _canResend = false;
 
   @override
   void initState() {
     super.initState();
-    // Initialize SMS auto-fill
-    listenForCode();
+    _initOtpFlow();
+    _stateSub = _authService.authStateStream.listen((state) {
+      if (!mounted) return;
+      setState(() => isLoading = state.status == AuthStatus.loading);
+      if (state.status == AuthStatus.error && state.error != null) {
+        _showError(state.error!);
+      }
+    });
+  }
 
-    // Print app signature for debugging
-    _printAppSignature();
-
-    // Send initial OTP
+  Future<void> _initOtpFlow() async {
+    await _printAppSignature();
     _sendOtp();
-
-    // Start resend timer
     _startTimer();
-
-    // Focus on OTP input
-    Future.delayed(const Duration(milliseconds: 200), () {
+    listenForCode();
+    Future.delayed(const Duration(milliseconds: 300), () {
       _focusNode.requestFocus();
     });
   }
 
-  // Print app signature for SMS retrieval
   Future<void> _printAppSignature() async {
     final signature = await SmsAutoFill().getAppSignature;
     debugPrint("📲 App Signature: $signature");
   }
 
-  @override
-  void codeUpdated() {
-    // Automatically triggered when SMS is received
-    final newCode = code;
-    if (newCode != null && newCode.length == 6) {
-      // Automatically fill and verify OTP
-      _otpController.text = newCode;
-      _verifyOtpManually();
-    }
-  }
-
   void _startTimer() {
-    _resendTimer?.cancel();
+    _timer?.cancel();
     setState(() {
       _seconds = 30;
       _canResend = false;
     });
-
-    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_seconds > 0) {
         setState(() => _seconds--);
       } else {
@@ -850,109 +840,88 @@ class _OtpVerificationState extends State<OtpVerification> with CodeAutoFill {
     });
   }
 
-  void _resendOtp() {
-    if (!_canResend) return;
-
-    _otpController.clear();
-    _verificationId = null;
-
-    _sendOtp();
-    _startTimer();
-    listenForCode(); // Restart SMS listener
+  void _sendOtp() {
+    if (widget.phoneNumber == null) return;
+    _authService.sendOtp(
+      phoneNumber: widget.phoneNumber!,
+      onCodeSent: (_, __) {},
+      onAutoVerify: (credential) async {
+        final token = await _authService.autoVerifyCredential(credential);
+        if (token != null) {
+          await _authService.handleOtpTokenVerification(token, _handleFlow);
+        }
+      },
+      onError: _showError,
+    );
   }
 
-  void _sendOtp() async {
-    setState(() => isLoading = true);
-    try {
-      await _auth.verifyPhoneNumber(
-        phoneNumber: widget.phoneNumber!,
-        timeout: const Duration(seconds: 60),
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          // Automatic verification (mostly on Android)
-          await _autoVerifyCredential(credential);
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          _showErrorSnackBar(e.message ?? 'Verification failed');
-          setState(() => isLoading = false);
-        },
-        codeSent: (String verificationId, int? resendToken) {
-          setState(() {
-            _verificationId = verificationId;
-            _resendToken = resendToken;
-            isLoading = false;
-            _seconds = 30;
-          });
-          SmsAutoFill().listenForCode();
-        },
-
-        forceResendingToken: _resendToken,
-        codeAutoRetrievalTimeout: (String verificationId) {
-          _verificationId = verificationId;
-        },
-      );
-    } catch (e) {
-      _showErrorSnackBar("Error sending OTP: $e");
-      setState(() => isLoading = false);
-    }
-  }
-
-  Future<void> _autoVerifyCredential(PhoneAuthCredential credential) async {
-    try {
-      await _auth.signInWithCredential(credential);
-      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
-
-      if (idToken != null) {
-        final controller = Provider.of<AuthController>(context, listen: false);
-        await controller.verifyPhoneOtp(idToken, context);
-      } else {
-        _showErrorSnackBar("Could not retrieve token");
-      }
-    } catch (e) {
-      _showErrorSnackBar("Auto-verification failed: $e");
-    }
-  }
-
-  void _verifyOtpManually() async {
+  void _verifyManualOtp() async {
     final otp = _otpController.text.trim();
-    if (otp.length != 6 || _verificationId == null) {
-      _showErrorSnackBar("Enter a valid 6-digit OTP");
+    if (otp.length != 6) {
+      _showError("Invalid OTP");
       return;
     }
 
-    setState(() => isLoading = true);
-
-    try {
-      final credential = PhoneAuthProvider.credential(
-        verificationId: _verificationId!,
-        smsCode: otp,
-      );
-
-      await _autoVerifyCredential(credential);
-    } catch (e) {
-      _showErrorSnackBar("OTP verification failed");
-    } finally {
-      if (mounted) setState(() => isLoading = false);
+    final token = await _authService.verifyOtp(otp);
+    if (token != null) {
+      await _authService.handleOtpTokenVerification(token, _handleFlow);
+    } else {
+      _showError("Failed to verify OTP");
     }
   }
 
-  void _showErrorSnackBar(String message) {
-    if (!mounted) return;
+  void _handleFlow(AuthFlow flow) {
+    switch (flow) {
+      case AuthFlow.home:
+        context.go('/home');
+        break;
+      case AuthFlow.nameEntry:
+        context.go('/enter_name');
+        break;
+      case AuthFlow.login:
+        context.go('/');
+        break;
+    }
+  }
+
+  void _resendOtp() {
+    if (_canResend) {
+      _otpController.clear();
+      _sendOtp();
+      _startTimer();
+    }
+  }
+
+  void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
 
   @override
+  void codeUpdated() {
+    final code = this.code;
+    if (code != null && code.length == 6) {
+      _otpController.text = code;
+      _verifyManualOtp();
+    }
+  }
+
+  @override
   void dispose() {
-    _focusNode.dispose();
-    _resendTimer?.cancel();
-    cancel(); // Cancel SMS auto-fill listener
     _otpController.dispose();
+    _focusNode.dispose();
+    _timer?.cancel();
+    _stateSub.cancel();
+    cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isResendAvailable = _seconds == 0;
     final defaultPinTheme = PinTheme(
       width: 60,
       height: 60,
@@ -963,82 +932,95 @@ class _OtpVerificationState extends State<OtpVerification> with CodeAutoFill {
         border: Border.all(color: Colors.grey.shade400),
       ),
     );
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: IntrinsicHeight(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 48),
-                          Image.asset('assets/images/new_app_logo.png', height: 50),
-                          const SizedBox(height: 12),
-                          Image.asset('assets/images/Vitty.ai.png', height: 30),
-                          const SizedBox(height: 48),
-                          const Text(
-                            "Verify Code",
-                            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            "An authentication code has been sent to\n${widget.phoneNumber}",
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          const SizedBox(height: 32),
-
-                          // Pinput with auto-fill and auto-verify
-                          Pinput(
-                            focusNode: _focusNode,
-                            controller: _otpController,
-                            length: 6,
-                            defaultPinTheme: defaultPinTheme,
-                            focusedPinTheme: defaultPinTheme.copyWith(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.orange, width: 3),
-                              ),
-                            ),
-                            submittedPinTheme: defaultPinTheme,
-                            keyboardType: TextInputType.number,
-                            onCompleted: (_) => _verifyOtpManually(),
-                          ),
-
-                          const SizedBox(height: 24),
-                          CommonButton(
-                            label: "Verify",
-                            onPressed: isLoading ? null : _verifyOtpManually,
-                          ),
-
-                          const SizedBox(height: 16),
-                          GestureDetector(
-                            onTap: _canResend ? _resendOtp : null,
-                            child: Text(
-                              _canResend ? "Resend OTP" : "Resend ($_seconds)",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: _canResend ? Colors.black : Colors.grey,
-                              ),
-                            ),
-                          ),
-
-                          const Spacer(),
-                        ],
+        child: LayoutBuilder(builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    children: [
+                      // const SizedBox(height: 48),
+                      // // Image.asset('assets/images/new_app_logo.png', height: 50),
+                      // // const SizedBox(height: 12),
+                      // // Image.asset('assets/images/Vitty.ai.png', height: 30),
+                      // const SizedBox(height: 48),
+                      SizedBox(height: screenHeight * 0.05),
+                      Hero(
+                        tag: 'penny_logo',
+                        child: Image.asset(
+                          'assets/images/auth.png',
+                          width: screenWidth * 0.2,
+                          height: screenHeight * 0.1,
+                        ),
                       ),
-                    ),
+                      SizedBox(height: screenHeight * 0.07),
+                      const Text(
+                        "Verify Code",
+                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.w400,fontFamily: 'DM Sans'),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "An authentication code has been sent to\n${widget.phoneNumber}",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 32),
+
+
+                      Pinput(
+                        focusNode: _focusNode,
+                        controller: _otpController,
+                        length: 6,
+                        defaultPinTheme: defaultPinTheme,
+                        focusedPinTheme: defaultPinTheme.copyWith(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.orange, width: 3),
+                          ),
+                        ),
+                        submittedPinTheme: defaultPinTheme,
+                        keyboardType: TextInputType.number,
+                        onCompleted: (value) {
+                          _verifyManualOtp(); // optional fallback for manual
+                        },
+                      ),
+
+
+                      const SizedBox(height: 24),
+                      CommonButton(
+                        label: "Verify",
+                        onPressed: isLoading ? null : _verifyManualOtp,
+                      ),
+
+                      const SizedBox(height: 16),
+                      GestureDetector(
+                        onTap: _canResend ? _resendOtp : null,
+                        child: Text(
+                          _canResend ? "Resend OTP" : "Resend ($_seconds)",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: _canResend ? Colors.black : Colors.grey,
+                          ),
+                        ),
+                      ),
+
+                      const Spacer(),
+                    ],
                   ),
                 ),
-              );
-            }
-        ),
+              ),
+            ),
+          );
+        }),
       ),
     );
   }
 }
+
+
+

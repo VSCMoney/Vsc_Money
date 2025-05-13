@@ -5,14 +5,42 @@ import 'package:flutter/foundation.dart';
 import '../controllers/session_manager.dart';
 
 class ApiService {
-  final String _baseUrl = "https://fastapi-chatbot-717280964807.asia-south1.run.app/api/v1";
-   //final String _baseUrl= 'http://127.0.0.1:8000/api/v1';
+  final String _baseUrl = "https://fastapi-chatbot-717280964807.asia-south1.run.app";
+  //final String _baseUrl= 'http://127.0.0.1:8000';
+
+
+  Future<http.StreamedResponse> postStream({
+    required String endpoint,
+    required Map<String, dynamic> body,
+  }) async {
+    await SessionManager.checkTokenValidityAndRefresh(); // ✅ auto refresh token
+
+    final uri = Uri.parse("$_baseUrl$endpoint");
+    final request = http.Request('POST', uri);
+
+    request.headers.addAll({
+      'Content-Type': 'application/json',
+      if (SessionManager.token != null)
+        'Authorization': 'Bearer ${SessionManager.token}'
+    });
+
+    request.body = jsonEncode(body);
+
+    try {
+      return await request.send();
+    } catch (e) {
+      debugPrint("❌ POST Stream error at $endpoint: $e");
+      rethrow;
+    }
+  }
+
+
 
 
   Future<dynamic> post({required String endpoint, Map<String, dynamic>? body}) async {
-    final uri = Uri.parse("$_baseUrl$endpoint");
-    print(_baseUrl);
+    await SessionManager.checkTokenValidityAndRefresh(); // ✅ auto refresh token
 
+    final uri = Uri.parse("$_baseUrl$endpoint");
     try {
       final res = await http.post(
         uri,
@@ -31,8 +59,9 @@ class ApiService {
   }
 
   Future<dynamic> get({required String endpoint}) async {
-    final uri = Uri.parse("$_baseUrl$endpoint");
+    await SessionManager.checkTokenValidityAndRefresh(); // ✅ auto refresh token
 
+    final uri = Uri.parse("$_baseUrl$endpoint");
     try {
       final res = await http.get(
         uri,
@@ -41,7 +70,6 @@ class ApiService {
           if (SessionManager.token != null) "Authorization": "Bearer ${SessionManager.token}"
         },
       );
-
       return _handleResponse(res);
     } catch (e) {
       print("❌ GET error at $endpoint: $e");
@@ -49,10 +77,13 @@ class ApiService {
     }
   }
 
+
   Future<http.Response> postRaw({
     required String endpoint,
     Map<String, dynamic>? body,
   }) async {
+    await SessionManager.checkTokenValidityAndRefresh(); // ✅ auto refresh token
+
     final uri = Uri.parse("$_baseUrl$endpoint");
     try {
       final res = await http.post(
@@ -70,6 +101,7 @@ class ApiService {
       rethrow;
     }
   }
+
 
 
   dynamic _handleResponse(http.Response res) {

@@ -1,224 +1,171 @@
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:vscmoney/controllers/session_manager.dart';
-import '../models/user_model.dart';
-import '../screens/presentation/auth/profile_screen.dart';
-import '../screens/presentation/home/home_screen.dart';
-import '../services/api_service.dart';
-
-class AuthController with ChangeNotifier {
-  final ApiService _apiService = ApiService();
-
-  bool isLoading = false;
-  String? error;
-  UserModel? currentUser;
-
-  // PHONE OTP
-  // Future<void> verifyPhoneOtp(String idToken) async {
-  //   _setLoading(true);
-  //   try {
-  //     final response = await _apiService.post(
-  //       endpoint: "/auth/verify_user",
-  //       body: {"id_token": idToken},
-  //     );
-  //
-  //     if (response['token'] != null && response['refresh_token'] != null) {
-  //       await SessionManager.saveTokens(response['token'], response['refresh_token']);
-  //       await fetchUserProfile();
-  //     }
-  //   } catch (e) {
-  //     error = e.toString();
-  //   }
-  //   _setLoading(false);
-  // }
-
-  Future<void> verifyPhoneOtp(String idToken,BuildContext context) async {
-    _setLoading(true);
-    try {
-      final response = await _apiService.post(
-        endpoint: "/auth/verify_user",
-        body: {"id_token": idToken},
-      );
-
-      if (response['token'] != null && response['refresh_token'] != null) {
-        await SessionManager.saveTokens(response['token'], response['refresh_token']);
-
-        await fetchUserProfile();
-
-        if (currentUser?.firstName == null || currentUser?.lastName == null) {
-          // 👉 Navigate to EnterNameScreen if user is new
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const EnterNameScreen()),
-          );
-        } else {
-          // ✅ User already has name → go to Home
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const DashboardScreen()),
-          );
-        }
-      } else {
-        error = "Invalid response from server";
-      }
-    } catch (e) {
-      error = e.toString();
-    }
-    _setLoading(false);
-  }
-
-
-  // GOOGLE SIGN-IN
-  Future<void> verifyGoogleUser(String idToken) async {
-    await _verifyAndLogin("/auth/verify_google_user", idToken);
-  }
-
-  // EMAIL OTP
-  Future<void> verifyEmailOtp(String idToken) async {
-    await _verifyAndLogin("/auth/verify_email_otp", idToken);
-  }
-
-  // Common verify logic
-  Future<void> _verifyAndLogin(String endpoint, String idToken) async {
-    _setLoading(true);
-    try {
-      final res = await _apiService.post(
-        endpoint: endpoint,
-        body: {"id_token": idToken},
-      );
-
-      if (res['token'] != null && res['refresh_token'] != null) {
-        await SessionManager.saveTokens(res['token'], res['refresh_token']);
-        await fetchUserProfile();
-      } else {
-        error = "Invalid response from server";
-      }
-    } catch (e) {
-      error = e.toString();
-    }
-    _setLoading(false);
-  }
-
-  // // Fetch user profile
-  // Future<void> fetchUserProfile() async {
-  //   try {
-  //     final res = await _apiService.get(endpoint: "/auth/get_profile");
-  //     currentUser = UserModel.fromJson(res);
-  //     notifyListeners();
-  //   } catch (e) {
-  //     error = e.toString();
-  //   }
-  // }
-
-
-
-  Future<void> fetchUserProfile() async {
-    try {
-      final res = await _apiService.get(endpoint: "/auth/get_profile");
-      currentUser = UserModel.fromJson(res);
-      notifyListeners();
-    } catch (e) {
-      final errorString = e.toString();
-      debugPrint("❌ Error in fetchUserProfile: $errorString");
-
-      if (errorString.contains("User not found") || errorString.contains("404")) {
-        // 🧹 Force logout if user not found in DB (deleted manually)
-        logout();
-
-        // Optional: show snackbar or redirect to login
-        // ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Session expired")));
-      } else {
-        error = errorString;
-      }
-    }
-  }
-
-
-  Future<void> completeUserProfile(String firstName, String lastName) async {
-    _setLoading(true);
-    try {
-      await _apiService.post(
-        endpoint: "/auth/update_profile",
-        body: {
-          "first_name": firstName,
-          "last_name": lastName,
-        },
-      );
-      await fetchUserProfile(); // Refresh the user info
-    } catch (e) {
-      error = e.toString();
-    }
-    _setLoading(false);
-  }
-
-
-  // Refresh access token
-  Future<void> refreshAccessToken() async {
-    try {
-      final res = await _apiService.post(
-        endpoint: "/auth/refresh_token",
-        body: {
-          "refresh_token": SessionManager.refreshToken,
-          "uid": currentUser?.uid,
-        },
-      );
-
-      if (res["access_token"] != null) {
-        await SessionManager.saveTokens(res["access_token"], SessionManager.refreshToken!);
-      }
-    } catch (e) {
-      error = e.toString();
-    }
-  }
-
-  // Token expiry checker
-  bool isTokenExpired(String token) {
-    try {
-      final parts = token.split('.');
-      if (parts.length != 3) return true;
-
-      final payload = json.decode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
-      final expiry = payload['exp'];
-      final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-
-      return currentTime >= expiry;
-    } catch (e) {
-      print("Token decode error: $e");
-      return true;
-    }
-  }
-
-  // Auto-login with refresh logic
-  Future<bool> checkTokenValidityAndRefresh() async {
-    await SessionManager.loadTokens();
-    final token = SessionManager.token;
-
-    if (token == null || isTokenExpired(token)) {
-      final refreshed = await SessionManager.tryRefreshToken();
-      if (refreshed) await fetchUserProfile();
-      return refreshed;
-    } else {
-      await fetchUserProfile();
-      return true;
-    }
-  }
-
-  // Auto login on app start
-  Future<void> autoLogin() async {
-    final success = await checkTokenValidityAndRefresh();
-    if (!success) logout();
-  }
-
-  // Logout
-  void logout() {
-    SessionManager.clearToken();
-    currentUser = null;
-    notifyListeners();
-  }
-
-  void _setLoading(bool value) {
-    isLoading = value;
-    error = null;
-    notifyListeners();
-  }
-}
+// // lib/controllers/auth_controller.dart
+// import 'dart:convert';
+// import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:get_it/get_it.dart';
+// import 'package:rxdart/rxdart.dart';
+// import 'package:vscmoney/controllers/session_manager.dart';
+// import 'package:vscmoney/services/locator.dart';
+// import '../models/user.dart';
+// import '../services/api_service.dart';
+// import '../services/auth_service.dart';
+//
+//
+// // TODO: Merge with AuthService
+// // TODO: State Subject
+// class AuthController {
+//   final _loadingSubject = BehaviorSubject<bool>.seeded(false);
+//   final _errorSubject = BehaviorSubject<String?>.seeded(null);
+//   final _userSubject = BehaviorSubject<UserModel?>.seeded(null);
+//
+//   Stream<bool> get loadingStream => _loadingSubject.stream;
+//   Stream<String?> get errorStream => _errorSubject.stream;
+//   Stream<UserModel?> get userStream => _userSubject.stream;
+//
+//   bool get isLoading => _loadingSubject.value;
+//   String? get error => _errorSubject.value;
+//   UserModel? get currentUser => _userSubject.value;
+//
+//   final ApiService _api = locator<ApiService>();
+//
+//   void setLoading(bool val) => _loadingSubject.add(val);
+//   void setError(String? val) => _errorSubject.add(val);
+//   void setUser(UserModel? user) => _userSubject.add(user);
+//
+//
+//   Future<void> verifyPhoneOtp(String idToken, Function(String route) onSuccess, Function onFail) async {
+//     setLoading(true);
+//     try {
+//       final res = await _api.post(endpoint: "/auth/verify_user", body: {"id_token": idToken});
+//       await SessionManager.saveTokens(res['token'], res['refresh_token']);
+//       await fetchUserProfile();
+//
+//       print(currentUser?.firstName ?? "");
+//       print(currentUser?.lastName ?? "");
+//
+//       if ((currentUser?.firstName?.isEmpty ?? true) || (currentUser?.lastName?.isEmpty ?? true)) {
+//         onSuccess('enter_name');
+//       } else {
+//         onSuccess('home');
+//       }
+//     } catch (e) {
+//       setError(e.toString());
+//       onFail();
+//     } finally {
+//       setLoading(false);
+//     }
+//   }
+//
+//
+//   Future<void> verifyGoogleUser(String idToken) async {
+//     await _verifyGeneric("/auth/verify_google_user", idToken);
+//   }
+//
+//
+//   Future<void> verifyEmailOtp(String idToken) async {
+//     await _verifyGeneric("/auth/verify_email_otp", idToken);
+//   }
+//
+//   Future<void> _verifyGeneric(String endpoint, String idToken) async {
+//     setLoading(true);
+//     try {
+//       final res = await _api.post(endpoint: endpoint, body: {"id_token": idToken});
+//       await SessionManager.saveTokens(res['token'], res['refresh_token']);
+//       await fetchUserProfile();
+//     } catch (e) {
+//       setError(e.toString());
+//     } finally {
+//       setLoading(false);
+//     }
+//   }
+//
+//
+//   Future<void> fetchUserProfile() async {
+//     try {
+//       final res = await _api.get(endpoint: "/auth/get_profile");
+//       setUser(UserModel.fromJson(res));
+//     } catch (e) {
+//       final msg = e.toString();
+//       if (msg.contains("404") || msg.contains("User not found")) {
+//         logout();
+//       } else {
+//         setError(msg);
+//       }
+//     }
+//   }
+//
+//   Future<void> completeUserProfile(String first, String last) async {
+//     setLoading(true);
+//     try {
+//       await _api.post(endpoint: "/auth/update_profile", body: {
+//         "first_name": first,
+//         "last_name": last,
+//       });
+//       await fetchUserProfile();
+//     } catch (e) {
+//       setError(e.toString());
+//     } finally {
+//       setLoading(false);
+//     }
+//   }
+//
+//
+//   Future<void> refreshAccessToken() async {
+//     try {
+//       final res = await _api.post(endpoint: "/auth/refresh_token", body: {
+//         "refresh_token": SessionManager.refreshToken,
+//         "uid": currentUser?.uid,
+//       });
+//       if (res["access_token"] != null) {
+//         await SessionManager.saveTokens(res["access_token"], SessionManager.refreshToken!);
+//       }
+//     } catch (e) {
+//       setError(e.toString());
+//     }
+//   }
+//
+//
+//   bool isTokenExpired(String token) {
+//     try {
+//       final parts = token.split('.');
+//       if (parts.length != 3) return true;
+//       final payload = json.decode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
+//       final expiry = payload['exp'];
+//       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+//       return now >= expiry;
+//     } catch (e) {
+//       print("Token parse error: $e");
+//       return true;
+//     }
+//   }
+//
+//
+//   Future<void> autoLogin(Function(bool isLoggedIn) onResult) async {
+//     await SessionManager.loadTokens();
+//     final token = SessionManager.token;
+//     if (token == null || isTokenExpired(token)) {
+//       final refreshed = await SessionManager.tryRefreshToken();
+//       if (refreshed) {
+//         await fetchUserProfile();
+//         onResult(true);
+//       } else {
+//         logout();
+//         onResult(false);
+//       }
+//     } else {
+//       await fetchUserProfile();
+//       onResult(true);
+//     }
+//   }
+//
+//
+//   void logout() {
+//     SessionManager.clearToken();
+//     setUser(null);
+//   }
+//
+//   void dispose() {
+//     _loadingSubject.close();
+//     _errorSubject.close();
+//     _userSubject.close();
+//   }
+// }

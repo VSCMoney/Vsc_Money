@@ -183,6 +183,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:vscmoney/screens/widgets/drawer.dart';
 
 class Assets extends StatefulWidget {
   const Assets({Key? key}) : super(key: key);
@@ -215,6 +216,9 @@ class _AssetsState extends State<Assets> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: CustomDrawer(
+        selectedRoute: "Portfolio",
+      ),
       backgroundColor: Colors.white,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(100),

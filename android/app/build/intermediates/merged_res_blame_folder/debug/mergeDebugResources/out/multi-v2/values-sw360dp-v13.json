@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.vsc.money.app-mergeDebugResources-57:/values-sw360dp-v13/values-sw360dp-v13.xml",
+            "outputFile": "com.vsc.money.app-mergeDebugResources-67:/values-sw360dp-v13/values-sw360dp-v13.xml",
             "map": [
                 {
-                    "source": "/Users/piyushgoyal/.gradle/caches/8.10.2/transforms/6fec79dfcef552889e3835cc7bab572a/transformed/preference-1.2.1/res/values-sw360dp-v13/values-sw360dp-v13.xml",
+                    "source": "/Users/piyushgoyal/.gradle/caches/8.9/transforms/cb471378baa8d1b2a1d7414cc74d8f1a/transformed/preference-1.2.1/res/values-sw360dp-v13/values-sw360dp-v13.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",
