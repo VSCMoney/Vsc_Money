@@ -17,6 +17,7 @@
 #     raise "#{generated_xcode_build_settings_path} must exist. Run `flutter pub get` first."
 #   end
 #
+
 #   File.foreach(generated_xcode_build_settings_path) do |line|
 #     matches = line.match(/FLUTTER_ROOT=(.*)/)
 #     return matches[1].strip if matches
@@ -88,6 +89,10 @@ target 'Runner' do
   pod 'FirebaseAppCheck', '11.10.0'
 
   flutter_install_all_ios_pods(File.dirname(File.realpath(__FILE__)))
+
+  # Add TensorFlow Lite if using SoundClassifier
+  pod 'TensorFlowLiteSwift', '~> 2.13.0'
+  # ❌ REMOVED EXTRA 'end' HERE
 
   target 'RunnerTests' do
     inherit! :search_paths

@@ -1,33 +1,33 @@
+// ignore_for_file: unused_field
+
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
+import 'dart:math';
+import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
-import 'package:flutter/foundation.dart' show Float64List, kIsWeb;
 import 'package:flutter/services.dart';
-import 'package:flutter_audio_capture/flutter_audio_capture.dart';
+//import 'package:flutter_audio_capture/flutter_audio_capture.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:lottie/lottie.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:record/record.dart';
-import 'package:waveform_flutter/waveform_flutter.dart' as wf;
+import 'package:vscmoney/constants/colors.dart';
 
 // Import your existing chat service files
-import '../../../constants/colors.dart';
+import '../../../constants/widgets.dart';
 import '../../../models/chat_message.dart';
 import '../../../models/chat_session.dart';
-import '../../../models/stock_detail.dart';
-import '../../../services/auth_service.dart';
 import '../../../services/chat_service.dart';
 import '../../../services/locator.dart';
-import '../../../services/speech_service.dart';
 import '../../../services/theme_service.dart';
-import '../../models/document_context.dart';
+import '../../../testpage.dart';
 import '../../stock_detail_screen.dart';
-import '../../utils/file_helps.dart';
 import 'package:http/http.dart' as http;
+import 'package:vscmoney/core/helpers/themes.dart';
 
 
 class ChatScreen extends StatefulWidget {
@@ -47,30 +47,39 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,TickerProviderStateMixin{
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
  // late final SpeechService _speechService;
    ScrollController _scrollController = ScrollController();
   final _audioRecorder = AudioRecorder();
- // final _audioPlayer = just_audio.AudioPlayer();
   String _recordingPath = '';
   bool _isTranscribing = false;
   Timer? _levelTimer;
-  final FlutterAudioCapture _audioCapture = FlutterAudioCapture();
+  //final FlutterAudioCapture _audioCapture = FlutterAudioCapture();
   Timer? _transcriptionAnimator;
-  String _pendingTranscriptionText = '';
-
+  //final GlobalKey _latestBotMessageKey = GlobalKey();
   bool _isSpeaking = false;
+  double _currentRms = 0.0;
+  StreamSubscription? _vadSubscription;
+  Timer? _rmsTimer;
+
+
+
+  static const _androidMethodChannel = MethodChannel('native_vad');
+  static const _androidEventChannel = EventChannel('native_vad/events');
+  static const _iosMethodChannel = MethodChannel('yamnet_channel');
+  static const _iosEventChannel = EventChannel('yamnet_event_channel');
+
+  // static const MethodChannel _methodChannel = MethodChannel('native_vad');
+  // static const EventChannel _eventChannel = EventChannel('native_vad/events');
+
+  late MethodChannel _currentMethodChannel;
+  late EventChannel _currentEventChannel;
   bool _showExpandedInput = false;
   bool _isTyping = false;
   bool _isListening = false;
-  bool _isProcessingDocument = false;
-  bool get _isKeyboardVisible => MediaQuery.of(context).viewInsets.bottom > 0;
-  bool _showListeningBar = false;
-  String _lastSpeechResult = '';
   bool _showSpeechBar = false;
-  String _recognizedSpeech = '';
   Stopwatch _speechTimer = Stopwatch();
   late Timer _timer;
   String _formattedDuration = '00:00';
@@ -79,11 +88,253 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
   String _recognizedBackupText = '';
   bool _isOverwritingTranscript = false;
   double _keyboardInset = 0;
+  double _latestUserMessageHeight = 0; // 👈 add to your state
+  bool _isRecording = false;
+  double _dragOffset = 0;
+  double _micButtonOffset = 0;
+  late AnimationController _waveAnimationController;
+  late AnimationController _pulseAnimationController;
+  late AnimationController _slideAnimationController;
+  late AnimationController _topWaveAnimationController;
+  double _displayedRms = 0.0;
+
+  late AnimationController _meshController;
+  late List<Animation<Offset>> _meshPositions;
+  late List<Animation<Color?>> _meshColors;
+  // At the top of _ChatScreenState:
+  late AnimationController _heartbeatController;
+  double _heartbeatValue = 0.0;
+  late Animation<double> _scaleAnim;
+  late Animation<double> _glowAnim;
+
+
+  void scrollBubbleToStaticPosition(GlobalKey key, double targetY) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = key.currentContext;
+      if (context == null) return;
+
+      final box = context.findRenderObject() as RenderBox;
+      final bubbleTop = box.localToGlobal(Offset.zero).dy;
+
+      final currentScroll = _scrollController.offset;
+      final delta = bubbleTop - targetY;
+      final newScrollOffset = (currentScroll + delta).clamp(
+        _scrollController.position.minScrollExtent,
+        _scrollController.position.maxScrollExtent,
+      );
+
+      _scrollController.animateTo(
+        newScrollOffset,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+
+
+
+  // JSON se exact keyframes (18 seconds total, 60fps)
+  final List<List<double>> layer1Positions = [
+    [81.12/375, 333.86/812],   // t=0
+    [303.12/375, 326.86/812],  // t=180 (3s)
+    [307.12/375, 683.86/812],  // t=360 (6s)
+    [84.12/375, 378.86/812],   // t=540 (9s)
+    [56.12/375, 679.86/812],   // t=720 (12s)
+    [160.12/375, 458.86/812],  // t=900 (15s)
+    [81.12/375, 333.86/812],   // t=1080 (18s)
+  ];
+
+  final List<List<double>> layer2Positions = [
+    [403.93/375, 421.47/812],
+    [145.93/375, 712.47/812],
+    [56.93/375, 472.47/812],
+    [306.93/375, 413.47/812],
+    [85.93/375, 386.47/812],
+    [41.93/375, 660.47/812],
+    [403.93/375, 421.47/812],
+  ];
+
+  final List<List<double>> layer3Positions = [
+    [294/375, 683.5/812],
+    [337/375, 540.5/812],
+    [120/375, 755.5/812],
+    [271/375, 712.5/812],
+    [292/375, 450.5/812],
+    [271/375, 692.5/812],
+    [294/375, 683.5/812],
+  ];
+
+  final List<List<double>> layer4Positions = [
+    [30.07/375, 579.46/812],
+    [-2.93/375, 451.46/812],
+    [314.07/375, 468.46/812],
+    [13.07/375, 684.46/812],
+    [243.07/375, 756.46/812],
+    [227.07/375, 468.46/812],
+    [30.07/375, 579.46/812],
+  ];
+
+  final List<List<Color>> layerColors = List.generate(4, (_) => [
+    const Color(0xFFC06622),
+    const Color(0xFF7C5E57),
+    const Color(0xFFC06622),
+    // Start: brown
+    // Mid: orange
+    const Color(0xFFC06622), // End: brown again
+  ]);
+
+  // JSON se exact colors (RGB values converted)
+  // final List<List<Color>> layerColors = [
+  //   [
+  //     Color(0xFF7C5E57),
+  //     Color(0xFFC06622),
+  //     Color(0xFF9F4B0C),
+  //     Color(0xFF7C5E57),
+  //   ],
+  //   [
+  //     Color(0xFF7C5E57),
+  //     Color(0xFFC06622),
+  //     Color(0xFF9F4B0C),
+  //     Color(0xFF7C5E57),
+  //   ],
+  //   [
+  //     Color(0xFF7C5E57),
+  //     Color(0xFFC06622),
+  //     Color(0xFF9F4B0C),
+  //     Color(0xFF7C5E57),
+  //   ],
+  //   [
+  //     Color(0xFF7C5E57),
+  //     Color(0xFFC06622),
+  //     Color(0xFF9F4B0C),
+  //     Color(0xFF7C5E57),
+  //   ],
+  // ];
+
+
+  void _setupMeshAnimation() {
+    // 18 seconds total (exactly like JSON: 1080 frames at 60fps)
+    _meshController = AnimationController(
+      duration: Duration(seconds: 50),
+      vsync: this,
+    )..addListener(() {
+      setState(() {
+      });
+    });
+
+    // Create position animations for all 4 layers
+    _meshPositions = [
+      _createPositionAnimation(layer1Positions),
+      _createPositionAnimation(layer2Positions),
+      _createPositionAnimation(layer3Positions),
+      _createPositionAnimation(layer4Positions),
+    ];
+
+    // Create color animations for all 4 layers
+    _meshColors = [
+      _createColorAnimation(layerColors[0]),
+      _createColorAnimation(layerColors[1]),
+      _createColorAnimation(layerColors[2]),
+      _createColorAnimation(layerColors[3]),
+    ];
+
+    // Start from orange color (value 0.0)
+    _meshController.value = 0.0;
+    _meshController.repeat();
+  }
+
+// // Fixed animation update method
+//   void _updateMeshAnimationSpeed(bool isSpeaking) {
+//     // DON'T reset the value - keep current position
+//     final currentValue = _meshController.value;
+//
+//     _meshController.stop();
+//
+//     // Update duration based on speech state
+//     _meshController.duration = isSpeaking
+//         ? const Duration(seconds: 10) // Even faster for speech
+//         : const Duration(seconds: 500); // Normal speed otherwise
+//
+//     // Start from current position, not 0.0
+//     _meshController.forward(from: currentValue);
+//
+//     // Continue repeating
+//     _meshController.repeat();
+//   }
+
+  bool _showStaticGradient = false;
+
+  void _updateMeshAnimationSpeed(bool isSpeaking) {
+    final currentValue = _meshController.value;
+
+   // if (isSpeaking) {
+      //_showStaticGradient = false;
+
+      _meshController.stop();
+      _meshController.duration = const Duration(seconds: 10);
+      _meshController.forward(from: currentValue);
+      _meshController.repeat();
+    //}
+    //else {
+      //_showStaticGradient = true;
+
+      // _meshController.stop();
+      // _meshController.value = 0.0; // optional reset to start
+    //}
+  }
+
+
+
+
+
+
+
+
+
+  Animation<Offset> _createPositionAnimation(List<List<double>> keyframes) {
+    return TweenSequence<Offset>([
+      for (int i = 0; i < keyframes.length - 1; i++)
+        TweenSequenceItem(
+          tween: Tween<Offset>(
+            begin: Offset(keyframes[i][0], keyframes[i][1]),
+            end: Offset(keyframes[i + 1][0], keyframes[i + 1][1]),
+          ).chain(CurveTween(curve: Curves.easeInOut)), // JSON ka easing
+          weight: 1.0,
+        ),
+    ]).animate(_meshController);
+  }
+
+  // Animation<Color?> _createColorAnimation(List<Color> colors) {
+  //   return
+  //     TweenSequence<Color?>([
+  //     for (int i = 0; i < colors.length - 1; i++)
+  //       TweenSequenceItem(
+  //         tween: ColorTween(begin: colors[i], end: colors[i + 1]),
+  //         weight: 1.0,
+  //       ),
+  //   ]).animate(_meshController);
+  // }
+
+  Animation<Color?> _createColorAnimation(List<Color> colors) {
+    assert(colors.length >= 2, "At least 2 colors are required for animation");
+
+    return TweenSequence<Color?>(
+      List.generate(colors.length - 1, (i) {
+        return TweenSequenceItem(
+          tween: ColorTween(
+            begin: colors[i],
+            end: colors[i + 1],
+          ),
+          weight: 1,
+        );
+      }),
+    ).animate(_meshController);
+  }
 
 
   void _animateTranscriptionToInput(String finalText) {
     _transcriptionAnimator?.cancel();
-    _pendingTranscriptionText = '';
 
     setState(() {
       _controller.text = finalText;
@@ -104,11 +355,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
       if (!_scrollController.hasClients) return;
 
       final offset = _scrollController.offset;
-      final targetOffset = (offset + _chatHeight).clamp(
+      var targetOffset = (offset + _chatHeight).clamp(
         _scrollController.position.minScrollExtent,
         _scrollController.position.maxScrollExtent,
       );
-
+     // var targetOffset = MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top - 100 - 16;
+    //  targetOffset -= MediaQuery.of(context).padding.top + 354 ;
+    //   print(targetOffset);
+    //   print(offset);
+    //   print("Target");
+    //   print(_scrollController.position.maxScrollExtent,);
+    //   print("Max");
       _scrollController.animateTo(
         targetOffset,
         duration: const Duration(milliseconds: 400),
@@ -117,13 +374,193 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
     });
   }
 
+  void _startRmsSmoothing() {
+    // Cancel any existing timer first
+    _rmsTimer?.cancel();
+
+    const smoothingFactor = 0.2; // Lower = smoother
+
+    _rmsTimer = Timer.periodic(Duration(milliseconds: 16), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      // Only update if there's a significant difference
+      double difference = (_currentRms - _displayedRms).abs();
+      if (difference > 0.001) {
+        setState(() {
+          _displayedRms += (_currentRms - _displayedRms) * smoothingFactor;
+        });
+      }
+    });
+  }
+
+  void _stopRmsSmoothing() {
+    _rmsTimer?.cancel();
+    _rmsTimer = null;
+  }
+
+  Future<void> startNativeVad() async {
+    try {
+      await _vadSubscription?.cancel();
+
+      // Platform-wise event channel
+      final EventChannel eventChannel = Platform.isIOS ? _iosEventChannel : _androidEventChannel;
+      final MethodChannel methodChannel = Platform.isIOS ? _iosMethodChannel : _androidMethodChannel;
+
+      _vadSubscription = eventChannel.receiveBroadcastStream().listen((event) {
+        // iOS/Android - event keys may differ, so normalize here
+        final isSpeech = event['isSpeech'] ?? event['state'] == 'speech_detected' || false;
+        // On Android, key is usually 'rms'; on iOS, it's often 'rms' or 'rms_db'
+        final rms = (event['rms'] ?? event['rms_db'] ?? 0.0).toDouble();
+
+        debugPrint('🎙️ VAD => isSpeech=$isSpeech | rms=${rms.toStringAsFixed(2)}');
+
+        if (mounted) {
+          setState(() {
+            _isSpeaking = isSpeech;
+            _currentRms = rms;
+            _updateHeartbeat(_isSpeaking);
+            _updateMeshAnimationSpeed(_isSpeaking);
+            if (isSpeech) {
+              double maxRms = 0.20; // Or your dynamic scaling value
+              double speed = lerpDouble(0.6, 1.3, (rms / maxRms).clamp(0, 1))!;
+              _heartbeatController.duration = Duration(milliseconds: (900 ~/ speed).clamp(300, 1200));
+              if (!_heartbeatController.isAnimating) _heartbeatController.repeat();
+            } else {
+              _heartbeatController.stop();
+              _heartbeatController.value = 0.0;
+            }
+          });
+        }
+      });
+
+      // Only once, when VAD starts
+      _startRmsSmoothing();
+
+      await methodChannel.invokeMethod('start');
+    } catch (e) {
+      debugPrint('❌ startNativeVad error: $e');
+    }
+  }
+
+  Future<void> stopNativeVad() async {
+    try {
+      final MethodChannel methodChannel = Platform.isIOS ? _iosMethodChannel : _androidMethodChannel;
+      await methodChannel.invokeMethod('stop');
+      await _vadSubscription?.cancel();
+      _vadSubscription = null;
+
+      // Stop RMS smoothing
+      _stopRmsSmoothing();
+      // _meshController.stop();
+      // _meshController.value = 0.0;
+      if (mounted) {
+        setState(() {
+          _isSpeaking = false;
+          _currentRms = 0.0;
+          _displayedRms = 0.0;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ stopNativeVad error: $e');
+    }
+  }
+
+
+
+//   Future<void> startNativeVad() async {
+//     try {
+//       await _vadSubscription?.cancel();
+//       _vadSubscription = _eventChannel.receiveBroadcastStream().listen((event) {
+//         final isSpeech = event['isSpeech'] ?? false;
+//         final rms = (event['rms'] ?? 0.0).toDouble();
+//
+//         debugPrint('🎙️ VAD => isSpeech=$isSpeech | rms=${rms.toStringAsFixed(2)}');
+//
+//         // if (mounted) {
+//         //   setState(() {
+//         //     _isSpeaking = isSpeech;
+//         //     _currentRms = rms;
+//         //    _updateMeshAnimationSpeed(_isSpeaking);
+//         //   });
+//         // }
+//
+//         if (mounted) {
+//           setState(() {
+//             _isSpeaking = isSpeech;
+//             _currentRms = rms;
+//             //_updateMeshAnimationSpeed(_isSpeaking);
+//             _updateHeartbeat(_isSpeaking);
+//
+//             // Heartbeat Animation logic
+//             if (isSpeech) {
+//               double maxRms = 0.20;
+//               double speed = lerpDouble(0.6, 1.3, (rms / maxRms).clamp(0,1))!;
+//               // Clamp speed, so heartbeat duration doesn't go wild
+//               _heartbeatController.duration = Duration(milliseconds: (900 ~/ speed).clamp(300, 1200));
+//               if (!_heartbeatController.isAnimating) _heartbeatController.repeat();
+//             } else {
+//               _heartbeatController.stop();
+//               _heartbeatController.value = 0.0;
+//             }
+//           });
+//         }
+//
+//       });
+//
+//       // Start smoothing only once when VAD starts
+//       _startRmsSmoothing();
+//
+//       await _methodChannel.invokeMethod('start');
+//     } catch (e) {
+//       debugPrint('❌ startNativeVad error: $e');
+//     }
+//   }
+//
+// // In your stopNativeVad method, add stop smoothing:
+//   Future<void> stopNativeVad() async {
+//     try {
+//       await _methodChannel.invokeMethod('stop');
+//       await _vadSubscription?.cancel();
+//       _vadSubscription = null;
+//
+//       // Stop RMS smoothing
+//       _stopRmsSmoothing();
+//
+//       if (mounted) {
+//         setState(() {
+//           _isSpeaking = false;
+//           _currentRms = 0.0;
+//           _displayedRms = 0.0; // Reset displayed RMS
+//         });
+//       }
+//     } catch (e) {
+//       debugPrint('❌ stopNativeVad error: $e');
+//     }
+//   }
+
+
+
+
+
+
 
   // Flag to show only latest exchange during typing
   bool _showOnlyLatestDuringTyping = false;
 
   String _formatDuration(Duration d) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    return "${twoDigits(d.inMinutes)}:${twoDigits(d.inSeconds % 60)}";
+    final minutes = d.inMinutes;
+    final seconds = d.inSeconds % 60;
+
+    // If minutes is single digit (0-9), don't pad with zero
+    if (minutes < 10) {
+      return "${minutes}:${seconds.toString().padLeft(2, '0')}";
+    } else {
+      // If minutes is double digit (10+), use normal format
+      return "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
+    }
   }
 
 
@@ -150,12 +587,25 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
   @override
   void initState() {
     super.initState();
+    _heartbeatController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700), // 700ms feels natural
+    );
+
+    _scaleAnim = Tween<double>(begin: 1.0, end: 1.10).animate(
+      CurvedAnimation(parent: _heartbeatController, curve: Curves.easeInOutCubic),
+    );
+
+    _glowAnim = Tween<double>(begin: 12, end: 32).animate(
+      CurvedAnimation(parent: _heartbeatController, curve: Curves.easeInOutCubic),
+    );
     _loadSessionMessages();
+    _setupMeshAnimation();
     print("session id");
     print(widget.session.id);
     _scrollController = ScrollController(keepScrollOffset: true);
     WidgetsBinding.instance.addObserver(this);
-    _scrollToBottom();
+  //  _scrollToBottom();
     // Add a small delay to request focus to avoid keyboard issues
     Future.delayed(Duration(milliseconds: 300), () {
       if (mounted) {
@@ -180,6 +630,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
 
 
   }
+
+
+  void _updateHeartbeat(bool isSpeaking) {
+    if (isSpeaking) {
+      _heartbeatController.repeat(reverse: true);
+    } else {
+      _heartbeatController.animateTo(0.0, duration: Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+      _heartbeatController.stop();
+    }
+  }
+
 
 
   @override
@@ -247,29 +708,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
         // }
         for (final message in fetched) {
           // If this is a system-only message
-          if (message.question == null && message.answer != null) {
-            messages.add({
-              'role': 'bot',
-              'msg': message.answer,
-              'isSystemOnly': true, // Optional for custom style
-            });
-          }
+          messages.add({
+            'role': 'user',
+            'msg': message.question,
+          });
 
-          // Normal user + bot messages
-          if (message.question != null) {
-            messages.add({
-              'role': 'user',
-              'msg': message.question,
-            });
-
-            if (message.answer != null) {
-              messages.add({
-                'role': 'bot',
-                'msg': message.answer,
-              });
-            }
-          }
-        }
+          messages.add({
+            'role': 'bot',
+            'msg': message.answer,
+          });
+                        }
 
 
         _hasLoadedMessages = true;
@@ -327,8 +775,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _heartbeatController.dispose();
     _transcriptionAnimator?.cancel();
     _streamSubscription?.cancel();
+    _meshController.dispose();
+    _rmsTimer?.cancel(); // Add this line
     _levelTimer?.cancel();
     _audioRecorder.dispose();
     //_audioPlayer.dispose();
@@ -336,6 +787,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
     _focusNode.dispose();
     _controller.dispose();
     _scrollController.dispose();
+    _waveAnimationController.dispose();
+    _pulseAnimationController.dispose();
+    _slideAnimationController.dispose();
+    _topWaveAnimationController.dispose();
     //_speechService.stopListening();
     super.dispose();
   }
@@ -350,13 +805,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
     FocusScope.of(context).unfocus();
     final userMessage = sanitizeMessage(_controller.text.trim());
     final isFirstMessage = messages.where((m) => m['role'] == 'user').isEmpty;
-
+    final userMessageKey = GlobalKey();
     final userMessageId = UniqueKey().toString();
     final botMessageId = UniqueKey().toString();
 
     setState(() {
       _isTyping = true;
-      _showBottomSpacer = !_userScrolledUp;
+      _showBottomSpacer = true;
 
 
       messages.add({
@@ -364,6 +819,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
         'role': 'user',
         'msg': userMessage,
         'isComplete': true,
+        'key': userMessageKey
       });
 
       messages.add({
@@ -378,6 +834,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
       if (isFirstMessage) {
         widget.session.title = userMessage;
       }
+      // WidgetsBinding.instance.addPostFrameCallback((_) {
+      //   final context = userMessageKey.currentContext;
+      //   if (context != null) {
+      //     final height = context.size?.height ?? 0;
+      //     print("✅ User message bubble height: $height");
+      //
+      //     setState(() {
+      //       _latestUserMessageHeight = height;
+      //     });
+      //   } else {
+      //     print("⚠️ userMessageKey context is null");
+      //   }
+      // });
+
+      scrollBubbleToStaticPosition(userMessageKey, MediaQuery.of(context).size.height - 220);
+
     });
 
     _scrollToLatestLikeChatPage();
@@ -400,8 +872,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
             (message) {
           if (!mounted) return;
 
-          if (_currentStreamingId.isEmpty && message.id != null) {
-            _currentStreamingId = message.id!;
+          if (_currentStreamingId.isEmpty) {
+            _currentStreamingId = message.id;
           }
 
           streamedText += message.text;
@@ -583,9 +1055,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
 
   void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 100), () {
+      print(_scrollController.position.maxScrollExtent);
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          _scrollController.position.maxScrollExtent - (_chatHeight * 0.75),
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -595,55 +1068,171 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
 
   bool _showScrollToBottomButton = false;
 
-  final GlobalKey _lastUserMessageKey = GlobalKey();
-  final theme = locator<ThemeService>().currentTheme;
-
-
   Widget _buildMessageRow(Map<String, Object> msg) {
-    if (msg['role'] == 'user') {
-      return Padding(
-        padding: const EdgeInsets.only(top: 2, bottom: 2), // 🔻 tighter vertical gap
-        child: Align(
-          alignment: Alignment.centerRight,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              const SizedBox(width: 14),
-              GestureDetector(
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: msg['msg'].toString()));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Copied to clipboard')),
-                  );
-                },
-                child: const Icon(Icons.copy, size: 14, color: Color(0XFF7E7E7E)),
-              ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  margin: const EdgeInsets.only(bottom: 2), // 🔻 reduce bottom gap
-                  decoration: BoxDecoration(
-                    color: theme.message,
-                    borderRadius: BorderRadius.circular(22),
+    final bool isUser = msg['role'] == 'user';
+    final bool isLatest = msg == messages.last;
+
+    final bubbleKey = msg['key'] as Key?;
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
+
+    if (isUser) {
+      // return Transform.translate(
+      //   offset: const Offset(0, 10),
+      //   child: Padding(
+      //     padding: const EdgeInsets.only(top: 0, bottom: 0),
+      //     child: Align(
+      //       alignment: Alignment.centerRight,
+      //       child: Row(
+      //         mainAxisAlignment: MainAxisAlignment.end,
+      //         children: [
+      //           const SizedBox(width: 14),
+      //           GestureDetector(
+      //             onTap: () {
+      //               Clipboard.setData(ClipboardData(text: msg['msg'].toString()));
+      //               ScaffoldMessenger.of(context).showSnackBar(
+      //                 const SnackBar(content: Text('Copied to clipboard')),
+      //               );
+      //             },
+      //             child: const Icon(Icons.copy, size: 14, color: Color(0XFF7E7E7E)),
+      //           ),
+      //           const SizedBox(width: 10),
+      //           Flexible(
+      //             child: Container(
+      //               key: bubbleKey, // ✅ assign key only to latest user message
+      //               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      //               margin: const EdgeInsets.only(bottom: 2),
+      //               decoration: BoxDecoration(
+      //                 color: theme.message,
+      //                 borderRadius: BorderRadius.circular(22),
+      //               ),
+      //               child: Text(
+      //                 msg['msg'].toString(),
+      //                 style: TextStyle(
+      //                   // fontSize: 17,
+      //                   // fontFamily: '.SF Pro Text',
+      //                   // fontWeight: FontWeight.normal,
+      //                   // color: theme.text,
+      //                   height: 1.9,
+      //                   fontFamily: 'SF Pro Text',
+      //                   fontSize: 17.5,
+      //                   fontWeight: FontWeight.w500,
+      //                   color: Colors.black.withOpacity(0.85),
+      //                 ),
+      //               ),
+      //             ),
+      //           ),
+      //         ],
+      //       ),
+      //     ),
+      //   ),
+      // );
+      return Transform.translate(
+        offset: const Offset(0, 10),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 0, bottom: 0),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const SizedBox(width: 14),
+                GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: msg['msg'].toString()));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Copied to clipboard')),
+                    );
+                  },
+                  child: const Icon(Icons.copy, size: 14, color: Color(0XFF7E7E7E)),
+                ),
+                const SizedBox(width: 10),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.6,
                   ),
-                  child: Text(
-                    msg['msg'].toString(),
-                    style: TextStyle(
-                      fontSize: 18, // 👈 slightly smaller for ChatGPT-like feel
-                      fontFamily: 'SF Pro Text',
-                      fontWeight: FontWeight.w500,
-                      color: theme.text,
-                      height: 1.9,
+                  child: Container(
+                    key: bubbleKey, // ✅ assign key only to latest user message
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    margin: const EdgeInsets.only(bottom: 2),
+                    decoration: BoxDecoration(
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                      color: theme.message,
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: Text(
+                      msg['msg'].toString(),
+                      style: TextStyle(
+                        height: 1.9,
+                        fontFamily: 'DM Sans',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: theme.text,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
+
     }
+    // if (msg['role'] == 'user') {
+    //   return Transform.translate(
+    //     offset: const Offset(0, 25),
+    //     child: Padding(
+    //       padding: const EdgeInsets.only(top: 2, bottom: 0), // 🔻 tighter vertical gap
+    //       child: Align(
+    //         alignment: Alignment.centerRight,
+    //         child: Row(
+    //           mainAxisAlignment: MainAxisAlignment.end,
+    //           children: [
+    //             const SizedBox(width: 14),
+    //             GestureDetector(
+    //               onTap: () {
+    //                 Clipboard.setData(ClipboardData(text: msg['msg'].toString()));
+    //                 ScaffoldMessenger.of(context).showSnackBar(
+    //                   const SnackBar(content: Text('Copied to clipboard')),
+    //                 );
+    //               },
+    //               child: const Icon(Icons.copy, size: 14, color: Color(0XFF7E7E7E)),
+    //             ),
+    //             const SizedBox(width: 10),
+    //             Flexible(
+    //               child: Container(
+    //                 key: msg == messages.last ? _latestBotMessageKey : null,
+    //                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    //                 margin: const EdgeInsets.only(bottom: 2), // 🔻 reduce bottom gap
+    //                 decoration: BoxDecoration(
+    //                   color: theme.message,
+    //                   borderRadius: BorderRadius.circular(22),
+    //                 ),
+    //                 child: Text(
+    //                   msg['msg'].toString(),
+    //                   style: TextStyle(
+    //                     fontSize: 18,
+    //                     fontFamily: 'SF Pro Text',
+    //                     fontWeight: FontWeight.w500,
+    //                     color: theme.text,
+    //                     height: 1.9,
+    //                   ),
+    //                 ),
+    //               ),
+    //             ),
+    //           ],
+    //         ),
+    //       ),
+    //     ),
+    //   );
+    // }
 
     if (msg['type'] == 'stocks' && msg['stocks'] is List) {
       final List<dynamic> stocks = msg['stocks'] as List<dynamic>;
@@ -656,14 +1245,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
     // Default bot message
     final msgStr = msg['msg']?.toString() ?? '';
     final isComplete = msg['isComplete'] == true;
-    final isLatest = msg == messages.last;
+   // final isLatest = msg == messages.last;
 
     return Align(
       alignment: Alignment.centerLeft,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+       // mainAxisSize: MainAxisSize.min,
         children: [
-          _buildStyledBotMessage(
+          msgStr.isEmpty
+              ? _buildTypingIndicator()
+              :  _buildStyledBotMessage(
             fullText: msgStr,
             isComplete: isComplete,
             isLatest: isLatest,
@@ -725,169 +1317,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
   }
 
 
-  @override
-  Widget build(BuildContext context) {
-    final displayMessages = _showOnlyLatestDuringTyping && messages.length > 2
-        ? messages.sublist(messages.length - 4)
-        : _visibleMessages;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        resizeToAvoidBottomInset: true,
-        backgroundColor: theme.background,
-        body: Stack(
-          children: [
-            Column(
-              children: [
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      _chatHeight = constraints.maxHeight;
-                      print("Bro chat height");
-                      print(_chatHeight);
-                      print("Bro  height");
-                      print(MediaQuery.of(context).size.height);
-                      return ListView.builder(
-                        physics: _showOnlyLatestDuringTyping
-                            ? const NeverScrollableScrollPhysics()
-                            : const BouncingScrollPhysics(),
-                        controller: _scrollController,
-                        reverse: false,
-                        padding: const EdgeInsets.all(16),
-                        itemCount: displayMessages.length + 1,
-                        itemBuilder: (context, index) {
-                          if (index == displayMessages.length) {
-                            return SizedBox(height: _chatHeight - 100);
-                          }
-                          final msg = displayMessages[index];
-                          return _buildMessageRow(msg);
-                        },
-                      );
-                    },
-                  ),
-                ),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 400),
-                  transitionBuilder: (Widget child, Animation<double> animation) {
-                    final offsetAnimation = Tween<Offset>(
-                      begin: const Offset(1.0, 0.0),
-                      end: Offset.zero,
-                    ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
-                    return SlideTransition(position: offsetAnimation, child: child);
-                  },
-                  child: (_hasLoadedMessages &&
-                      !messages.any((m) => m['role'] == 'user') &&
-                      _controller.text.isEmpty)
-                      ? SizedBox(
-                    key: const ValueKey('quickChips'),
-                    height: 94,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      children: [
-                        SizedBox(
-                          height: 100,
-                          child: _quickChip(
-                            onpressed: () {
-                              _callFollowUpApi();
-                              final text = "What’s happening in the market today?";
-                              setState(() {
-                                _controller.text = text;
-                                _controller.selection = TextSelection.fromPosition(
-                                  TextPosition(offset: text.length),
-                                );
-                              });
-                            },
-                            title: "Market News",
-                            subtitle: "What’s happening in the market today?",
-                            maxWidth: 220,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        _quickChip(
-                          onpressed: () {
-                            _callFollowUpApi();
-                            final text = "How’s my portfolio doing?";
-                            setState(() {
-                              _controller.text = text;
-                              _controller.selection = TextSelection.fromPosition(
-                                TextPosition(offset: text.length),
-                              );
-                            });
-                          },
-                          title: "My Portfolio",
-                          subtitle: "How’s my portfolio doing?",
-                          maxWidth: 220,
-                        ),
-                        const SizedBox(width: 12),
-                        AddShortcutCard(),
-                      ],
-                    ),
-                  )
-                      : const SizedBox.shrink(key: ValueKey('emptyQuickChips')),
-                ),
-                const SizedBox(height: 5),
-                _buildInputFields(),
-              ],
-            ),
-
-            // 🔽 Scroll to bottom FAB
-            if (_showScrollToBottomButton)
-              Positioned(
-                bottom: 150,
-                left: MediaQuery.of(context).size.width / 2 - 26,
-                child: GestureDetector(
-                  onTap: () {
-                    _scrollController.animateTo(
-                      _scrollController.position.maxScrollExtent,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                    );
-                  },
-                  child: Container(
-                    height: 35,
-                    width: 35,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.transparent,
-                      border: Border.all(
-                        color:  Colors.grey.shade400,
-                        width: 1.2,
-                      ),
-                    ),
-                    child: const Icon(Icons.arrow_downward_rounded, size: 26),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-
-
-  void _callFollowUpApi() async {
-    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
-    final res = await http.post(
-      Uri.parse("https://fastapi-chatbot-717280964807.asia-south1.run.app/api/v1/follow_up"),
-      headers: {
-        'Authorization': 'Bearer $token',
-      },
-    );
-
-    print("📩 Response: ${res.body}");
-  }
-
-
 
   Widget _buildTypingIndicator() {
     return Container(
       margin: const EdgeInsets.only(top: 16, bottom: 8),
-       height: 15,
-       width: 65,
+      height: 15,
+      width: 65,
       child: Lottie.asset(
         'assets/images/typing_loader.json',
         repeat: true,
@@ -960,7 +1395,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
 
           final existingText = _controller.text.trim();
           final newText = existingText.isEmpty ? transcript : '$existingText $transcript';
-
+          HapticFeedback.mediumImpact();
           _animateTranscriptionToInput(newText);
           FocusScope.of(context).requestFocus(_focusNode);
         } else {
@@ -1004,24 +1439,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
   }
 
 
-
-
-
-  Timer? _silenceTimer;
-  bool _currentlySpeaking = false;
-  List<bool> _recentVolumes = []; // 🆕 Add globally (top of your widget class)
-  final int _volumeWindowSize = 5; // Memory of last 5 samples
-  final int requiredLoudChunks = 3; // At least 3 loud samples needed to "start speaking"
-  final int requiredSilentChunks = 3; // At least 3 silent samples needed to "stop speaking"
-  final double minVolumeThreshold = 0.04; // Very small noises ignore completely
-  final double speakingThreshold = 0.04;
-
   Widget _quickChip({
     required String title,
     required String subtitle,
     required double maxWidth,
     required VoidCallback onpressed,
   }) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     return GestureDetector(
       onTap: onpressed,
       child: Container(
@@ -1031,108 +1456,40 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
         decoration: BoxDecoration(
           color: theme.message,
           borderRadius: BorderRadius.circular(13),
-          // boxShadow: [
-          //   BoxShadow(
-          //     color: Colors.black.withOpacity(0.08),
-          //     blurRadius: 10,
-          //     offset: const Offset(0, 3),
-          //   ),
-          // ],
+          boxShadow: [
+            BoxShadow(
+              spreadRadius: 1,
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 3,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,  // 👈 optional centering
-        crossAxisAlignment: CrossAxisAlignment.start, // 👈 for left-aligned text
-        //mainAxisSize: MainAxisSize.max,               // 👈 force Column to fill parent
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontFamily: 'DM Sans',
-              color: theme.text,
-              fontSize: 16,
+          mainAxisAlignment: MainAxisAlignment.center,  // 👈 optional centering
+          crossAxisAlignment: CrossAxisAlignment.start, // 👈 for left-aligned text
+          //mainAxisSize: MainAxisSize.max,               // 👈 force Column to fill parent
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontFamily: 'DM Sans',
+                color: theme.text,
+                fontSize: 16,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(fontSize: 14, color: theme.text,fontFamily: "DM Sans",fontWeight: FontWeight.w500),
-          ),
-        ],
-      ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 14, color: theme.text,fontFamily: "SF Pro Text",fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
 
-    ),
+      ),
     );
   }
-
-
-
-  void _startMicMonitoring() async {
-    await _audioCapture.init();
-    await _audioCapture.start(listener, onError, sampleRate: 44100);
-
-    // ✅ Reset speaking state when mic starts fresh
-    _currentlySpeaking = false;
-    if (mounted) {
-      setState(() {
-        _isSpeaking = false;
-      });
-    }
-  }
-
-
-  void listener(dynamic obj) {
-    if (obj is! List<double>) return;
-
-    // Calculate average amplitude, NOT max
-    final avgVolume = obj.map((e) => e.abs()).reduce((a, b) => a + b) / obj.length;
-
-    const double noiseFloor = 0.02; // Background noise ignore
-    const double speakingFloor = 0.04; // Proper speaking detection
-
-    if (avgVolume > speakingFloor) {
-      // Clearly speaking
-      _silenceTimer?.cancel();
-      _silenceTimer = null;
-      if (!_currentlySpeaking) {
-        if (mounted) {
-          setState(() {
-            _isSpeaking = true;
-          });
-        }
-        _currentlySpeaking = true;
-      }
-    } else if (avgVolume < noiseFloor) {
-      // Definitely silent
-      if (_currentlySpeaking) {
-        _silenceTimer ??= Timer(const Duration(milliseconds: 400), () {
-          if (mounted) {
-            setState(() {
-              _isSpeaking = false;
-            });
-          }
-          _currentlySpeaking = false;
-          _silenceTimer = null;
-        });
-      }
-    }
-  }
-
-
-
-
-  void _stopMicMonitoring() async {
-    try {
-      await _audioCapture.stop();
-    } catch (_) {
-      // Ignore errors when stopping
-    }
-    _silenceTimer?.cancel();
-    _silenceTimer = null;
-    _isSpeaking = false;
-    _currentlySpeaking = false;
-  }
-
 
   void onError(Object e) {
     print("Mic monitoring error: $e");
@@ -1141,15 +1498,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
 
 
   Widget _buildInputFields() {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     return Padding(
       padding: const EdgeInsets.all(1),
       child: Material(
-        color: theme.box,
+        color: theme.background,
         elevation: 20.0,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            color: theme.box,
+            color: theme.background,
             boxShadow: [
               BoxShadow(
                 color: theme.shadow,
@@ -1171,13 +1530,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
               Column(
                 children: [
                   Container(
-                    constraints: const BoxConstraints(minHeight: 40, maxHeight: 140),
+                    constraints:  BoxConstraints(minHeight: _isListening? 20: 40, maxHeight: 140),
                     child: SingleChildScrollView(
                       child: Scrollbar(
-                        child: TextField(
+                        child:
+
+                            _isListening ? SizedBox.shrink(): TextField(
                           style: TextStyle(
-                            fontFamily: "SF Pro Text",
-                            fontSize: 18,
+                            fontFamily: ".SF Pro Text",
+                            fontSize: 17.5,
+                            fontWeight: FontWeight.w400,
                             color: _isOverwritingTranscript ? Colors.grey.shade400 : theme.text,
                           ),
                           autofocus: true,
@@ -1186,7 +1548,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
                           controller: _controller,
                           focusNode: _focusNode,
                           decoration:  InputDecoration(
-                            hintStyle: TextStyle(fontFamily: "SF Pro Text",color: Colors.grey.shade600,fontSize: 18),
+                            hintStyle: TextStyle(
+                                fontWeight: FontWeight.w400,
+                                fontFamily: ".SF Pro Text",color: Colors.grey.shade600,fontSize: 17.5),
                             hintText: 'Ask anything',
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.only(left: 10),
@@ -1206,79 +1570,137 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
                   //const SizedBox(height: 10),
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
-                    transitionBuilder: (child, animation) {
-                      return FadeTransition(
-                        opacity: animation,
-                        child: ScaleTransition(scale: animation, child: child),
-                      );
-                    },
+                      transitionBuilder: (child, animation) {
+                                      final slideAnimation = Tween<Offset>(
+                                        begin: const Offset(0.0, 0.1), // slide up slightly
+                                        end: Offset.zero,
+                                      ).animate(animation);
+
+                                      return SlideTransition(
+                                        position: slideAnimation,
+                                        child: FadeTransition(
+                                          opacity: animation,
+                                          child: child,
+                                        ),
+                                      );
+                                    },
+
                     child: _isListening
-                        ? Row(
+                        ?
+
+                    _isTranscribing ? Lottie.asset("assets/images/loader_dark.json"):Row(
                       key: const ValueKey('micMode'),
-                      children: [
-                        const SizedBox(width: 0),
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: Colors.grey.shade200,
-                          child: IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () {
-                              _timer?.cancel();
-                              _speechTimer.stop();
-                              _stopMicMonitoring();
-                              setState(() {
-                                _isListening = false;
-                                _isTranscribing = false;
-                              });
-                            },
+                  children: [
+                        const SizedBox(width: 3),
+                        // ❌ Cancel Button with Border
+                        Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.transparent,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFFC8C8C8),
+                              width: 1,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: ChatGPTScrollingWaveform(
-                              key: const ValueKey('waveform'),
-                              durationText: _formattedDuration,
-                              isSpeaking: _isSpeaking,
+                          child: CircleAvatar(
+                            radius: 17,
+                            backgroundColor: Colors.white,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              icon:  Icon(
+                                Icons.close,
+                                size: 24,
+                                weight: 2,
+                                color: theme.icon,
+                              ),
+                              onPressed: () async {
+                                try {
+                                  _timer?.cancel();
+                                  _speechTimer.stop();
+                                  await _audioRecorder.stop();
+                                  stopNativeVad();
+                                  if (mounted) {
+                                    setState(() {
+                                      _isListening = false;
+                                      _isTranscribing = false;
+                                    });
+                                  }
+                                } catch (e) {
+                                  print('❌ Error stopping mic: $e');
+                                }
+                              },
                             ),
                           ),
                         ),
-                        Text(
-                          _formattedDuration,
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+
+                        // 🔊 Waveform
+                        Expanded(
+                          flex: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 40),
+                            child: ChatGPTScrollingWaveform(
+                              key: const ValueKey('waveform'),
+                              isSpeech: _isSpeaking,
+                              rms: _currentRms,
+                            ),
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        _isTranscribing
-                            ?  CircleAvatar(
-                          maxRadius: 17,
-                          backgroundColor: theme.icon,
-                          child: CupertinoActivityIndicator(color: Colors.white),
-                        )
-                            : GestureDetector(
-                          onTap: () async {
-                            _timer?.cancel();
-                            _speechTimer.stop();
-                            _stopMicMonitoring();
-                            setState(() => _isTranscribing = true);
 
-                            final path = await _audioRecorder.stop();
-                            if (path != null) _recordingPath = path;
+                        // ✅ Done / Transcribe Button
+                        Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.primary,
+                              width: 1,
+                            ),
+                          ),
+                          child: GestureDetector(
+                            onTap: () async {
+                              try {
+                                _timer?.cancel();
+                                _speechTimer.stop();
 
-                            final file = File(_recordingPath);
-                            if (file.existsSync()) {
-                              await _transcribeAudio();
-                            } else {
-                              setState(() {
-                                _isListening = false;
-                                _isTranscribing = false;
-                              });
-                            }
-                          },
-                          child: const CircleAvatar(
-                            backgroundColor: Colors.black,
-                            radius: 16,
-                            child: Icon(Icons.check, size: 16, color: Colors.white),
+                                startNativeVad();
+
+                                setState(() => _isTranscribing = true);
+
+                                final path = await _audioRecorder.stop();
+                                if (path != null) _recordingPath = path;
+
+                                final file = File(_recordingPath);
+                                if (file.existsSync()) {
+                                  await _transcribeAudio();
+                                } else {
+                                  if (mounted) {
+                                    setState(() {
+                                      _isListening = false;
+                                      _isTranscribing = false;
+                                    });
+                                  }
+                                }
+                              } catch (e) {
+                                print('❌ Error in check flow: $e');
+                                if (mounted) {
+                                  setState(() {
+                                    _isListening = false;
+                                    _isTranscribing = false;
+                                  });
+                                }
+                              }
+                            },
+                            child: CircleAvatar(
+                              backgroundColor: AppColors.primary,
+                              radius: 18,
+                              child: Icon(
+                                PhosphorIcons.check(PhosphorIconsStyle.bold),
+                                size: 24,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -1309,7 +1731,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
                             overlay.insert(entry);
                             Future.delayed(const Duration(seconds: 2), () => entry.remove());
                           },
-                          icon: Icon(Icons.add, size: 30),
+                          icon: Icon(Icons.add, size: 30,color: theme.icon,),
                         ),
 
                         const SizedBox(width: 16),
@@ -1323,44 +1745,66 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
                             GestureDetector(
                               onTap: () async {
                                 HapticFeedback.heavyImpact();
-                                    if (await _audioRecorder.hasPermission()) {
+                                if (await _audioRecorder.hasPermission()) {
+                                  setState(() {
+                                    _isOverwritingTranscript = _controller.text.isNotEmpty;
+                                  });
+
+                                  final dir = await getTemporaryDirectory();
+                                  _recordingPath = '${dir.path}/audio.wav';
+
+                                  final recordConfig = RecordConfig(
+                                    encoder: AudioEncoder.wav,
+                                    bitRate: 128000,
+                                    sampleRate: 44100,
+                                    numChannels: 1,
+                                  );
+
+                                  await _audioRecorder.start(recordConfig, path: _recordingPath);
+                                  startNativeVad();
+                                  _speechTimer.reset();
+                                  _speechTimer.start();
+
+                                  _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+                                    if (mounted) {
                                       setState(() {
-                                        _isOverwritingTranscript = _controller.text.isNotEmpty;
-                                      });
-
-                                      final dir = await getTemporaryDirectory();
-                                      _recordingPath = '${dir.path}/audio.wav';
-
-                                      final recordConfig = RecordConfig(
-                                        encoder: AudioEncoder.wav,
-                                        bitRate: 128000,
-                                        sampleRate: 44100,
-                                        numChannels: 1,
-                                      );
-
-                                      await _audioRecorder.start(recordConfig, path: _recordingPath);
-                                      _startMicMonitoring();
-                                      _speechTimer.reset();
-                                      _speechTimer.start();
-
-                                      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-                                        if (mounted) {
-                                          setState(() {
-                                            _formattedDuration = _formatDuration(_speechTimer.elapsed);
-                                          });
-                                        }
-                                      });
-
-                                      setState(() {
-                                        _isListening = true;
-                                        _formattedDuration = '00:00';
+                                        _formattedDuration = _formatDuration(_speechTimer.elapsed);
                                       });
                                     }
+                                  });
+
+                                  setState(() {
+                                    _isListening = true;
+                                    _formattedDuration = '00:00';
+                                  });
+                                }
                               },
                               child: Image.asset("assets/images/mic_2.png", height: 40,color: theme.icon,),
                             ),
-                           SizedBox(width: 10,),
-                            if (_isTyping || _controller.text.isNotEmpty || _isTranscribing) ...[
+                            SizedBox(width: 10,),
+                            // if (_isTyping || _controller.text.isNotEmpty || _isTranscribing) ...[
+                            //   _buildCircleButton(
+                            //     bgColor: const Color(0xFFF66A00),
+                            //     onTap: () {
+                            //       if (!mounted) return;
+                            //       if (_isTyping) {
+                            //         _stopResponse();
+                            //       } else {
+                            //         _sendMessage();
+                            //       }
+                            //     },
+                            //     iconWidget: AnimatedSwitcher(
+                            //       duration: const Duration(milliseconds: 300),
+                            //       child: Icon(
+                            //         _isTyping ? Icons.stop : Icons.arrow_upward,
+                            //         key: ValueKey(_isTyping),
+                            //         color: Colors.white,
+                            //       ),
+                            //     ),
+                            //   ),
+                            //   const SizedBox(width: 12),
+                            // ],
+                            if (_isTyping || _controller.text.isNotEmpty || _isTranscribing)
                               _buildCircleButton(
                                 bgColor: const Color(0xFFF66A00),
                                 onTap: () {
@@ -1371,17 +1815,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
                                     _sendMessage();
                                   }
                                 },
-                                iconWidget: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 300),
-                                  child: Icon(
-                                    _isTyping ? Icons.stop : Icons.arrow_upward,
-                                    key: ValueKey(_isTyping),
-                                    color: Colors.white,
-                                  ),
+                                iconWidget: Icon(
+                                  _isTyping ? Icons.stop : Icons.arrow_upward,
+                                  key: ValueKey(_isTyping),
+                                  color: Colors.white,
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                            ],
 
                             // Mic icon always present at right
                           ],
@@ -1407,240 +1846,968 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
     );
   }
 
+  Row MicMode(AppTheme theme) {
+    return Row(
+                    key: const ValueKey('micMode'),
+                    children: [
+                      const SizedBox(width: 3),
+                      // ❌ Cancel Button with Border
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFFC8C8C8),
+                            width: 1,
+                          ),
+                        ),
+                        child: CircleAvatar(
+                          radius: 17,
+                          backgroundColor: Colors.white,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon:  Icon(
+                              Icons.close,
+                              size: 24,
+                              weight: 2,
+                              color: theme.icon,
+                            ),
+                            onPressed: () async {
+                              try {
+                                _timer?.cancel();
+                                _speechTimer.stop();
+                                await _audioRecorder.stop();
+                                stopNativeVad();
+                                if (mounted) {
+                                  setState(() {
+                                    _isListening = false;
+                                    _isTranscribing = false;
+                                  });
+                                }
+                              } catch (e) {
+                                print('❌ Error stopping mic: $e');
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+
+                      // 🔊 Waveform
+                      Expanded(
+                        flex: 2,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 40),
+                          child: ChatGPTScrollingWaveform(
+                            key: const ValueKey('waveform'),
+                            isSpeech: _isSpeaking,
+                            rms: _currentRms,
+                          ),
+                        ),
+                      ),
+
+                      // ✅ Done / Transcribe Button
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.primary,
+                            width: 1,
+                          ),
+                        ),
+                        child: GestureDetector(
+                          onTap: () async {
+                            try {
+                              _timer?.cancel();
+                              _speechTimer.stop();
+
+                              startNativeVad();
+
+                              setState(() => _isTranscribing = true);
+
+                              final path = await _audioRecorder.stop();
+                              if (path != null) _recordingPath = path;
+
+                              final file = File(_recordingPath);
+                              if (file.existsSync()) {
+                                await _transcribeAudio();
+                              } else {
+                                if (mounted) {
+                                  setState(() {
+                                    _isListening = false;
+                                    _isTranscribing = false;
+                                  });
+                                }
+                              }
+                            } catch (e) {
+                              print('❌ Error in check flow: $e');
+                              if (mounted) {
+                                setState(() {
+                                  _isListening = false;
+                                  _isTranscribing = false;
+                                });
+                              }
+                            }
+                          },
+                          child: CircleAvatar(
+                            backgroundColor: AppColors.primary,
+                            radius: 18,
+                            child: Icon(
+                              PhosphorIcons.check(PhosphorIconsStyle.bold),
+                              size: 24,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+  }
+
 
 
   // Widget _buildInputFields() {
+  //   final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+  //
+  //   // Heartbeat + RMS modulation calculation
+  //   double maxRms = 0.1;
+  //   double rmsMod = (_displayedRms.clamp(0.0, maxRms)) / maxRms;
+  //   if (!_isSpeaking) rmsMod = 0.0;
+  //
+  //   // Heartbeat curve: value 0-1 → 0-π
+  //   double beat = sin(pi * _heartbeatValue);
+  //   double heartbeatMod = 0.50 * beat;
+  //   double modulation = (rmsMod + heartbeatMod).clamp(0.0, 1.0);
+  //
+  //   // Container height + glow
+  //   double baseHeight = 150;
+  //   double beatHeight = 35;
+  //   // More aggressive curve: modulation^1.5 for steep growth
+  //
+  //
+  //   double containerHeight = baseHeight + (beatHeight * modulation);
+  //
+  //   double glowIntensity = modulation;
+  //   BoxShadow glow = BoxShadow(
+  //     color: Colors.blue.withOpacity(0.18 + 0.20 * glowIntensity),
+  //     blurRadius: 32 + 20 * glowIntensity,
+  //     spreadRadius: 10 + 7 * glowIntensity,
+  //   );
+  //   BoxShadow outerGlow = BoxShadow(
+  //     color: Colors.blueAccent.withOpacity(0.08 + 0.18 * glowIntensity),
+  //     blurRadius: 56 + 24 * glowIntensity,
+  //     spreadRadius: 36 + 10 * glowIntensity,
+  //   );
+  //   double glowOverlayOpacity = 0.14 + 0.20 * glowIntensity;
+  //
   //   return Padding(
   //     padding: const EdgeInsets.all(1),
   //     child: Material(
+  //       color: theme.box,
   //       elevation: 20.0,
-  //       // shadowColor: Colors.bl,
-  //       child: Container(
-  //         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-  //         decoration: BoxDecoration(
-  //           color: Colors.white,
-  //           boxShadow: [
-  //             BoxShadow(
-  //               color: Colors.black.withOpacity(0.2),
-  //               blurRadius: 7,
-  //               spreadRadius: 1,
-  //               offset: const Offset(0, 1),
-  //             ),
-  //           ],
-  //           border: Border.all(color: Colors.grey.shade300),
-  //           borderRadius: const BorderRadius.only(
-  //             topLeft: Radius.circular(15),
-  //             topRight: Radius.circular(15),
-  //           ),
-  //         ),
-  //         child: Column(
-  //           mainAxisSize: MainAxisSize.min,
-  //           crossAxisAlignment: CrossAxisAlignment.start,
-  //           children: [
-  //             Column(
-  //               children: [
-  //                 Container(
-  //                   constraints: const BoxConstraints(minHeight: 40, maxHeight: 140),
-  //                   child: SingleChildScrollView(
-  //                     child: Scrollbar(
-  //                       child: TextField(
-  //                         style: TextStyle(
-  //                           fontFamily: "DM Sans",
-  //                           color: _isOverwritingTranscript ? Colors.grey.shade400 : Colors.black,
-  //                         ),
-  //                         autofocus: true,
-  //                         minLines: 1,
-  //                         maxLines: null,
-  //                         controller: _controller,
-  //                         focusNode: _focusNode,
-  //                         decoration: const InputDecoration(
-  //                           hintStyle: TextStyle(fontFamily: "DM Sans"),
-  //                           hintText: 'Ask anything...',
-  //                           border: InputBorder.none,
-  //                           contentPadding: EdgeInsets.zero,
-  //                         ),
-  //                         onChanged: (_) {
-  //                           if (mounted) setState(() {});
-  //                         },
-  //                         onSubmitted: (_) {
-  //                           if (mounted) _sendMessage();
-  //                         },
-  //                         textInputAction: TextInputAction.newline,
-  //                         keyboardType: TextInputType.multiline,
+  //       child: Stack(
+  //         children: [
+  //           AnimatedSwitcher(
+  //             duration: const Duration(milliseconds: 400),
+  //             switchInCurve: Curves.easeInOutCubic,
+  //             switchOutCurve: Curves.easeInOutCubic,
+  //             transitionBuilder: (child, animation) {
+  //               final slideAnimation = Tween<Offset>(
+  //                 begin: const Offset(0.0, 0.1), // slide up slightly
+  //                 end: Offset.zero,
+  //               ).animate(animation);
+  //
+  //               return SlideTransition(
+  //                 position: slideAnimation,
+  //                 child: FadeTransition(
+  //                   opacity: animation,
+  //                   child: child,
+  //                 ),
+  //               );
+  //             },
+  //             child: _isListening
+  //                 ? AnimatedBuilder(
+  //               animation: _heartbeatController,
+  //               builder: (context, child) {
+  //                 return Center(
+  //                   child: Container(
+  //                     height: containerHeight,
+  //                     width: double.infinity,
+  //                     margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+  //                     decoration: BoxDecoration(
+  //                       borderRadius: BorderRadius.circular(2),
+  //                       // border: Border.all(
+  //                       //   color: Color.lerp(
+  //                       //     Colors.white,
+  //                       //     Colors.white.withOpacity(0.1),
+  //                       //     _displayedRms / maxRms,
+  //                       //   )!.withOpacity(0.25 + 0.20 * _scaleAnim.value),
+  //                       //   width: _scaleAnim.value * 2.1,
+  //                       // ),
+  //                     ),
+  //                     child: Stack(
+  //                       fit: StackFit.expand,
+  //                       children: [
+  //                         // Mesh BG with blur
+  //                     ClipPath(
+  //                     clipper: ConvexTopClipper(modulation: modulation),
+  //                     child: AnimatedSwitcher(
+  //                       duration: const Duration(milliseconds: 600),
+  //                       switchInCurve: Curves.easeOut,
+  //                       switchOutCurve: Curves.easeIn,
+  //                       transitionBuilder: (child, animation) {
+  //                         return FadeTransition(
+  //                           opacity: animation,
+  //                           child: SlideTransition(
+  //                             position: Tween<Offset>(
+  //                               begin: const Offset(0.0, 0.1),
+  //                               end: Offset.zero,
+  //                             ).animate(animation),
+  //                             child: child,
+  //                           ),
+  //                         );
+  //                       },
+  //                       child:
+  //                       // _showStaticGradient
+  //                       //     ? Container(
+  //                       //   key: const ValueKey('static'),
+  //                       //   width: double.infinity,
+  //                       //   height: double.infinity,
+  //                       //   decoration: const BoxDecoration(
+  //                       //     gradient: LinearGradient(
+  //                       //       begin: Alignment.topLeft,
+  //                       //       end: Alignment.bottomRight,
+  //                       //       colors: [
+  //                       //         Color(0xFF7C5E57),
+  //                       //         Color(0xFFC06622),
+  //                       //       ],
+  //                       //     ),
+  //                       //   ),
+  //                       // )
+  //                       //     :
+  //                       Stack(
+  //                         key: const ValueKey('mesh'),
+  //                         children: [
+  //                           // Base mesh
+  //                           ImageFiltered(
+  //                             imageFilter: ImageFilter.blur(sigmaX: 35.0, sigmaY: 35.0),
+  //                             child: CustomPaint(
+  //                               size: const Size(510, 120),
+  //                               painter: ButteryMeshPainter(
+  //                                 positions: _meshPositions.map((a) => a.value).toList(),
+  //                                 colors: _meshColors.map((c) => c.value!.withOpacity(0.8)).toList(),
+  //                                 showShapes: true,
+  //                               ),
+  //                             ),
+  //                           ),
+  //                           // Overlay mesh
+  //                           ImageFiltered(
+  //                             imageFilter: ImageFilter.blur(sigmaX: 35.0, sigmaY: 35.0),
+  //                             child: CustomPaint(
+  //                               size: const Size(350, 140),
+  //                               painter: ButteryMeshPainter(
+  //                                 positions: _meshPositions.map((a) => a.value).toList(),
+  //                                 colors: _meshColors.map((a) => a.value!).toList(),
+  //                                 showShapes: true,
+  //                               ),
+  //                             ),
+  //                           ),
+  //                         ],
   //                       ),
   //                     ),
   //                   ),
+  //
+  //                     // Content
+  //                         Padding(
+  //                           padding: const EdgeInsets.symmetric(vertical: 35),
+  //                           child: _buildRecordingUI(),
+  //                         ),
+  //                       ],
+  //                     ),
+  //                   ),
+  //                 );
+  //               },
+  //             )
+  //
+  //                 :
+  //
+  //             // Container(
+  //             //   key: const ValueKey('textfield'),
+  //             //   width: double.infinity, // <-- fixes size for AnimatedSwitcher
+  //             //   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+  //             //   decoration: BoxDecoration(
+  //             //     color: theme.box,
+  //             //     boxShadow: [
+  //             //       BoxShadow(
+  //             //         color: theme.shadow,
+  //             //         blurRadius: 7,
+  //             //         spreadRadius: 1,
+  //             //         offset: const Offset(0, 1),
+  //             //       ),
+  //             //     ],
+  //             //     border: Border.all(color: theme.box),
+  //             //     borderRadius: const BorderRadius.only(
+  //             //       topLeft: Radius.circular(15),
+  //             //       topRight: Radius.circular(15),
+  //             //     ),
+  //             //   ),
+  //             //   child: Column(
+  //             //     mainAxisSize: MainAxisSize.min,
+  //             //     crossAxisAlignment: CrossAxisAlignment.start,
+  //             //     children: [
+  //             //       Column(
+  //             //         children: [
+  //             //           Container(
+  //             //             constraints: const BoxConstraints(
+  //             //                 minHeight: 40, maxHeight: 140),
+  //             //             child: SingleChildScrollView(
+  //             //               child: Scrollbar(
+  //             //                 child: TextField(
+  //             //                   style: TextStyle(
+  //             //                     fontFamily: "SF Pro Text",
+  //             //                     fontSize: 17.5,
+  //             //                     fontWeight: FontWeight.w400,
+  //             //                     color: _isOverwritingTranscript
+  //             //                         ? Colors.grey.shade400
+  //             //                         : theme.text,
+  //             //                   ),
+  //             //                   autofocus: true,
+  //             //                   minLines: 1,
+  //             //                   maxLines: null,
+  //             //                   controller: _controller,
+  //             //                   focusNode: _focusNode,
+  //             //                   decoration: InputDecoration(
+  //             //                     hintStyle: TextStyle(
+  //             //                       fontWeight: FontWeight.w400,
+  //             //                       fontFamily: "SF Pro Text",
+  //             //                       color: Colors.grey.shade600,
+  //             //                       fontSize: 17.5,
+  //             //                     ),
+  //             //                     hintText: 'Ask anything',
+  //             //                     border: InputBorder.none,
+  //             //                     contentPadding:
+  //             //                     const EdgeInsets.only(left: 10),
+  //             //                   ),
+  //             //                   onChanged: (_) {
+  //             //                     if (mounted) setState(() {});
+  //             //                   },
+  //             //                   onSubmitted: (_) {
+  //             //                     if (mounted) _sendMessage();
+  //             //                   },
+  //             //                   textInputAction: TextInputAction.newline,
+  //             //                   keyboardType: TextInputType.multiline,
+  //             //                 ),
+  //             //               ),
+  //             //             ),
+  //             //           ),
+  //             //           RecordingUI(theme),
+  //             //           SizedBox(height: _keyboardInset > 0 ? 0 : 20),
+  //             //         ],
+  //             //       ),
+  //             //     ],
+  //             //   ),
+  //             // ),
+  //
+  //             Container(
+  //               key: const ValueKey('textfield'),
+  //               width: double.infinity,
+  //               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+  //               decoration: BoxDecoration(
+  //                 color: theme.box,
+  //                 boxShadow: [
+  //                   BoxShadow(
+  //                     color: theme.shadow,
+  //                     blurRadius: 7,
+  //                     spreadRadius: 1,
+  //                     offset: const Offset(0, 1),
+  //                   ),
+  //                 ],
+  //                 border: Border.all(color: theme.box),
+  //                 borderRadius: const BorderRadius.only(
+  //                   topLeft: Radius.circular(15),
+  //                   topRight: Radius.circular(15),
   //                 ),
-  //                 const SizedBox(height: 20),
-  //                 Row(
-  //                   children: [
-  //                     if (!_isListening) ...[
-  //                       _buildCircleButton(
-  //                         icon: Icons.add,
-  //                         onTap: () {
-  //                           final overlay = Overlay.of(context);
-  //                           final renderBox = context.findRenderObject() as RenderBox;
-  //                           final size = renderBox.size;
-  //                           final offset = renderBox.localToGlobal(Offset.zero);
-  //
-  //                           final entry = OverlayEntry(
-  //                             builder: (context) => Positioned(
-  //                               top: offset.dy + 600,
-  //                               left: offset.dx + (size.width / 2) - 140,
-  //                               child: Material(
-  //                                 color: Colors.transparent,
-  //                                 child: AnimatedComingSoonTooltip(),
-  //                               ),
-  //                             ),
-  //                           );
-  //
-  //                           overlay.insert(entry);
-  //                           Future.delayed(const Duration(seconds: 2), () => entry.remove());
-  //                         },
+  //               ),
+  //               child: Column(
+  //                 mainAxisSize: MainAxisSize.min,
+  //                 crossAxisAlignment: CrossAxisAlignment.start,
+  //                 children: [
+  //                   // Remove ConstrainedBox and use Flexible instead
+  //                   Flexible(
+  //                     child: TextField(
+  //                       controller: _controller,
+  //                       focusNode: _focusNode,
+  //                       keyboardType: TextInputType.multiline,
+  //                       textInputAction: TextInputAction.newline,
+  //                       minLines: 1,
+  //                       maxLines: null, // Allow unlimited lines
+  //                       expands: false,
+  //                       style: TextStyle(
+  //                         fontFamily: "SF Pro Text",
+  //                         fontSize: 17.5,
+  //                         fontWeight: FontWeight.w400,
+  //                         color: _isOverwritingTranscript
+  //                             ? Colors.grey.shade400
+  //                             : theme.text,
   //                       ),
-  //                       const SizedBox(width: 12),
-  //                       const Spacer(),
-  //                       _buildCircleButton(
-  //                         icon: Icons.mic,
-  //                         onTap: () async {
-  //                           HapticFeedback.heavyImpact();
-  //                           if (await _audioRecorder.hasPermission()) {
-  //                             setState(() {
-  //                               _isOverwritingTranscript = _controller.text.isNotEmpty;
-  //                             });
-  //                             final dir = await getTemporaryDirectory();
-  //                             _recordingPath = '${dir.path}/audio.wav';
-  //
-  //                             final recordConfig = RecordConfig(
-  //                               encoder: AudioEncoder.wav,
-  //                               bitRate: 128000,
-  //                               sampleRate: 44100,
-  //                               numChannels: 1,
-  //                             );
-  //
-  //                             await _audioRecorder.start(recordConfig, path: _recordingPath);
-  //                             _startMicMonitoring();
-  //                             _speechTimer.reset();
-  //                             _speechTimer.start();
-  //
-  //                             _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-  //                               if (mounted) {
-  //                                 setState(() {
-  //                                   _formattedDuration = _formatDuration(_speechTimer.elapsed);
-  //                                 });
-  //                               }
-  //                             });
-  //
-  //                             setState(() {
-  //                               _isListening = true;
-  //                               _formattedDuration = '00:00';
-  //                             });
-  //                           }
-  //                         },
-  //                       ),
-  //                       const SizedBox(width: 8),
-  //                     ],
-  //
-  //                     if (!_isListening && (_isTyping || _controller.text.isNotEmpty || _isTranscribing))
-  //                       _buildCircleButton(
-  //                         bgColor: const Color(0xFFF66A00),
-  //   onTap: () {
-  //                           if (!mounted) return;
-  //                           if (_isTyping) {
-  //                             _stopResponse();
-  //                           } else {
-  //                             _sendMessage();
-  //                           }
-  //                         },                          iconWidget: AnimatedSwitcher(
-  //                           duration: const Duration(milliseconds: 300),
-  //                           transitionBuilder: (child, animation) => ScaleTransition(
-  //                             scale: animation,
-  //                             child: child,
-  //                           ),
-  //                           child: Icon(
-  //                             _isTyping ? Icons.stop : Icons.arrow_upward,
-  //                             key: ValueKey(_isTyping),
-  //                             color: Colors.white,
-  //                           ),
+  //                       decoration: InputDecoration(
+  //                         hintText: 'Ask anything',
+  //                         hintStyle: TextStyle(
+  //                           fontWeight: FontWeight.w400,
+  //                           fontFamily: "SF Pro Text",
+  //                           color: Colors.grey.shade600,
+  //                           fontSize: 17.5,
   //                         ),
+  //                         border: InputBorder.none,
+  //                         contentPadding: const EdgeInsets.only(left: 10, bottom: 12),
   //                       ),
+  //                       onChanged: (_) {
+  //                         if (mounted) setState(() {});
+  //                       },
+  //                       onSubmitted: (_) {
+  //                         if (mounted) _sendMessage();
+  //                       },
+  //                     ),
+  //                   ),
+  //                   RecordingUI(theme),
+  //                   SizedBox(height: _keyboardInset > 0 ? 0 : 20),
+  //                 ],
+  //               ),
+  //             )
   //
-  //                     if (_isListening) ...[
-  //                       const SizedBox(width: 4),
-  //                       CircleAvatar(
-  //                         backgroundColor: Colors.grey.shade200,
-  //                         child: IconButton(
-  //                           icon: const Icon(Icons.close),
-  //                           onPressed: () {
-  //                             _timer?.cancel();
-  //                             _speechTimer.stop();
-  //                             _stopMicMonitoring();
-  //                             setState(() {
-  //                               _isListening = false;
-  //                               _isTranscribing = false;
-  //                             });
-  //                           },
-  //                         ),
-  //                       ),
-  //                       const SizedBox(width: 8),
-  //                       Expanded(
-  //                         child: Padding(
-  //                           padding: const EdgeInsets.symmetric(horizontal: 8),
-  //                           child: ChatGPTScrollingWaveform(
-  //                             key: const ValueKey('waveform'),
-  //                             durationText: _formattedDuration,
-  //                             isSpeaking: _isSpeaking,
-  //                           ),
-  //                         ),
-  //                       ),
-  //                       Text(
-  //                         _formattedDuration,
-  //                         style: const TextStyle(fontWeight: FontWeight.w500),
-  //                       ),
-  //                       const SizedBox(width: 8),
-  //                       _isTranscribing
-  //                           ? const CircleAvatar(
-  //                         backgroundColor: Colors.black,
-  //                         child: CupertinoActivityIndicator(color: Colors.white),
-  //                       )
-  //                           : GestureDetector(
-  //                         onTap: () async {
-  //                           _timer?.cancel();
-  //                           _speechTimer.stop();
-  //                           _stopMicMonitoring();
-  //                           setState(() => _isTranscribing = true);
   //
-  //                           final path = await _audioRecorder.stop();
-  //                           if (path != null) _recordingPath = path;
-  //
-  //                           final file = File(_recordingPath);
-  //                           if (file.existsSync()) {
-  //                             await _transcribeAudio(); // uses animation + append
-  //                           } else {
-  //                             setState(() {
-  //                               _isListening = false;
-  //                               _isTranscribing = false;
-  //                             });
-  //                           }
-  //                         },
-  //                         child: const CircleAvatar(
-  //                           backgroundColor: Colors.black,
-  //                           radius: 16,
-  //                           child: Icon(Icons.check, size: 16, color: Colors.white),
-  //                         ),
-  //                       ),
-  //                     ],
-  //                   ],
-  //                 ),
-  //               ],
-  //             ),
-  //           ],
-  //         ),
+  //           ),
+  //         ],
   //       ),
   //     ),
   //   );
   // }
 
+
+  Row TextFieldUI(AppTheme theme) {
+    return Row(
+      key: const ValueKey('micMode'),
+      children: [
+        const SizedBox(width: 3),
+        CircleAvatar(
+          radius: 17,
+          backgroundColor: Colors.grey.shade200,
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            icon:  Icon(Icons.close,size: 30,weight: 2,color: theme.icon,),
+            onPressed: () async{
+              try {
+                _timer.cancel();
+                _speechTimer.stop();
+
+                // ✅ Hard stop audio recording
+                await _audioRecorder.stop();
+
+                // ✅ Stop mic monitoring if required
+                //_stopMicMonitoring(); // make this async if needed
+                await stopNativeVad();
+                if (mounted) {
+                  setState(() {
+                    _isListening = false;
+                    _isTranscribing = false;
+                  });
+                }
+              } catch (e) {
+                print('❌ Error stopping mic: $e');
+              }
+            },
+          ),
+        ),
+        const SizedBox(width: 2),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: BlackSlidingWaveform(
+              isSpeaking: _isSpeaking,
+              isActive: _isSpeaking,
+              rms: _currentRms,
+              key: const ValueKey('waveform'),
+              //durationText: _formattedDuration,
+              //isSpeaking: _isSpeaking,
+            ),
+          ),
+        ),
+        Text(
+          _formattedDuration,
+          style:  TextStyle(fontSize: 13,
+              fontWeight: FontWeight.w500,color: theme.text),
+        ),
+        const SizedBox(width: 8),
+        _isTranscribing
+            ?  CircleAvatar(
+          maxRadius: 17,
+          backgroundColor: theme.icon,
+          child: CupertinoActivityIndicator(color: Colors.white),
+        )
+            : GestureDetector(
+          onTap: () async {
+          },
+          child:  CircleAvatar(
+            backgroundColor: Colors.black,
+            radius: 17,
+            child: GestureDetector(
+              // padding: EdgeInsets.zero,
+              onTap: ()async{
+                try {
+                  _timer.cancel();
+                  _speechTimer.stop();
+
+                  // ✅ Stop monitoring
+                  //_stopMicMonitoring();
+                  await stopNativeVad();
+                  setState(() => _isTranscribing = true);
+
+                  // ✅ Stop and save audio
+                  final path = await _audioRecorder.stop();
+                  if (path != null) _recordingPath = path;
+
+                  final file = File(_recordingPath);
+                  if (file.existsSync()) {
+                    await _transcribeAudio();
+                  } else {
+                    if (mounted) {
+                      setState(() {
+                        _isListening = false;
+                        _isTranscribing = false;
+                      });
+                    }
+                  }
+                } catch (e) {
+                  print('❌ Error in check flow: $e');
+                  if (mounted) {
+                    setState(() {
+                      _isListening = false;
+                      _isTranscribing = false;
+                    });
+                  }
+                }
+              },
+              child: Icon(PhosphorIcons.check(
+                  PhosphorIconsStyle.bold
+              ), size: 24, color: Colors.white)
+              ,
+
+            ),
+          ),
+        )
+      ],
+    );
+  }
+
+
+  Widget _buildRecordingUI() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      child: Row(
+        children: [
+          // Cancel Button - Centered
+          _isTranscribing? SizedBox.shrink():  Container(
+            width: 40,
+            height: 40,
+            decoration:  BoxDecoration(
+              // border: Border.all(
+              //     color: Colors.white
+              // ),
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.3),
+            ),
+            child: IconButton(
+              padding: EdgeInsets.zero,
+              icon: Center(
+                child:
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Transform.rotate(
+                      angle: 0.785398,
+                      child: Container(
+                        width: 25,
+                        height: 4, // Thickness control
+                        color: Colors.white,
+                      ),
+                    ),
+                    Transform.rotate(
+                      angle: -0.785398,
+                      child: Container(
+                        width: 25,
+                        height: 4, // Thickness control
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                )
+              ),
+              onPressed: () async {
+                try {
+                  _timer.cancel();
+                  _speechTimer.stop();
+                  await _audioRecorder.stop();
+                  await stopNativeVad();
+                  if (mounted) {
+                    setState(() {
+                      _isListening = false;
+                      _isTranscribing = false;
+                    });
+                  }
+                } catch (e) {
+                  print('❌ Error stopping mic: $e');
+                }
+              },
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // ✅ Recording pill with timer + waveform
+          _isTranscribing == true ? Expanded(
+            child: Container(
+              // margin: const EdgeInsets.only(top: 6, bottom: 2),
+              height: 65,
+              width: 65,
+              child: Lottie.asset(
+                'assets/images/mic_loading.json',
+                repeat: true,
+                //  fit: BoxFit.cover,
+              ),
+            ),
+          ):
+          Expanded(
+            child: Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // ⏱️ Timer
+                  Flexible(
+                    flex: 0,
+                    child: Text(
+                      _formattedDuration,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+
+                 // const SizedBox(width: 12),
+
+                  // 📊 Waveform inside the container
+                  Expanded(
+                    flex: 11,
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(240),  // 👈 curvy right side
+                        bottomRight: Radius.circular(240),
+                      ),
+                      child: ShaderMask(
+                        shaderCallback: (Rect bounds) {
+                          return const LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              Colors.transparent,
+                              Colors.white,
+                              Colors.white,
+                              Colors.transparent,
+                            ],
+                            stops: [0.0, 0.05, 1.0, 1.0],
+                          ).createShader(bounds);
+                        },
+                        blendMode: BlendMode.dstIn,
+                        child: ChatGPTScrollingWaveform(
+                          isSpeech: _isSpeaking,
+                          rms: _currentRms,
+                          key: const ValueKey('waveform'),
+                        ),
+                      ),
+                    ),
+                  )
+
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // ✅ Checkmark / Spinner Button
+          // _isTranscribing
+          //     ?  Container(
+          //   // maxRadius: 19,
+          //   // backgroundColor: Colors.black26,
+          //   decoration:  BoxDecoration(
+          //     border: Border.all(
+          //         color: Colors.white
+          //     ),
+          //     shape: BoxShape.circle,
+          //     color: Colors.white.withOpacity(0.3),
+          //   ),
+          //   width: 40,
+          //   height: 40,
+          //   child: CupertinoActivityIndicator(color: Colors.white),
+          // )
+          //     :
+          _isTranscribing ? SizedBox.shrink() :  GestureDetector(
+              onTap: () async {
+                try {
+                  _timer.cancel();
+                  _speechTimer.stop();
+                  await stopNativeVad();
+                  setState(() => _isTranscribing = true);
+
+                  final path = await _audioRecorder.stop();
+                  if (path != null) _recordingPath = path;
+
+                  final file = File(_recordingPath);
+                  if (file.existsSync()) {
+                    await _transcribeAudio();
+                  } else {
+                    if (mounted) {
+                      setState(() {
+                        _isListening = false;
+                        _isTranscribing = false;
+                      });
+                    }
+                  }
+                } catch (e) {
+                  print('❌ Error in check flow: $e');
+                  if (mounted) {
+                    setState(() {
+                      _isListening = false;
+                      _isTranscribing = false;
+                    });
+                  }
+                }
+              },
+              child: Container(
+                width: 40,
+                height: 40,
+                // backgroundColor: Colors.white.withOpacity(0.3),
+                // radius: 19,
+                decoration:  BoxDecoration(
+                  border: Border.all(
+                      color: Colors.white
+                  ),
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                ),
+                child: Center(
+                  child:
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Multiple positioned icons for thickness effect
+                      Icon(Icons.check, size: 24, color: AppColors.primary),
+
+                      // Slight offsets for thickness
+                      Positioned(
+                        left: 0.5,
+                        child: Icon(Icons.check, size: 24, color: AppColors.primary),
+                      ),
+                      Positioned(
+                        left: -0.5,
+                        child: Icon(Icons.check, size: 24, color: AppColors.primary),
+                      ),
+                      Positioned(
+                        top: 0.5,
+                        child: Icon(Icons.check, size: 24, color: AppColors.primary),
+                      ),
+                      Positioned(
+                        top: -0.5,
+                        child: Icon(Icons.check, size: 24, color: AppColors.primary),
+                      ),
+
+                      // Diagonal offsets for extra thickness
+                      Positioned(
+                        left: 0.5,
+                        top: 0.5,
+                        child: Icon(Icons.check, size: 24, color: AppColors.primary),
+                      ),
+                      Positioned(
+                        left: -0.5,
+                        top: -0.5,
+                        child: Icon(Icons.check, size: 24, color: AppColors.primary),
+                      ),
+                      Positioned(
+                        left: 0.5,
+                        top: -0.5,
+                        child: Icon(Icons.check, size: 24, color: AppColors.primary),
+                      ),
+                      Positioned(
+                        left: -0.5,
+                        top: 0.5,
+                        child: Icon(Icons.check, size: 24, color: AppColors.primary),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
+  Row RecordingUI(AppTheme theme) {
+    return Row(
+      key: const ValueKey('normalMode'),
+      children: [
+        // Left-side Add Button
+        IconButton(
+          onPressed: () {
+            final overlay = Overlay.of(context);
+            final renderBox = context.findRenderObject() as RenderBox;
+            final size = renderBox.size;
+            final offset = renderBox.localToGlobal(Offset.zero);
+
+            final entry = OverlayEntry(
+              builder: (context) => Positioned(
+                top: offset.dy + 600,
+                left: offset.dx + (size.width / 2) - 140,
+                child: Material(
+                  color: Colors.transparent,
+                  child: AnimatedComingSoonTooltip(),
+                ),
+              ),
+            );
+
+            overlay.insert(entry);
+            Future.delayed(const Duration(seconds: 2), () => entry.remove());
+          },
+          icon: Icon(Icons.add, size: 30),
+        ),
+
+        const SizedBox(width: 16),
+
+        Spacer(),
+
+        // Conditionally render send + mic or only mic
+        Row(
+          //mainAxisSize: MainAxisSize.min,
+          children: [
+            Transform.translate(
+              offset: Offset(1, _micButtonOffset),
+              child: GestureDetector(
+                onTap: () async {
+                  HapticFeedback.heavyImpact();
+                  if (await _audioRecorder.hasPermission()) {
+                    setState(() {
+                      _isOverwritingTranscript = _controller.text.isNotEmpty;
+                    });
+
+                    final dir = await getTemporaryDirectory();
+                    _recordingPath = '${dir.path}/audio.wav';
+
+                    final recordConfig = RecordConfig(
+                      encoder: AudioEncoder.wav,
+                      bitRate: 128000,
+                      sampleRate: 44100,
+                      numChannels: 1,
+                    );
+
+                    await _audioRecorder.start(recordConfig, path: _recordingPath);
+                    //_startMicMonitoring();
+                    _speechTimer.reset();
+                    _speechTimer.start();
+                    await startNativeVad();
+
+                    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+                      if (mounted) {
+                        setState(() {
+                          _formattedDuration = _formatDuration(_speechTimer.elapsed);
+                        });
+                      }
+                    });
+
+                    setState(() {
+                      _isListening = true;
+                      _formattedDuration = '00:00';
+                    });
+                  }
+                },
+                child: Image.asset("assets/images/mic_2.png", height: 40,color: theme.icon,),
+              ),
+            ),
+            SizedBox(width: 10,),
+            if (_isTyping || _controller.text.isNotEmpty || _isTranscribing)
+              _buildCircleButton(
+                bgColor: const Color(0xFFF66A00),
+                onTap: () {
+                  if (!mounted) return;
+                  if (_isTyping) {
+                    _stopResponse();
+                  } else {
+                    _sendMessage();
+                  }
+                },
+                iconWidget: Icon(
+                  _isTyping ? Icons.stop : Icons.arrow_upward,
+                  key: ValueKey(_isTyping),
+                  color: Colors.white,
+                ),
+              ),
+
+            // Mic icon always present at right
+          ],
+        ),
+      ],
+    );
+  }
+
+  startRecording()async{
+    HapticFeedback.heavyImpact();
+    if (await _audioRecorder.hasPermission()) {
+      setState(() {
+        _isRecording = true;
+        _isOverwritingTranscript = _controller.text.isNotEmpty;
+      });
+
+      _slideAnimationController.forward();
+      final dir = await getTemporaryDirectory();
+      _recordingPath = '${dir.path}/audio.wav';
+
+      final recordConfig = RecordConfig(
+        encoder: AudioEncoder.wav,
+        bitRate: 128000,
+        sampleRate: 44100,
+        numChannels: 1,
+      );
+
+      await _audioRecorder.start(recordConfig, path: _recordingPath);
+      //_startMicMonitoring();
+      _speechTimer.reset();
+      _speechTimer.start();
+      await startNativeVad();
+
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) {
+          setState(() {
+            _formattedDuration = _formatDuration(_speechTimer.elapsed);
+          });
+        }
+      });
+
+      setState(() {
+        _isListening = true;
+        _formattedDuration = '00:00';
+      });
+    }
+  }
 
 
   Widget _buildCircleButton({
@@ -1651,6 +2818,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
     Color bgColor = Colors.transparent,
   }) {
     final bool isFilled = bgColor != Colors.transparent;
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
     return TweenAnimationBuilder<double>(
       duration: const Duration(milliseconds: 100),
@@ -1699,1057 +2867,323 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver{
     );
   }
 
-}
 
-Widget _buildStyledBotMessage({
-  required String fullText,
-  required bool isComplete,
-  required bool isLatest,
-}) {
-  final theme = locator<ThemeService>().currentTheme;
+  Widget _buildStyledBotMessage({
+    required String fullText,
+    required bool isComplete,
+    required bool isLatest,
+  }) {
+    final theme = locator<ThemeService>().currentTheme;
 
-  final style = TextStyle(
-    fontSize: 18, // ✅ matches ChatGPT iOS
-    fontFamily: 'SF Pro Text',
-    fontWeight: FontWeight.w400,
-    height: 1.9, // ✅ better line height for dense layout
-    color: theme.text,
-  );
+    final style = TextStyle(
+      // fontSize: 17, // ✅ matches ChatGPT iOS
+      // fontFamily: 'SF Pro Text',
+      // fontWeight: FontWeight.w400,
+      // height: 1.9, // ✅ better line height for dense layout
+      // color: theme.text,
+      fontFamily: 'DM Sans',
+      fontSize: 16,
+      fontWeight: FontWeight.w500,
+      height: 1.75,
+      color: theme.text,
+    );
 
-  List<TextSpan> processTextWithFormatting(String text) {
-    final regexBold = RegExp(r"\*\*(.+?)\*\*");
-    List<TextSpan> spans = [];
+    List<TextSpan> processTextWithFormatting(String text) {
+      final regexBold = RegExp(r"\*\*(.+?)\*\*");
+      List<TextSpan> spans = [];
 
-    String remainingText = text;
-    int lastMatchEnd = 0;
+      int lastMatchEnd = 0;
 
-    for (var match in regexBold.allMatches(text)) {
-      if (match.start > lastMatchEnd) {
+      for (var match in regexBold.allMatches(text)) {
+        if (match.start > lastMatchEnd) {
+          spans.add(TextSpan(
+            text: text.substring(lastMatchEnd, match.start),
+            style: style,
+          ));
+        }
+
         spans.add(TextSpan(
-          text: text.substring(lastMatchEnd, match.start),
+          text: match.group(1),
+          style: style.copyWith(fontWeight: FontWeight.w700,height: 1.5,color: theme.text,fontFamily: "SF Pro Text"),
+        ));
+
+        lastMatchEnd = match.end;
+      }
+
+      if (lastMatchEnd < text.length) {
+        spans.add(TextSpan(
+          text: text.substring(lastMatchEnd),
           style: style,
         ));
       }
 
-      spans.add(TextSpan(
-        text: match.group(1),
-        style: style.copyWith(fontWeight: FontWeight.bold),
-      ));
-
-      lastMatchEnd = match.end;
+      return spans;
     }
 
-    if (lastMatchEnd < text.length) {
-      spans.add(TextSpan(
-        text: text.substring(lastMatchEnd),
-        style: style,
-      ));
+    final lines = fullText.trim().split('\n');
+    List<TextSpan> spans = [];
+
+    for (var line in lines) {
+      if (line.trim().isEmpty) {
+        spans.add(const TextSpan(text: '\n'));
+        continue;
+      }
+
+      String emoji = '';
+      if (line.trim().startsWith(RegExp(r"^(\*|•|-|\\d+\\.)\\s"))){
+        emoji = '👉 ';
+      } else if (line.contains('Tip') || line.contains('Note')) {
+        emoji = '💡 ';
+      } else if (line.contains('Save') || line.contains('budget')) {
+        emoji = '💰 ';
+      }
+
+      spans.add(TextSpan(text: '\n$emoji'));
+      spans.addAll(processTextWithFormatting(line));
     }
 
-    return spans;
-  }
-
-  final lines = fullText.trim().split('\n');
-  List<TextSpan> spans = [];
-
-  for (var line in lines) {
-    if (line.trim().isEmpty) {
-      spans.add(const TextSpan(text: '\n'));
-      continue;
-    }
-
-    String emoji = '';
-    if (line.trim().startsWith(RegExp(r"1\.|2\.|3\.|•|-"))) {
-      emoji = '👉 ';
-    } else if (line.contains('Tip') || line.contains('Note')) {
-      emoji = '💡 ';
-    } else if (line.contains('Save') || line.contains('budget')) {
-      emoji = '💰 ';
-    }
-
-    spans.add(TextSpan(text: '\n$emoji'));
-    spans.addAll(processTextWithFormatting(line));
-  }
-
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 4, top: 2), // 🔻 reduce outer spacing
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(style: style, children: spans),
-        ),
-        const SizedBox(height: 15), // 🔻 smaller than 15
-        Opacity(
-          opacity: isComplete ? 1 : 0,
-          child: Row(
-            children: const [
-              Icon(Icons.copy, size: 14, color: Colors.grey),
-              SizedBox(width: 12),
-              Icon(Icons.thumb_up_alt_outlined, size: 16, color: Colors.grey),
-              SizedBox(width: 12),
-              Icon(Icons.thumb_down_alt_outlined, size: 16, color: Colors.grey),
-            ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4, top: 2), // 🔻 reduce outer spacing
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(
+            text: TextSpan(style: style, children: spans),
           ),
-        ),
-      ],
-    ),
-  );
-}
-
-
-
-// Widget _buildStyledBotMessage({
-//   required String fullText,
-//   required bool isComplete,
-//   required bool isLatest,
-// }) {
-//   final theme = locator<ThemeService>().currentTheme;
-//   // final style =  TextStyle(
-//   //   fontSize: 14.5,
-//   //   color: theme.text,
-//   //   height: 1.6,
-//   //   fontFamily: 'DM Sans',
-//   //   fontWeight: FontWeight.w400,
-//   // );
-//   final style = TextStyle(
-//     fontSize: 17.5, // ✅ matches ChatGPT iOS
-//     fontFamily: 'SF Pro Text',
-//     fontWeight: FontWeight.w400,
-//     height: 1.8, // ✅ better line height for dense layout
-//     color: Colors.black,
-//   );
-//
-//
-//   // Function to process text with bold formatting
-//   List<TextSpan> processTextWithFormatting(String text) {
-//     final regexBold = RegExp(r"\*\*(.+?)\*\*");
-//     List<TextSpan> spans = [];
-//
-//     String remainingText = text;
-//     int lastMatchEnd = 0;
-//
-//     for (var match in regexBold.allMatches(text)) {
-//       if (match.start > lastMatchEnd) {
-//         spans.add(TextSpan(
-//           text: text.substring(lastMatchEnd, match.start),
-//           style: style,
-//         ));
-//       }
-//
-//       spans.add(TextSpan(
-//         text: match.group(1),
-//         style: style.copyWith(fontWeight: FontWeight.bold),
-//       ));
-//
-//       lastMatchEnd = match.end;
-//     }
-//
-//     if (lastMatchEnd < text.length) {
-//       spans.add(TextSpan(
-//         text: text.substring(lastMatchEnd),
-//         style: style,
-//       ));
-//     }
-//
-//     return spans;
-//   }
-//
-//   final lines = fullText.trim().split('\n');
-//   List<TextSpan> spans = [];
-//
-//   for (var line in lines) {
-//     if (line.trim().isEmpty) {
-//       spans.add(const TextSpan(text: '\n'));
-//       continue;
-//     }
-//
-//     String emoji = '';
-//     if (line.trim().startsWith(RegExp(r"1\.|2\.|3\.|•|-"))) {
-//       emoji = '👉 ';
-//     } else if (line.contains('Tip') || line.contains('Note')) {
-//       emoji = '💡 ';
-//     } else if (line.contains('Save') || line.contains('budget')) {
-//       emoji = '💰 ';
-//     }
-//
-//     spans.add(TextSpan(text: '\n$emoji'));
-//     spans.addAll(processTextWithFormatting(line));
-//   }
-//
-//   return Container(
-//     padding: const EdgeInsets.symmetric(horizontal: 4),
-//     decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
-//     child: Column(
-//       crossAxisAlignment: CrossAxisAlignment.start,
-//       children: [
-//         RichText(
-//           text: TextSpan(style: style, children: spans),
-//         ),
-//         const SizedBox(height: 15),
-//         Row(
-//           children: [
-//             Visibility(
-//               visible: true,
-//               maintainSize: true,
-//               maintainAnimation: true,
-//               maintainState: true,
-//               child: Opacity(
-//                 opacity: isComplete ? 1 : 0,
-//                 child: const Icon(Icons.copy, size: 14, color: Colors.grey),
-//               ),
-//             ),
-//             const SizedBox(width: 12),
-//             Visibility(
-//               visible: true,
-//               maintainSize: true,
-//               maintainAnimation: true,
-//               maintainState: true,
-//               child: Opacity(
-//                 opacity: isComplete ? 1 : 0,
-//                 child: const Icon(Icons.thumb_up_alt_outlined, size: 16, color: Colors.grey),
-//               ),
-//             ),
-//             const SizedBox(width: 12),
-//             Visibility(
-//               visible: true,
-//               maintainSize: true,
-//               maintainAnimation: true,
-//               maintainState: true,
-//               child: Opacity(
-//                 opacity: isComplete ? 1 : 0,
-//                 child: const Icon(Icons.thumb_down_alt_outlined, size: 16, color: Colors.grey),
-//               ),
-//             ),
-//           ],
-//         ),
-//       ],
-//     ),
-//   );
-// }
-
-
-
-class StreamingText extends StatefulWidget {
-  final String text;
-  final TextStyle style;
-
-  const StreamingText({super.key, required this.text, required this.style});
-
-  @override
-  State<StreamingText> createState() => _StreamingTextState();
-}
-
-class _StreamingTextState extends State<StreamingText>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<int> _dotCount;
-
-  @override
-  void initState() {
-    super.initState();
-    // 🧼 Clear focus once on load
-    Future.delayed(Duration.zero, () {
-      FocusScope.of(context).unfocus();
-    });
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..repeat();
-
-    _dotCount = StepTween(begin: 0, end: 3).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _dotCount,
-      builder: (context, _) {
-        final dots = '.' * _dotCount.value;
-        return Text(
-          '${widget.text}$dots',
-          style: widget.style,
-        );
-      },
-    );
-  }
-}
-
-
-
-class StreamingRichText extends StatefulWidget {
-  final List<InlineSpan> spans;
-  final TextStyle style;
-
-  const StreamingRichText({super.key, required this.spans, required this.style});
-
-  @override
-  State<StreamingRichText> createState() => _StreamingRichTextState();
-}
-
-class _StreamingRichTextState extends State<StreamingRichText>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<int> _charCount;
-  String _fullText = '';
-  List<InlineSpan> _partialSpans = [];
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Flatten spans to get full string for animation count
-    _fullText = widget.spans.map((span) => span.toPlainText()).join();
-    final totalLength = _fullText.length;
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: totalLength * 30),
-    )..forward();
-
-    _charCount = StepTween(begin: 0, end: totalLength).animate(_controller)
-      ..addListener(() {
-        final visibleText = _fullText.substring(0, _charCount.value);
-        _partialSpans = _buildVisibleSpans(visibleText);
-        if (mounted) setState(() {});
-      });
-  }
-
-  List<InlineSpan> _buildVisibleSpans(String visibleText) {
-    List<InlineSpan> visibleSpans = [];
-    int currentIndex = 0;
-
-    for (final span in widget.spans) {
-      final spanText = span.toPlainText();
-      final remaining = visibleText.length - currentIndex;
-
-      if (remaining <= 0) break;
-
-      final chunk = spanText.substring(0, remaining.clamp(0, spanText.length));
-      visibleSpans.add(TextSpan(
-        text: chunk,
-        style: span is TextSpan ? span.style : null,
-      ));
-      currentIndex += chunk.length;
-    }
-
-    return visibleSpans;
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RichText(
-      text: TextSpan(style: widget.style, children: _partialSpans),
-    );
-  }
-}
-
-
-
-class AnimatedDot extends StatefulWidget {
-  final int delay;
-
-  const AnimatedDot({
-    Key? key,
-    this.delay = 0,
-  }) : super(key: key);
-
-  @override
-  State<AnimatedDot> createState() => _AnimatedDotState();
-}
-
-class _AnimatedDotState extends State<AnimatedDot> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    _animation = Tween<double>(begin: 0, end: 6).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    // Add delay if specified
-    if (widget.delay > 0) {
-      Future.delayed(Duration(milliseconds: widget.delay), () {
-        if (mounted) {
-          _controller.forward();
-        }
-      });
-    } else {
-      _controller.forward();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        return SizedBox.shrink();
-      },
-    );
-  }
-}
-
-class VoiceWaveform extends StatefulWidget {
-  const VoiceWaveform({Key? key}) : super(key: key);
-
-  @override
-  State<VoiceWaveform> createState() => _VoiceWaveformState();
-}
-
-class _VoiceWaveformState extends State<VoiceWaveform>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late List<Animation<double>> _barAnimations;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    )..repeat(reverse: true);
-
-    _barAnimations = List.generate(5, (i) {
-      final start = i * 0.1;
-      final end = start + 0.4;
-      return Tween<double>(begin: 6, end: 20).animate(
-        CurvedAnimation(
-          parent: _controller,
-          curve: Interval(start, end, curve: Curves.easeInOut),
-        ),
-      );
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(_barAnimations.length, (index) {
-        return AnimatedBuilder(
-          animation: _controller,
-          builder: (_, __) => Container(
-            margin: const EdgeInsets.symmetric(horizontal: 2),
-            width: 4,
-            height: _barAnimations[index].value,
-            decoration: BoxDecoration(
-              color: Colors.orange,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-}
-
-
-
-
-
-
-class AnimatedComingSoonTooltip extends StatefulWidget {
-  @override
-  _AnimatedComingSoonTooltipState createState() => _AnimatedComingSoonTooltipState();
-}
-
-class _AnimatedComingSoonTooltipState extends State<AnimatedComingSoonTooltip>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<Offset> _slide;
-  late Animation<double> _fade;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-    _slide = Tween<Offset>(
-      begin: const Offset(0, 0.2),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-
-    _fade = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SlideTransition(
-      position: _slide,
-      child: FadeTransition(
-        opacity: _fade,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
+          const SizedBox(height: 15), // 🔻 smaller than 15
+          Row(
+            children: [
+              Visibility(
+                visible: true,
+                maintainSize: true,
+                maintainAnimation: true,
+                maintainState: true,
+                child: AnimatedOpacity(
+                  duration: Duration(milliseconds: 300),
+                  opacity: isComplete ? 1 : 0,
+                  child: const Icon(Icons.copy, size: 14, color: Colors.grey),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Visibility(
+                visible: true,
+                maintainSize: true,
+                maintainAnimation: true,
+                maintainState: true,
+                child: Opacity(
+                  opacity: isComplete ? 1 : 0,
+                  child: const Icon(Icons.thumb_up_alt_outlined, size: 16, color: Colors.grey),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Visibility(
+                visible: true,
+                maintainSize: true,
+                maintainAnimation: true,
+                maintainState: true,
+                child: Opacity(
+                  opacity: isComplete ? 1 : 0,
+                  child: const Icon(Icons.thumb_down_alt_outlined, size: 16, color: Colors.grey),
+                ),
               ),
             ],
           ),
-          child: const Text(
-            'Coming Soon!',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
+        ],
       ),
     );
   }
-}
 
-
-
-class AddShortcutCard extends StatelessWidget {
-  const AddShortcutCard({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final displayMessages = _showOnlyLatestDuringTyping && messages.length > 2
+        ? messages.sublist(messages.length - 4)
+        : _visibleMessages;
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     return GestureDetector(
-      onTap: () {
-        final overlay = Overlay.of(context);
-        final renderBox = context.findRenderObject() as RenderBox;
-        final size = renderBox.size;
-        final offset = renderBox.localToGlobal(Offset.zero);
-
-        final entry = OverlayEntry(
-          builder: (context) => Positioned(
-            top: offset.dy + size.height + 8,
-            left: offset.dx + size.width / 2 - 60,
-            child: Material(
-              color: Colors.transparent,
-              child: _ComingSoonTooltip(),
-            ),
-          ),
-        );
-
-        overlay.insert(entry);
-        Future.delayed(const Duration(seconds: 2), () => entry.remove());
-      },
-      child: Container(
-        height: 94,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: const Color(0xFF2F2F2F),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+      behavior: HitTestBehavior.opaque,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        backgroundColor: theme.background,
+        body: Stack(
           children: [
-            Row(
+            Column(
               children: [
-                Icon(Icons.add, color: Colors.white, size: 20),
-                SizedBox(width: 6),
-                Text(
-                  "Add Shortcut",
-                  style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white,fontSize: 16,fontFamily: 'DM Sans'),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      _chatHeight = constraints.maxHeight;
+                      return ListView.builder(
+                        controller: _scrollController,
+                        reverse: false,
+                        padding: const EdgeInsets.all(20),
+                        itemCount: displayMessages.length,
+                        itemBuilder: (context, index) {
+                          // if(displayMessages.isEmpty){
+                          //   print(_scrollController.offset);
+                          //  print(_scrollController.position.maxScrollExtent);
+                          //  print(_scrollController.position.minScrollExtent);
+                          //   print("OFFSET");
+                          // }
+                          // if (index == displayMessages.length) {
+                          //  // print("Got here");
+                          //   return SizedBox(height: _chatHeight - 101);
+                          // }
+                          // print(_latestUserMessageHeight);
+                          // print(_chatHeight);
+                          // if (index == displayMessages.length) {
+                          //  return SizedBox(height: _chatHeight  -_latestUserMessageHeight + 16);
+                          // }
+                          final msg = displayMessages[index];
+                          return _buildMessageRow(msg);
+                        },
+                      );
+                    },
+                  ),
                 ),
+             _isListening? SizedBox.shrink():   AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 400),
+                  transitionBuilder: (Widget child, Animation<double> animation) {
+                    final offsetAnimation = Tween<Offset>(
+                      begin: const Offset(1.0, 0.0),
+                      end: Offset.zero,
+                    ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
+                    return SlideTransition(position: offsetAnimation, child: child);
+                  },
+                  child: (_hasLoadedMessages &&
+                      !messages.any((m) => m['role'] == 'user') &&
+                      _controller.text.isEmpty)
+                      ? SizedBox(
+                    key: const ValueKey('quickChips'),
+                    height: 94,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      children: [
+                        SizedBox(
+                          height: 100,
+                          child: _quickChip(
+                            onpressed: () {
+                              final text = "What’s happening in the market today?";
+                              setState(() {
+                                _controller.text = text;
+                                _controller.selection = TextSelection.fromPosition(
+                                  TextPosition(offset: text.length),
+                                );
+                              });
+                            },
+                            title: "Market News",
+                            subtitle: "What’s happening in the market today?",
+                            maxWidth: 220,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        _quickChip(
+                          onpressed: () {
+                            final text = "How’s my portfolio doing?";
+                            setState(() {
+                              _controller.text = text;
+                              _controller.selection = TextSelection.fromPosition(
+                                TextPosition(offset: text.length),
+                              );
+                            });
+                          },
+                          title: "My Portfolio",
+                          subtitle: "How’s my portfolio doing?",
+                          maxWidth: 220,
+                        ),
+                        const SizedBox(width: 12),
+                        AddShortcutCard(),
+                      ],
+                    ),
+                  )
+                      : const SizedBox.shrink(key: ValueKey('emptyQuickChips')),
+                ),
+               const SizedBox(height: 5),
+                _buildInputFields(),
               ],
             ),
-            SizedBox(height: 2),
-            Text(
-              " Create your own quick prompt",
-              style: TextStyle(fontSize: 14, color: Colors.white,fontFamily: "DM Sans"),
-            ),
+
+            // 🔽 Scroll to bottom FAB
+            if (_showScrollToBottomButton)
+              Positioned(
+                bottom: 150,
+                left: MediaQuery.of(context).size.width / 2 - 26,
+                child: GestureDetector(
+                  onTap: () {
+                    _scrollController.animateTo(
+                      _scrollController.position.maxScrollExtent,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    );
+                  },
+                  child: Container(
+                    height: 35,
+                    width: 35,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.transparent,
+                      border: Border.all(
+                        color:  Colors.grey.shade400,
+                        width: 1.2,
+                      ),
+                    ),
+                    child: const Icon(Icons.arrow_downward_rounded, size: 26),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
-}
 
-class _ComingSoonTooltip extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
-      ),
-      child: const Text(
-        "Coming soon",
-        style: TextStyle(color: Colors.white, fontSize: 13),
-      ),
-    );
-  }
+
+
 }
 
 
 
 
-class TypewriterAnimatedText extends StatefulWidget {
-  final String text;
-  final TextStyle style;
-  final Duration duration;
-  final bool isComplete;
 
-  const TypewriterAnimatedText({
-    Key? key,
-    required this.text,
-    required this.style,
-    required this.duration,
-    required this.isComplete,
-  }) : super(key: key);
 
+
+class StaticGradientPainter extends CustomPainter {
   @override
-  _TypewriterAnimatedTextState createState() => _TypewriterAnimatedTextState();
-}
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
 
-class _TypewriterAnimatedTextState extends State<TypewriterAnimatedText> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-  String _displayedText = "";
-  bool _isAnimating = true;
+    final paint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFF7C5E57),
+          Color(0xFFC06622),
+        ],
+      ).createShader(rect);
 
-  @override
-  void initState() {
-    super.initState();
+    final path = Path()
+      ..moveTo(0, 20)
+      ..quadraticBezierTo(size.width / 2, 0, size.width, 20)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
 
-    _controller = AnimationController(
-      duration: widget.duration,
-      vsync: this,
-    );
-
-    _animation = Tween<double>(begin: 0, end: 1).animate(_controller)
-      ..addListener(() {
-        final characterCount = (widget.text.length * _animation.value).floor();
-        if (mounted) {
-          setState(() {
-            _displayedText = widget.text.substring(0, characterCount);
-          });
-        }
-      })
-      ..addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          setState(() {
-            _isAnimating = false;
-            _displayedText = widget.text;
-          });
-        }
-      });
-
-    // Start animation only if not already complete
-    if (!widget.isComplete) {
-      _controller.forward();
-    } else {
-      _displayedText = widget.text;
-      _isAnimating = false;
-    }
+    canvas.drawPath(path, paint);
   }
 
   @override
-  void didUpdateWidget(TypewriterAnimatedText oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // If text changed and is still not complete, animate the rest
-    if (widget.text != oldWidget.text && !widget.isComplete) {
-      final charCount = oldWidget.text.length;
-      final totalChars = widget.text.length;
-
-      if (totalChars > charCount) {
-        // Calculate what portion has been revealed
-        final revealedPortion = charCount / totalChars;
-
-        // Update the displayed text with what we already have
-        _displayedText = widget.text.substring(0, charCount);
-
-        // Reset animation to start from current point
-        _controller.reset();
-        _animation = Tween<double>(
-          begin: revealedPortion,
-          end: 1.0,
-        ).animate(_controller);
-
-        _isAnimating = true;
-        _controller.forward();
-      } else {
-        // If text got shorter (unlikely but possible)
-        _displayedText = widget.text;
-      }
-    }
-
-    // If message is now complete but was animating before
-    if (widget.isComplete && !oldWidget.isComplete) {
-      _controller.stop();
-      setState(() {
-        _displayedText = widget.text;
-        _isAnimating = false;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // If animation is done or text is complete, show full text
-    return RichText(
-      text: TextSpan(
-        style: widget.style,
-        text: _displayedText,
-      ),
-    );
-  }
-}
-
-// Enhanced typing indicator with pulse animation
-class EnhancedTypingIndicator extends StatefulWidget {
-  const EnhancedTypingIndicator({Key? key}) : super(key: key);
-
-  @override
-  _EnhancedTypingIndicatorState createState() => _EnhancedTypingIndicatorState();
-}
-
-class _EnhancedTypingIndicatorState extends State<EnhancedTypingIndicator> with TickerProviderStateMixin {
-  late List<AnimationController> _controllers;
-  late List<Animation<double>> _animations;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _controllers = List.generate(3, (index) {
-      return AnimationController(
-        duration: Duration(milliseconds: 600),
-        vsync: this,
-      );
-    });
-
-    _animations = _controllers.map((controller) {
-      return Tween<double>(begin: 0, end: 1).animate(
-        CurvedAnimation(
-          parent: controller,
-          curve: Curves.easeInOut,
-        ),
-      );
-    }).toList();
-
-    // Start animations with delays
-    for (var i = 0; i < _controllers.length; i++) {
-      Future.delayed(Duration(milliseconds: i * 200), () {
-        if (mounted) {
-          _controllers[i].repeat(reverse: true);
-        }
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    for (var controller in _controllers) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(3, (index) {
-        return AnimatedBuilder(
-          animation: _animations[index],
-          builder: (context, child) {
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              height: 8 + (4 * _animations[index].value),
-              width: 8 + (4 * _animations[index].value),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade600.withOpacity(0.6 + (0.4 * _animations[index].value)),
-                borderRadius: BorderRadius.circular(5),
-              ),
-            );
-          },
-        );
-      }),
-    );
-  }
-}
-
-
-Stream<wf.Amplitude> createSinusoidalAmplitudeStream() async* {
-  double t = 0.0;
-  while (true) {
-    await Future.delayed(const Duration(milliseconds: 50)); // smooth update
-    final value = 0.5 + 0.5 * math.sin(t); // 0 to 1
-    yield wf.Amplitude(
-      current: math.Random().nextDouble() * 100,
-      max: 100,
-    );
-    t += 0.2; // slow forward movement
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 
 
-class ChatGPTScrollingWaveform extends StatefulWidget {
-  final bool isSpeaking;
-  final String durationText;
 
-  const ChatGPTScrollingWaveform({
-    Key? key,
-    required this.isSpeaking,
-    required this.durationText,
-  }) : super(key: key);
 
-  @override
-  State<ChatGPTScrollingWaveform> createState() => _ChatGPTScrollingWaveformState();
-}
 
-class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform> {
-  final int maxBars = 40; // How many bars on screen at once
-  final Duration frameRate = const Duration(milliseconds: 60); // 60 FPS feel
-  final double flatHeight = 6; // Height when silent
-  final double speakingMin = 10; // Minimum height when speaking
-  final double speakingMax = 70; // Maximum height when speaking
-
-  final List<double> _waveform = [];
-  final random = math.Random();
-  Timer? _timer;
-  final theme = locator<ThemeService>().currentTheme;
-
-  @override
-  void initState() {
-    super.initState();
-    _waveform.addAll(List.generate(maxBars, (_) => flatHeight));
-    _startWaveformAnimation();
-  }
-
-  void _startWaveformAnimation() {
-    _timer = Timer.periodic(frameRate, (_) {
-      if (!mounted) return;
-
-      double nextHeight = widget.isSpeaking
-          ? speakingMin + random.nextDouble() * (speakingMax - speakingMin)
-          : flatHeight;
-
-      setState(() {
-        _waveform.add(nextHeight);
-        if (_waveform.length > maxBars) {
-          _waveform.removeAt(0); // Remove leftmost bar -> creates scrolling effect
-        }
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        // Cross button (Cancel)
-        // const Icon(Icons.close, size: 24),
-        // const SizedBox(width: 8),
-
-        // Waveform (scrolling bars)
-        Expanded(
-          child: SizedBox(
-            height: 40,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(_waveform.length, (index) {
-                  final barHeight = _waveform[index];
-                  final isAnimated = barHeight > flatHeight;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 1.5),
-                    child: AnimatedContainer(
-                      duration: frameRate,
-                      width: 4,
-                      height: _waveform[index],
-                      decoration: BoxDecoration(
-                        color: isAnimated ? AppColors.primary : Colors.grey.shade400,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
-          ),
-        ),
-
-        // const SizedBox(width: 8),
-        //
-        // // Timer (Duration text)
-        // Text(
-        //   widget.durationText,
-        //   style: const TextStyle(fontWeight: FontWeight.w500),
-        // ),
-        //
-        // const SizedBox(width: 8),
-        //
-        // // Tick button (Send)
-        // const Icon(Icons.check_circle, size: 24),
-      ],
-    );
-  }
-}
-
-// class ChatGPTScrollingWaveform extends StatefulWidget {
-//   final bool isSpeaking;
-//   final String durationText;
-//
-//   const ChatGPTScrollingWaveform({
-//     Key? key,
-//     required this.isSpeaking,
-//     required this.durationText,
-//   }) : super(key: key);
-//
-//   @override
-//   State<ChatGPTScrollingWaveform> createState() => _ChatGPTScrollingWaveformState();
-// }
-//
-// class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform> {
-//   final int maxBars = 40;
-//   final Duration frameRate = const Duration(milliseconds: 60);
-//   final double flatHeight = 6;
-//   final double speakingMin = 10;
-//   final double speakingMax = 70;
-//
-//   final List<double> _waveform = [];
-//   final random = math.Random();
-//   Timer? _timer;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _waveform.addAll(List.generate(maxBars, (_) => flatHeight));
-//     _startWaveformAnimation();
-//   }
-//
-//   void _startWaveformAnimation() {
-//     _timer = Timer.periodic(frameRate, (_) {
-//       if (!mounted) return;
-//
-//       double nextHeight = widget.isSpeaking
-//           ? speakingMin + random.nextDouble() * (speakingMax - speakingMin)
-//           : flatHeight;
-//
-//       setState(() {
-//         _waveform.add(nextHeight);
-//         if (_waveform.length > maxBars) {
-//           _waveform.removeAt(0);
-//         }
-//       });
-//     });
-//   }
-//
-//   @override
-//   void dispose() {
-//     _timer?.cancel();
-//     super.dispose();
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Row(
-//       children: [
-//         Expanded(
-//           child: SizedBox(
-//             height: 40,
-//             child: SingleChildScrollView(
-//               scrollDirection: Axis.horizontal,
-//               child: Row(
-//                 mainAxisAlignment: MainAxisAlignment.center,
-//                 children: List.generate(_waveform.length, (index) {
-//                   final barHeight = _waveform[index];
-//                   final isAnimated = barHeight > flatHeight;
-//
-//                   return Padding(
-//                     padding: const EdgeInsets.symmetric(horizontal: 1.5),
-//                     child: AnimatedContainer(
-//                       duration: frameRate,
-//                       width: 3,
-//                       height: barHeight,
-//                       decoration: BoxDecoration(
-//                         color: isAnimated ? AppColors.primary : Colors.grey.shade400,
-//                         borderRadius: BorderRadius.circular(2),
-//                       ),
-//                     ),
-//                   );
-//                 }),
-//               ),
-//             ),
-//           ),
-//         ),
-//       ],
-//     );
-//   }
-// }
 
 
 

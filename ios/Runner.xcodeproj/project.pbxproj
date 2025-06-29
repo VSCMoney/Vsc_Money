@@ -13,6 +13,21 @@
 		424A02B2DD092228D5D2B0E6 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BA15A07D5F4ADD96B7CF59CA /* Pods_Runner.framework */; };
 		62A52BF216340C789BCB1AF8 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3032033E1235F223228098E6 /* Pods_RunnerTests.framework */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
+		8E01297A2DFF55A400A4E9AC /* OpenMicProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0129792DFF55A400A4E9AC /* OpenMicProvider.swift */; };
+		8E01297E2DFF55D500A4E9AC /* YamnetVADDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E01297D2DFF55D500A4E9AC /* YamnetVADDelegate.swift */; };
+		8E0129802DFF55ED00A4E9AC /* AudioRecorderNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E01297F2DFF55ED00A4E9AC /* AudioRecorderNew.swift */; };
+		8E0129822DFF560D00A4E9AC /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0129812DFF560D00A4E9AC /* Configuration.swift */; };
+		8E0129842DFF562500A4E9AC /* FrameSize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0129832DFF562500A4E9AC /* FrameSize.swift */; };
+		8E0129862DFF563700A4E9AC /* SampleRate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0129852DFF563700A4E9AC /* SampleRate.swift */; };
+		8E0129882DFF565000A4E9AC /* YamnetFlutterPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0129872DFF565000A4E9AC /* YamnetFlutterPlugin.swift */; };
+		8E01298A2DFF568400A4E9AC /* YamnetVADStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0129892DFF568400A4E9AC /* YamnetVADStrategy.swift */; };
+		8E01298C2DFF569A00A4E9AC /* yamnet.tflite in Resources */ = {isa = PBXBuildFile; fileRef = 8E01298B2DFF569A00A4E9AC /* yamnet.tflite */; };
+		8E01298E2DFF56A000A4E9AC /* VADType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E01298D2DFF56A000A4E9AC /* VADType.swift */; };
+		8E0129902DFF56A500A4E9AC /* VADStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E01298F2DFF56A500A4E9AC /* VADStrategy.swift */; };
+		8E0129922DFF56A900A4E9AC /* VADState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0129912DFF56A900A4E9AC /* VADState.swift */; };
+		8E0129942DFF56B000A4E9AC /* VADQuality.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0129932DFF56B000A4E9AC /* VADQuality.swift */; };
+		8E7B49532DFF883B00A2BBA3 /* YamnetVADBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E7B49522DFF883B00A2BBA3 /* YamnetVADBridge.swift */; };
+		8E7B49552DFF8FBF00A2BBA3 /* YamnetVAD.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E7B49542DFF8FBF00A2BBA3 /* YamnetVAD.swift */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
@@ -56,6 +71,22 @@
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
 		7D81F116D509D01C3956E4B0 /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
+		8E0129792DFF55A400A4E9AC /* OpenMicProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenMicProvider.swift; sourceTree = "<group>"; };
+		8E01297D2DFF55D500A4E9AC /* YamnetVADDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YamnetVADDelegate.swift; sourceTree = "<group>"; };
+		8E01297F2DFF55ED00A4E9AC /* AudioRecorderNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorderNew.swift; sourceTree = "<group>"; };
+		8E0129812DFF560D00A4E9AC /* Configuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
+		8E0129832DFF562500A4E9AC /* FrameSize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameSize.swift; sourceTree = "<group>"; };
+		8E0129852DFF563700A4E9AC /* SampleRate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleRate.swift; sourceTree = "<group>"; };
+		8E0129872DFF565000A4E9AC /* YamnetFlutterPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YamnetFlutterPlugin.swift; sourceTree = "<group>"; };
+		8E0129892DFF568400A4E9AC /* YamnetVADStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YamnetVADStrategy.swift; sourceTree = "<group>"; };
+		8E01298B2DFF569A00A4E9AC /* yamnet.tflite */ = {isa = PBXFileReference; lastKnownFileType = file; path = yamnet.tflite; sourceTree = "<group>"; };
+		8E01298D2DFF56A000A4E9AC /* VADType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VADType.swift; sourceTree = "<group>"; };
+		8E01298F2DFF56A500A4E9AC /* VADStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VADStrategy.swift; sourceTree = "<group>"; };
+		8E0129912DFF56A900A4E9AC /* VADState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VADState.swift; sourceTree = "<group>"; };
+		8E0129932DFF56B000A4E9AC /* VADQuality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VADQuality.swift; sourceTree = "<group>"; };
+		8E7B49522DFF883B00A2BBA3 /* YamnetVADBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YamnetVADBridge.swift; sourceTree = "<group>"; };
+		8E7B49542DFF8FBF00A2BBA3 /* YamnetVAD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YamnetVAD.swift; sourceTree = "<group>"; };
+		8E91843C2E012533001D1F04 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
 		97C146EE1CF9000F007C117D /* Runner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Runner.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -120,6 +151,21 @@
 		97C146E51CF9000F007C117D = {
 			isa = PBXGroup;
 			children = (
+				8E7B49542DFF8FBF00A2BBA3 /* YamnetVAD.swift */,
+				8E7B49522DFF883B00A2BBA3 /* YamnetVADBridge.swift */,
+				8E0129932DFF56B000A4E9AC /* VADQuality.swift */,
+				8E0129912DFF56A900A4E9AC /* VADState.swift */,
+				8E01298F2DFF56A500A4E9AC /* VADStrategy.swift */,
+				8E01298D2DFF56A000A4E9AC /* VADType.swift */,
+				8E01298B2DFF569A00A4E9AC /* yamnet.tflite */,
+				8E0129892DFF568400A4E9AC /* YamnetVADStrategy.swift */,
+				8E0129872DFF565000A4E9AC /* YamnetFlutterPlugin.swift */,
+				8E0129852DFF563700A4E9AC /* SampleRate.swift */,
+				8E0129832DFF562500A4E9AC /* FrameSize.swift */,
+				8E0129812DFF560D00A4E9AC /* Configuration.swift */,
+				8E01297F2DFF55ED00A4E9AC /* AudioRecorderNew.swift */,
+				8E01297D2DFF55D500A4E9AC /* YamnetVADDelegate.swift */,
+				8E0129792DFF55A400A4E9AC /* OpenMicProvider.swift */,
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
 				97C146EF1CF9000F007C117D /* Products */,
@@ -142,6 +188,7 @@
 		97C146F01CF9000F007C117D /* Runner */ = {
 			isa = PBXGroup;
 			children = (
+				8E91843C2E012533001D1F04 /* Runner.entitlements */,
 				97C146FA1CF9000F007C117D /* Main.storyboard */,
 				97C146FD1CF9000F007C117D /* Assets.xcassets */,
 				97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */,
@@ -201,6 +248,7 @@
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				9F4884CD20A99150C3C333C9 /* [CP] Copy Pods Resources */,
+				BDEAA1AB6BD444F17E9649E9 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -266,6 +314,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */,
+				8E01298C2DFF569A00A4E9AC /* yamnet.tflite in Resources */,
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
@@ -322,6 +371,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		BDEAA1AB6BD444F17E9649E9 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		C53DF8672AF823C402204F45 /* [CP] Check Pods Manifest.lock */ = {
@@ -383,8 +449,22 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8E0129882DFF565000A4E9AC /* YamnetFlutterPlugin.swift in Sources */,
+				8E0129822DFF560D00A4E9AC /* Configuration.swift in Sources */,
+				8E01298A2DFF568400A4E9AC /* YamnetVADStrategy.swift in Sources */,
+				8E7B49552DFF8FBF00A2BBA3 /* YamnetVAD.swift in Sources */,
+				8E0129862DFF563700A4E9AC /* SampleRate.swift in Sources */,
+				8E01297A2DFF55A400A4E9AC /* OpenMicProvider.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
+				8E0129842DFF562500A4E9AC /* FrameSize.swift in Sources */,
+				8E7B49532DFF883B00A2BBA3 /* YamnetVADBridge.swift in Sources */,
+				8E01298E2DFF56A000A4E9AC /* VADType.swift in Sources */,
+				8E0129802DFF55ED00A4E9AC /* AudioRecorderNew.swift in Sources */,
+				8E01297E2DFF55D500A4E9AC /* YamnetVADDelegate.swift in Sources */,
+				8E0129902DFF56A500A4E9AC /* VADStrategy.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
+				8E0129922DFF56A900A4E9AC /* VADState.swift in Sources */,
+				8E0129942DFF56B000A4E9AC /* VADQuality.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -462,7 +542,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				NEW_SETTING = "";
 				SDKROOT = iphoneos;
@@ -478,6 +558,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = 2955SJ7P2R;
 				ENABLE_BITCODE = NO;
@@ -595,7 +676,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				NEW_SETTING = "";
 				ONLY_ACTIVE_ARCH = YES;
@@ -648,7 +729,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				NEW_SETTING = "";
 				SDKROOT = iphoneos;
@@ -666,6 +747,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = 2955SJ7P2R;
 				ENABLE_BITCODE = NO;
@@ -690,6 +772,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = 2955SJ7P2R;
 				ENABLE_BITCODE = NO;
