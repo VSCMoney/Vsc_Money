@@ -63,6 +63,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
   double _currentRms = 0.0;
   StreamSubscription? _vadSubscription;
   Timer? _rmsTimer;
+  final _textFieldKey = GlobalKey();
 
 
 
@@ -88,7 +89,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
   String _recognizedBackupText = '';
   bool _isOverwritingTranscript = false;
   double _keyboardInset = 0;
-  double _latestUserMessageHeight = 0; // 👈 add to your state
+  double _latestUserMessageHeight = 0;
+  final GlobalKey _lastUserMessageKey = GlobalKey();
   bool _isRecording = false;
   double _dragOffset = 0;
   double _micButtonOffset = 0;
@@ -374,6 +376,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
     });
   }
 
+  // void _scrollToLatestLikeChatPage() {
+  //   WidgetsBinding.instance.addPostFrameCallback((_) {
+  //     if (!_scrollController.hasClients) return;
+  //
+  //     final offset = _scrollController.offset;
+  //     final targetOffset = (offset + _chatHeight).clamp(
+  //       _scrollController.position.minScrollExtent,
+  //       _scrollController.position.maxScrollExtent,
+  //     );
+  //
+  //     _scrollController.animateTo(
+  //       targetOffset,
+  //       duration: const Duration(milliseconds: 400),
+  //       curve: Curves.easeOut,
+  //     );
+  //   });
+  // }
+
+
+
   void _startRmsSmoothing() {
     // Cancel any existing timer first
     _rmsTimer?.cancel();
@@ -401,8 +423,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
     _rmsTimer = null;
   }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   Future<void> startNativeVad() async {
     try {
+
+      var timeStamp = DateTime.now();
       await _vadSubscription?.cancel();
 
       // Platform-wise event channel
@@ -415,7 +457,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
         // On Android, key is usually 'rms'; on iOS, it's often 'rms' or 'rms_db'
         final rms = (event['rms'] ?? event['rms_db'] ?? 0.0).toDouble();
 
-        debugPrint('🎙️ VAD => isSpeech=$isSpeech | rms=${rms.toStringAsFixed(2)}');
+        debugPrint('🎙️ VAD => isSpeech=$isSpeech | rms=${rms.toStringAsFixed(2)}| ${DateTime.now()}');
 
         if (mounted) {
           setState(() {
@@ -435,6 +477,38 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
           });
         }
       });
+
+
+      // _vadSubscription = eventChannel.receiveBroadcastStream().listen((event) {
+      //   // iOS/Android - event keys may differ, so normalize here
+      //   final isSpeech = event['isSpeech'] ?? event['state'] == 'speech_detected' || false;
+      //   final rms = (event['rms'] ?? event['rms_db'] ?? 0.0).toDouble();
+      //
+      //   // Add RMS threshold check here too
+      //   double minRmsThreshold = 0.02; // Same threshold as waveform
+      //   bool actualSpeechDetected = isSpeech && rms > minRmsThreshold;
+      //
+      //   debugPrint('🎙️ VAD => isSpeech=$isSpeech | rms=${rms.toStringAsFixed(2)} | actual=$actualSpeechDetected');
+      //
+      //   if (mounted) {
+      //     setState(() {
+      //       _isSpeaking = actualSpeechDetected; // Use the refined detection
+      //       _currentRms = rms;
+      //       _updateHeartbeat(_isSpeaking);
+      //       _updateMeshAnimationSpeed(_isSpeaking);
+      //
+      //       if (actualSpeechDetected) {
+      //         double maxRms = 0.20;
+      //         double speed = lerpDouble(0.6, 1.3, (rms / maxRms).clamp(0, 1))!;
+      //         _heartbeatController.duration = Duration(milliseconds: (900 ~/ speed).clamp(300, 1200));
+      //         if (!_heartbeatController.isAnimating) _heartbeatController.repeat();
+      //       } else {
+      //         _heartbeatController.stop();
+      //         _heartbeatController.value = 0.0;
+      //       }
+      //     });
+      //   }
+      // });
 
       // Only once, when VAD starts
       _startRmsSmoothing();
@@ -467,6 +541,25 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
       debugPrint('❌ stopNativeVad error: $e');
     }
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -548,6 +641,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
 
 
   // Flag to show only latest exchange during typing
+
+
   bool _showOnlyLatestDuringTyping = false;
 
   String _formatDuration(Duration d) {
@@ -796,6 +891,49 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
   }
 
 
+
+
+
+
+
+  // void alignMessageTopToStaticY(GlobalKey messageKey, {double staticY = 250.0}) {
+  //   WidgetsBinding.instance.addPostFrameCallback((_) {
+  //     final messageContext = messageKey.currentContext;
+  //
+  //     if (messageContext == null) {
+  //       print("⏳ Message context not ready, retrying...");
+  //       Future.delayed(Duration(milliseconds: 100), () {
+  //         alignMessageTopToStaticY(messageKey, staticY: staticY);
+  //       });
+  //       return;
+  //     }
+  //
+  //     final RenderBox messageBox = messageContext.findRenderObject() as RenderBox;
+  //     final double messageTop = messageBox.localToGlobal(Offset.zero).dy;
+  //
+  //     final double adjustment = messageTop - staticY;
+  //
+  //     print(" Message Top Y: $messageTop");
+  //     print(" Static Target Y: $staticY");
+  //     print(" Scroll Adjustment: $adjustment");
+  //     print("Offset: ${_scrollController.offset}");
+  //
+  //     _scrollController.animateTo(
+  //       _scrollController.offset + adjustment,
+  //       duration: const Duration(milliseconds: 300),
+  //       curve: Curves.easeOut,
+  //     );
+  //   });
+  // }
+
+
+
+
+
+
+
+
+
   bool _userScrolledUp = false;
 
 
@@ -834,25 +972,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
       if (isFirstMessage) {
         widget.session.title = userMessage;
       }
-      // WidgetsBinding.instance.addPostFrameCallback((_) {
-      //   final context = userMessageKey.currentContext;
-      //   if (context != null) {
-      //     final height = context.size?.height ?? 0;
-      //     print("✅ User message bubble height: $height");
-      //
-      //     setState(() {
-      //       _latestUserMessageHeight = height;
-      //     });
-      //   } else {
-      //     print("⚠️ userMessageKey context is null");
-      //   }
-      // });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final context = userMessageKey.currentContext;
+        if (context != null) {
+          final height = context.size?.height ?? 0;
+          print("✅ User message bubble height: $height");
 
-      scrollBubbleToStaticPosition(userMessageKey, MediaQuery.of(context).size.height - 220);
+          setState(() {
+            _latestUserMessageHeight = height;
+          });
+        } else {
+          print("⚠️ userMessageKey context is null");
+        }
+      });
+
+      //scrollBubbleToStaticPosition(userMessageKey, MediaQuery.of(context).size.height - 220);
 
     });
 
     _scrollToLatestLikeChatPage();
+
+  //  _alignUserMessageToStaticTop(userMessageKey);
+
 
     try {
       if (isFirstMessage) {
@@ -1006,6 +1147,25 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   void _stopResponse() {
     try {
       _streamSubscription?.cancel();
@@ -1068,65 +1228,57 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
 
   bool _showScrollToBottomButton = false;
 
+
+  void _measureLatestUserHeight(GlobalKey key) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = key.currentContext;
+      if (context != null) {
+        final RenderBox? box = context.findRenderObject() as RenderBox?;
+        if (box != null && box.hasSize) {
+          final height = box.size.height;
+          if (mounted) {
+            setState(() {
+              _latestUserMessageHeight = height;
+            });
+          }
+          print("📏 Updated latest user message height: $height");
+        }
+      }
+    });
+  }
+
+
   Widget _buildMessageRow(Map<String, Object> msg) {
     final bool isUser = msg['role'] == 'user';
     final bool isLatest = msg == messages.last;
 
-    final bubbleKey = msg['key'] as Key?;
+    final bubbleKey = msg['key'] as GlobalKey?;
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
+    // 🧱 Function to get height from GlobalKey
+    void measureBubbleHeight(GlobalKey key) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final context = key.currentContext;
+        if (context != null) {
+          final RenderBox? box = context.findRenderObject() as RenderBox?;
+          if (box != null && box.hasSize) {
+            final height = box.size.height;
+            print("📏 User message bubble height: $height");
+          } else {
+            print("⚠️ RenderBox is not ready or has no size.");
+          }
+        } else {
+          print("⛔ Context is null for user bubble.");
+        }
+      });
+    }
 
     if (isUser) {
-      // return Transform.translate(
-      //   offset: const Offset(0, 10),
-      //   child: Padding(
-      //     padding: const EdgeInsets.only(top: 0, bottom: 0),
-      //     child: Align(
-      //       alignment: Alignment.centerRight,
-      //       child: Row(
-      //         mainAxisAlignment: MainAxisAlignment.end,
-      //         children: [
-      //           const SizedBox(width: 14),
-      //           GestureDetector(
-      //             onTap: () {
-      //               Clipboard.setData(ClipboardData(text: msg['msg'].toString()));
-      //               ScaffoldMessenger.of(context).showSnackBar(
-      //                 const SnackBar(content: Text('Copied to clipboard')),
-      //               );
-      //             },
-      //             child: const Icon(Icons.copy, size: 14, color: Color(0XFF7E7E7E)),
-      //           ),
-      //           const SizedBox(width: 10),
-      //           Flexible(
-      //             child: Container(
-      //               key: bubbleKey, // ✅ assign key only to latest user message
-      //               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      //               margin: const EdgeInsets.only(bottom: 2),
-      //               decoration: BoxDecoration(
-      //                 color: theme.message,
-      //                 borderRadius: BorderRadius.circular(22),
-      //               ),
-      //               child: Text(
-      //                 msg['msg'].toString(),
-      //                 style: TextStyle(
-      //                   // fontSize: 17,
-      //                   // fontFamily: '.SF Pro Text',
-      //                   // fontWeight: FontWeight.normal,
-      //                   // color: theme.text,
-      //                   height: 1.9,
-      //                   fontFamily: 'SF Pro Text',
-      //                   fontSize: 17.5,
-      //                   fontWeight: FontWeight.w500,
-      //                   color: Colors.black.withOpacity(0.85),
-      //                 ),
-      //               ),
-      //             ),
-      //           ),
-      //         ],
-      //       ),
-      //     ),
-      //   ),
-      // );
+      // ✅ Trigger height measurement for latest user message only
+      if (isLatest && bubbleKey != null) {
+        _measureLatestUserHeight(bubbleKey);
+      }
+
       return Transform.translate(
         offset: const Offset(0, 10),
         child: Padding(
@@ -1152,7 +1304,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
                     maxWidth: MediaQuery.of(context).size.width * 0.6,
                   ),
                   child: Container(
-                    key: bubbleKey, // ✅ assign key only to latest user message
+                    key: bubbleKey,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     margin: const EdgeInsets.only(bottom: 2),
                     decoration: BoxDecoration(
@@ -1183,79 +1335,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
           ),
         ),
       );
-
     }
-    // if (msg['role'] == 'user') {
-    //   return Transform.translate(
-    //     offset: const Offset(0, 25),
-    //     child: Padding(
-    //       padding: const EdgeInsets.only(top: 2, bottom: 0), // 🔻 tighter vertical gap
-    //       child: Align(
-    //         alignment: Alignment.centerRight,
-    //         child: Row(
-    //           mainAxisAlignment: MainAxisAlignment.end,
-    //           children: [
-    //             const SizedBox(width: 14),
-    //             GestureDetector(
-    //               onTap: () {
-    //                 Clipboard.setData(ClipboardData(text: msg['msg'].toString()));
-    //                 ScaffoldMessenger.of(context).showSnackBar(
-    //                   const SnackBar(content: Text('Copied to clipboard')),
-    //                 );
-    //               },
-    //               child: const Icon(Icons.copy, size: 14, color: Color(0XFF7E7E7E)),
-    //             ),
-    //             const SizedBox(width: 10),
-    //             Flexible(
-    //               child: Container(
-    //                 key: msg == messages.last ? _latestBotMessageKey : null,
-    //                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-    //                 margin: const EdgeInsets.only(bottom: 2), // 🔻 reduce bottom gap
-    //                 decoration: BoxDecoration(
-    //                   color: theme.message,
-    //                   borderRadius: BorderRadius.circular(22),
-    //                 ),
-    //                 child: Text(
-    //                   msg['msg'].toString(),
-    //                   style: TextStyle(
-    //                     fontSize: 18,
-    //                     fontFamily: 'SF Pro Text',
-    //                     fontWeight: FontWeight.w500,
-    //                     color: theme.text,
-    //                     height: 1.9,
-    //                   ),
-    //                 ),
-    //               ),
-    //             ),
-    //           ],
-    //         ),
-    //       ),
-    //     ),
-    //   );
-    // }
 
     if (msg['type'] == 'stocks' && msg['stocks'] is List) {
       final List<dynamic> stocks = msg['stocks'] as List<dynamic>;
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4), // 🔻 reduced for stock tiles too
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: _buildStockTileList(stocks),
       );
     }
 
-    // Default bot message
+    // 🧠 Default bot message
     final msgStr = msg['msg']?.toString() ?? '';
     final isComplete = msg['isComplete'] == true;
-   // final isLatest = msg == messages.last;
 
     return Align(
       alignment: Alignment.centerLeft,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-       // mainAxisSize: MainAxisSize.min,
         children: [
           msgStr.isEmpty
               ? _buildTypingIndicator()
-              :  _buildStyledBotMessage(
+              : _buildStyledBotMessage(
             fullText: msgStr,
             isComplete: isComplete,
             isLatest: isLatest,
@@ -1263,8 +1364,206 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
         ],
       ),
     );
-
   }
+
+
+  // Widget _buildMessageRow(Map<String, Object> msg) {
+  //   final bool isUser = msg['role'] == 'user';
+  //   final bool isLatest = msg == messages.last;
+  //
+  //   final bubbleKey = msg['key'] as Key?;
+  //   final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+  //
+  //
+  //   if (isUser) {
+  //     // return Transform.translate(
+  //     //   offset: const Offset(0, 10),
+  //     //   child: Padding(
+  //     //     padding: const EdgeInsets.only(top: 0, bottom: 0),
+  //     //     child: Align(
+  //     //       alignment: Alignment.centerRight,
+  //     //       child: Row(
+  //     //         mainAxisAlignment: MainAxisAlignment.end,
+  //     //         children: [
+  //     //           const SizedBox(width: 14),
+  //     //           GestureDetector(
+  //     //             onTap: () {
+  //     //               Clipboard.setData(ClipboardData(text: msg['msg'].toString()));
+  //     //               ScaffoldMessenger.of(context).showSnackBar(
+  //     //                 const SnackBar(content: Text('Copied to clipboard')),
+  //     //               );
+  //     //             },
+  //     //             child: const Icon(Icons.copy, size: 14, color: Color(0XFF7E7E7E)),
+  //     //           ),
+  //     //           const SizedBox(width: 10),
+  //     //           Flexible(
+  //     //             child: Container(
+  //     //               key: bubbleKey, // ✅ assign key only to latest user message
+  //     //               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+  //     //               margin: const EdgeInsets.only(bottom: 2),
+  //     //               decoration: BoxDecoration(
+  //     //                 color: theme.message,
+  //     //                 borderRadius: BorderRadius.circular(22),
+  //     //               ),
+  //     //               child: Text(
+  //     //                 msg['msg'].toString(),
+  //     //                 style: TextStyle(
+  //     //                   // fontSize: 17,
+  //     //                   // fontFamily: '.SF Pro Text',
+  //     //                   // fontWeight: FontWeight.normal,
+  //     //                   // color: theme.text,
+  //     //                   height: 1.9,
+  //     //                   fontFamily: 'SF Pro Text',
+  //     //                   fontSize: 17.5,
+  //     //                   fontWeight: FontWeight.w500,
+  //     //                   color: Colors.black.withOpacity(0.85),
+  //     //                 ),
+  //     //               ),
+  //     //             ),
+  //     //           ),
+  //     //         ],
+  //     //       ),
+  //     //     ),
+  //     //   ),
+  //     // );
+  //     return Transform.translate(
+  //       offset: const Offset(0, 10),
+  //       child: Padding(
+  //         padding: const EdgeInsets.only(top: 0, bottom: 0),
+  //         child: Align(
+  //           alignment: Alignment.centerRight,
+  //           child: Row(
+  //             mainAxisAlignment: MainAxisAlignment.end,
+  //             children: [
+  //               const SizedBox(width: 14),
+  //               GestureDetector(
+  //                 onTap: () {
+  //                   Clipboard.setData(ClipboardData(text: msg['msg'].toString()));
+  //                   ScaffoldMessenger.of(context).showSnackBar(
+  //                     const SnackBar(content: Text('Copied to clipboard')),
+  //                   );
+  //                 },
+  //                 child: const Icon(Icons.copy, size: 14, color: Color(0XFF7E7E7E)),
+  //               ),
+  //               const SizedBox(width: 10),
+  //               ConstrainedBox(
+  //                 constraints: BoxConstraints(
+  //                   maxWidth: MediaQuery.of(context).size.width * 0.6,
+  //                 ),
+  //                 child: Container(
+  //                   key: bubbleKey, // ✅ assign key only to latest user message
+  //                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+  //                   margin: const EdgeInsets.only(bottom: 2),
+  //                   decoration: BoxDecoration(
+  //                     boxShadow: [
+  //                       BoxShadow(
+  //                         color: Colors.black.withOpacity(0.08),
+  //                         blurRadius: 10,
+  //                         offset: const Offset(0, 3),
+  //                       ),
+  //                     ],
+  //                     color: theme.message,
+  //                     borderRadius: BorderRadius.circular(22),
+  //                   ),
+  //                   child: Text(
+  //                     msg['msg'].toString(),
+  //                     style: TextStyle(
+  //                       height: 1.9,
+  //                       fontFamily: 'DM Sans',
+  //                       fontSize: 16,
+  //                       fontWeight: FontWeight.w500,
+  //                       color: theme.text,
+  //                     ),
+  //                   ),
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //       ),
+  //     );
+  //
+  //   }
+  //   // if (msg['role'] == 'user') {
+  //   //   return Transform.translate(
+  //   //     offset: const Offset(0, 25),
+  //   //     child: Padding(
+  //   //       padding: const EdgeInsets.only(top: 2, bottom: 0), // 🔻 tighter vertical gap
+  //   //       child: Align(
+  //   //         alignment: Alignment.centerRight,
+  //   //         child: Row(
+  //   //           mainAxisAlignment: MainAxisAlignment.end,
+  //   //           children: [
+  //   //             const SizedBox(width: 14),
+  //   //             GestureDetector(
+  //   //               onTap: () {
+  //   //                 Clipboard.setData(ClipboardData(text: msg['msg'].toString()));
+  //   //                 ScaffoldMessenger.of(context).showSnackBar(
+  //   //                   const SnackBar(content: Text('Copied to clipboard')),
+  //   //                 );
+  //   //               },
+  //   //               child: const Icon(Icons.copy, size: 14, color: Color(0XFF7E7E7E)),
+  //   //             ),
+  //   //             const SizedBox(width: 10),
+  //   //             Flexible(
+  //   //               child: Container(
+  //   //                 key: msg == messages.last ? _latestBotMessageKey : null,
+  //   //                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+  //   //                 margin: const EdgeInsets.only(bottom: 2), // 🔻 reduce bottom gap
+  //   //                 decoration: BoxDecoration(
+  //   //                   color: theme.message,
+  //   //                   borderRadius: BorderRadius.circular(22),
+  //   //                 ),
+  //   //                 child: Text(
+  //   //                   msg['msg'].toString(),
+  //   //                   style: TextStyle(
+  //   //                     fontSize: 18,
+  //   //                     fontFamily: 'SF Pro Text',
+  //   //                     fontWeight: FontWeight.w500,
+  //   //                     color: theme.text,
+  //   //                     height: 1.9,
+  //   //                   ),
+  //   //                 ),
+  //   //               ),
+  //   //             ),
+  //   //           ],
+  //   //         ),
+  //   //       ),
+  //   //     ),
+  //   //   );
+  //   // }
+  //
+  //   if (msg['type'] == 'stocks' && msg['stocks'] is List) {
+  //     final List<dynamic> stocks = msg['stocks'] as List<dynamic>;
+  //     return Padding(
+  //       padding: const EdgeInsets.symmetric(vertical: 4), // 🔻 reduced for stock tiles too
+  //       child: _buildStockTileList(stocks),
+  //     );
+  //   }
+  //
+  //   // Default bot message
+  //   final msgStr = msg['msg']?.toString() ?? '';
+  //   final isComplete = msg['isComplete'] == true;
+  //  // final isLatest = msg == messages.last;
+  //
+  //   return Align(
+  //     alignment: Alignment.centerLeft,
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //      // mainAxisSize: MainAxisSize.min,
+  //       children: [
+  //         msgStr.isEmpty
+  //             ? _buildTypingIndicator()
+  //             :  _buildStyledBotMessage(
+  //           fullText: msgStr,
+  //           isComplete: isComplete,
+  //           isLatest: isLatest,
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  //
+  // }
 
 
 
@@ -1454,6 +1753,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
         //constraints: BoxConstraints(maxWidth: maxWidth),
         padding:  EdgeInsets.symmetric(horizontal: 15,vertical: 7),
         decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFFAF9F7),
+                Color(0xFFF1EAE4),
+          ]),
           color: theme.message,
           borderRadius: BorderRadius.circular(13),
           boxShadow: [
@@ -1506,7 +1812,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
         color: theme.background,
         elevation: 20.0,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          key: _textFieldKey,
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 13),
           decoration: BoxDecoration(
             color: theme.background,
             boxShadow: [
@@ -1529,9 +1836,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
             children: [
               Column(
                 children: [
-                  Container(
-                    constraints:  BoxConstraints(minHeight: _isListening? 20: 40, maxHeight: 140),
-                    child: SingleChildScrollView(
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    constraints: BoxConstraints(
+                        minHeight: _isListening ? 20 : 70, // ✅ Smooth animated transition
+                        maxHeight: 140
+                    ),                    child: SingleChildScrollView(
                       child: Scrollbar(
                         child:
 
@@ -1553,7 +1863,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
                                 fontFamily: ".SF Pro Text",color: Colors.grey.shade600,fontSize: 17.5),
                             hintText: 'Ask anything',
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.only(left: 10),
+                            contentPadding: EdgeInsets.only(left: 0),
                           ),
                           onChanged: (_) {
                             if (mounted) setState(() {});
@@ -1585,41 +1895,110 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
                                       );
                                     },
 
-                    child: _isListening
-                        ?
-
-                    _isTranscribing ? Lottie.asset("assets/images/loader_dark.json"):Row(
-                      key: const ValueKey('micMode'),
-                  children: [
-                        const SizedBox(width: 3),
-                        // ❌ Cancel Button with Border
-                        Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: Colors.transparent,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0xFFC8C8C8),
-                              width: 1,
+                      child: _isListening
+                          ? (_isTranscribing
+                          ? Row(
+                        key: const ValueKey('loaderOnly'),
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 45,
+                              alignment: Alignment.center,
+                              child: Lottie.asset(
+                                'assets/images/mic_loading.json',
+                                repeat: true,
+                              ),
                             ),
                           ),
-                          child: CircleAvatar(
-                            radius: 17,
-                            backgroundColor: Colors.white,
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              icon:  Icon(
-                                Icons.close,
-                                size: 24,
-                                weight: 2,
-                                color: theme.icon,
+                        ],
+                      )
+                          : Row(
+                        key: const ValueKey('micMode'),
+                        children: [
+                          const SizedBox(width: 3),
+
+                          // ❌ Cancel Button with Border
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.transparent,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFC8C8C8),
+                                width: 1,
                               ),
-                              onPressed: () async {
+                            ),
+                            child: CircleAvatar(
+                              radius: 17,
+                              backgroundColor: Colors.white,
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                icon: const Icon(
+                                  Icons.close,
+                                  size: 24,
+                                  weight: 2,
+                                  color: Color(0xFFAC5F2C),
+                                ),
+                                onPressed: () async {
+                                  try {
+                                    _timer?.cancel();
+                                    _speechTimer.stop();
+                                    await _audioRecorder.stop();
+                                    stopNativeVad();
+                                    if (mounted) {
+                                      setState(() {
+                                        _isListening = false;
+                                        _isTranscribing = false;
+                                      });
+                                    }
+                                  } catch (e) {
+                                    print('❌ Error stopping mic: $e');
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+
+                          // 🔊 Waveform
+                          Expanded(
+                            flex: 2,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 40),
+                              child: ChatGPTScrollingWaveform(
+                                key: const ValueKey('waveform'),
+                                isSpeech: _isSpeaking,
+                                rms: _currentRms,
+                              ),
+                            ),
+                          ),
+
+                          // ✅ Check / Transcribe Button
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppColors.primary,
+                                width: 1,
+                              ),
+                            ),
+                            child: GestureDetector(
+                              onTap: () async {
                                 try {
                                   _timer?.cancel();
                                   _speechTimer.stop();
-                                  await _audioRecorder.stop();
-                                  stopNativeVad();
+
+                                  setState(() => _isTranscribing = true); // 👈 immediately hide all UI
+
+                                  final path = await _audioRecorder.stop();
+                                  if (path != null) _recordingPath = path;
+
+                                  final file = File(_recordingPath);
+                                  if (file.existsSync()) {
+                                    await _transcribeAudio(); // Transcription logic
+                                  }
+
                                   if (mounted) {
                                     setState(() {
                                       _isListening = false;
@@ -1627,54 +2006,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
                                     });
                                   }
                                 } catch (e) {
-                                  print('❌ Error stopping mic: $e');
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-
-                        // 🔊 Waveform
-                        Expanded(
-                          flex: 2,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 40),
-                            child: ChatGPTScrollingWaveform(
-                              key: const ValueKey('waveform'),
-                              isSpeech: _isSpeaking,
-                              rms: _currentRms,
-                            ),
-                          ),
-                        ),
-
-                        // ✅ Done / Transcribe Button
-                        Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.primary,
-                              width: 1,
-                            ),
-                          ),
-                          child: GestureDetector(
-                            onTap: () async {
-                              try {
-                                _timer?.cancel();
-                                _speechTimer.stop();
-
-                                startNativeVad();
-
-                                setState(() => _isTranscribing = true);
-
-                                final path = await _audioRecorder.stop();
-                                if (path != null) _recordingPath = path;
-
-                                final file = File(_recordingPath);
-                                if (file.existsSync()) {
-                                  await _transcribeAudio();
-                                } else {
+                                  print('❌ Error in check flow: $e');
                                   if (mounted) {
                                     setState(() {
                                       _isListening = false;
@@ -1682,59 +2014,52 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
                                     });
                                   }
                                 }
-                              } catch (e) {
-                                print('❌ Error in check flow: $e');
-                                if (mounted) {
-                                  setState(() {
-                                    _isListening = false;
-                                    _isTranscribing = false;
-                                  });
-                                }
-                              }
-                            },
-                            child: CircleAvatar(
-                              backgroundColor: AppColors.primary,
-                              radius: 18,
-                              child: Icon(
-                                PhosphorIcons.check(PhosphorIconsStyle.bold),
-                                size: 24,
-                                color: Colors.white,
+                              },
+                              child: CircleAvatar(
+                                backgroundColor: AppColors.primary,
+                                radius: 18,
+                                child: Icon(
+                                  PhosphorIcons.check(PhosphorIconsStyle.bold),
+                                  size: 24,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    )
-                        :
-                    Row(
+                        ],
+                      ))
+
+        :
+
+    Row(
                       key: const ValueKey('normalMode'),
                       children: [
                         // Left-side Add Button
-                        IconButton(
-                          onPressed: () {
-                            final overlay = Overlay.of(context);
-                            final renderBox = context.findRenderObject() as RenderBox;
-                            final size = renderBox.size;
-                            final offset = renderBox.localToGlobal(Offset.zero);
-
-                            final entry = OverlayEntry(
-                              builder: (context) => Positioned(
-                                top: offset.dy + 600,
-                                left: offset.dx + (size.width / 2) - 140,
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: AnimatedComingSoonTooltip(),
-                                ),
-                              ),
-                            );
-
-                            overlay.insert(entry);
-                            Future.delayed(const Duration(seconds: 2), () => entry.remove());
-                          },
-                          icon: Icon(Icons.add, size: 30,color: theme.icon,),
-                        ),
-
-                        const SizedBox(width: 16),
+                        // IconButton(
+                        //   onPressed: () {
+                        //     final overlay = Overlay.of(context);
+                        //     final renderBox = context.findRenderObject() as RenderBox;
+                        //     final size = renderBox.size;
+                        //     final offset = renderBox.localToGlobal(Offset.zero);
+                        //
+                        //     final entry = OverlayEntry(
+                        //       builder: (context) => Positioned(
+                        //         top: offset.dy + 600,
+                        //         left: offset.dx + (size.width / 2) - 140,
+                        //         child: Material(
+                        //           color: Colors.transparent,
+                        //           child: AnimatedComingSoonTooltip(),
+                        //         ),
+                        //       ),
+                        //     );
+                        //
+                        //     overlay.insert(entry);
+                        //     Future.delayed(const Duration(seconds: 2), () => entry.remove());
+                        //   },
+                        //   icon: Icon(Icons.add, size: 30,color: theme.icon,),
+                        // ),
+                        Image.asset("assets/images/attach_2.png",color: theme.icon,height: 22,width: 25,fit: BoxFit.contain,),
+                        //const SizedBox(width: 16),
 
                         Spacer(),
 
@@ -1779,9 +2104,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
                                   });
                                 }
                               },
-                              child: Image.asset("assets/images/mic_2.png", height: 40,color: theme.icon,),
+                              child: Image.asset("assets/images/bold_mic.png", height: 23,color: theme.icon,),
                             ),
-                            SizedBox(width: 10,),
+                            SizedBox(width: 18,),
                             // if (_isTyping || _controller.text.isNotEmpty || _isTranscribing) ...[
                             //   _buildCircleButton(
                             //     bgColor: const Color(0xFFF66A00),
@@ -1846,125 +2171,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
     );
   }
 
-  Row MicMode(AppTheme theme) {
-    return Row(
-                    key: const ValueKey('micMode'),
-                    children: [
-                      const SizedBox(width: 3),
-                      // ❌ Cancel Button with Border
-                      Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.transparent,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: const Color(0xFFC8C8C8),
-                            width: 1,
-                          ),
-                        ),
-                        child: CircleAvatar(
-                          radius: 17,
-                          backgroundColor: Colors.white,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon:  Icon(
-                              Icons.close,
-                              size: 24,
-                              weight: 2,
-                              color: theme.icon,
-                            ),
-                            onPressed: () async {
-                              try {
-                                _timer?.cancel();
-                                _speechTimer.stop();
-                                await _audioRecorder.stop();
-                                stopNativeVad();
-                                if (mounted) {
-                                  setState(() {
-                                    _isListening = false;
-                                    _isTranscribing = false;
-                                  });
-                                }
-                              } catch (e) {
-                                print('❌ Error stopping mic: $e');
-                              }
-                            },
-                          ),
-                        ),
-                      ),
-
-                      // 🔊 Waveform
-                      Expanded(
-                        flex: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 40),
-                          child: ChatGPTScrollingWaveform(
-                            key: const ValueKey('waveform'),
-                            isSpeech: _isSpeaking,
-                            rms: _currentRms,
-                          ),
-                        ),
-                      ),
-
-                      // ✅ Done / Transcribe Button
-                      Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.primary,
-                            width: 1,
-                          ),
-                        ),
-                        child: GestureDetector(
-                          onTap: () async {
-                            try {
-                              _timer?.cancel();
-                              _speechTimer.stop();
-
-                              startNativeVad();
-
-                              setState(() => _isTranscribing = true);
-
-                              final path = await _audioRecorder.stop();
-                              if (path != null) _recordingPath = path;
-
-                              final file = File(_recordingPath);
-                              if (file.existsSync()) {
-                                await _transcribeAudio();
-                              } else {
-                                if (mounted) {
-                                  setState(() {
-                                    _isListening = false;
-                                    _isTranscribing = false;
-                                  });
-                                }
-                              }
-                            } catch (e) {
-                              print('❌ Error in check flow: $e');
-                              if (mounted) {
-                                setState(() {
-                                  _isListening = false;
-                                  _isTranscribing = false;
-                                });
-                              }
-                            }
-                          },
-                          child: CircleAvatar(
-                            backgroundColor: AppColors.primary,
-                            radius: 18,
-                            child: Icon(
-                              PhosphorIcons.check(PhosphorIconsStyle.bold),
-                              size: 24,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-  }
 
 
 
@@ -2996,8 +3202,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
 
   @override
   Widget build(BuildContext context) {
+    // final displayMessages = _showOnlyLatestDuringTyping && messages.length > 2
+    //     ? messages.sublist(messages.length - 4)
+    //     : _visibleMessages;
     final displayMessages = _showOnlyLatestDuringTyping && messages.length > 2
-        ? messages.sublist(messages.length - 4)
+        ? messages.sublist(messages.length - 2) // Only show the latest exchange
         : _visibleMessages;
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
@@ -3019,23 +3228,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
                         controller: _scrollController,
                         reverse: false,
                         padding: const EdgeInsets.all(20),
-                        itemCount: displayMessages.length,
+                        itemCount: displayMessages.length + 1,
                         itemBuilder: (context, index) {
                           // if(displayMessages.isEmpty){
+                          // print("OFFSET");
                           //   print(_scrollController.offset);
                           //  print(_scrollController.position.maxScrollExtent);
                           //  print(_scrollController.position.minScrollExtent);
-                          //   print("OFFSET");
                           // }
                           // if (index == displayMessages.length) {
                           //  // print("Got here");
                           //   return SizedBox(height: _chatHeight - 101);
                           // }
-                          // print(_latestUserMessageHeight);
-                          // print(_chatHeight);
+                           // print(_latestUserMessageHeight);
+                            print(_chatHeight - _latestUserMessageHeight + 16);
+                          if (index == displayMessages.length) {
+                           return SizedBox(height: _chatHeight - _latestUserMessageHeight);
+                          }
                           // if (index == displayMessages.length) {
-                          //  return SizedBox(height: _chatHeight  -_latestUserMessageHeight + 16);
-                          // }
+                          //   return SizedBox(
+                          //     height: _chatHeight - (_latestUserMessageHeight > 100 ? 100 : _latestUserMessageHeight) - 16,
+                          //
+                          //   );
+
                           final msg = displayMessages[index];
                           return _buildMessageRow(msg);
                         },
@@ -3043,64 +3258,72 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver,Tic
                     },
                   ),
                 ),
-             _isListening? SizedBox.shrink():   AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 400),
-                  transitionBuilder: (Widget child, Animation<double> animation) {
-                    final offsetAnimation = Tween<Offset>(
-                      begin: const Offset(1.0, 0.0),
-                      end: Offset.zero,
-                    ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
-                    return SlideTransition(position: offsetAnimation, child: child);
-                  },
-                  child: (_hasLoadedMessages &&
-                      !messages.any((m) => m['role'] == 'user') &&
-                      _controller.text.isEmpty)
-                      ? SizedBox(
-                    key: const ValueKey('quickChips'),
-                    height: 94,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      children: [
-                        SizedBox(
-                          height: 100,
-                          child: _quickChip(
-                            onpressed: () {
-                              final text = "What’s happening in the market today?";
-                              setState(() {
-                                _controller.text = text;
-                                _controller.selection = TextSelection.fromPosition(
-                                  TextPosition(offset: text.length),
-                                );
-                              });
-                            },
-                            title: "Market News",
-                            subtitle: "What’s happening in the market today?",
-                            maxWidth: 220,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        _quickChip(
-                          onpressed: () {
-                            final text = "How’s my portfolio doing?";
-                            setState(() {
-                              _controller.text = text;
-                              _controller.selection = TextSelection.fromPosition(
-                                TextPosition(offset: text.length),
-                              );
-                            });
-                          },
-                          title: "My Portfolio",
-                          subtitle: "How’s my portfolio doing?",
-                          maxWidth: 220,
-                        ),
-                        const SizedBox(width: 12),
-                        AddShortcutCard(),
-                      ],
-                    ),
-                  )
-                      : const SizedBox.shrink(key: ValueKey('emptyQuickChips')),
-                ),
+             _isListening? SizedBox.shrink():   // SIMPLE & PREMIUM - Clean, Fast, Elegant
+             AnimatedSwitcher(
+               duration: const Duration(milliseconds: 350),
+               switchInCurve: Curves.easeOutCubic,
+               switchOutCurve: Curves.easeInCubic,
+               transitionBuilder: (Widget child, Animation<double> animation) {
+                 return FadeTransition(
+                   opacity: animation,
+                   child: SlideTransition(
+                     position: Tween<Offset>(
+                       begin: const Offset(0.0, 0.15), // Subtle upward slide
+                       end: Offset.zero,
+                     ).animate(animation),
+                     child: child,
+                   ),
+                 );
+               },
+               child: (_hasLoadedMessages &&
+                   !messages.any((m) => m['role'] == 'user') &&
+                   _controller.text.isEmpty)
+                   ? SizedBox(
+                 key: const ValueKey('quickChips'),
+                 height: 94,
+                 child: ListView(
+                   scrollDirection: Axis.horizontal,
+                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                   children: [
+                     SizedBox(
+                       height: 100,
+                       child: _quickChip(
+                         onpressed: () {
+                           final text = "What's happening in the market today?";
+                           setState(() {
+                             _controller.text = text;
+                             _controller.selection = TextSelection.fromPosition(
+                               TextPosition(offset: text.length),
+                             );
+                           });
+                         },
+                         title: "Market News",
+                         subtitle: "What's happening in the market today?",
+                         maxWidth: 220,
+                       ),
+                     ),
+                     const SizedBox(width: 16),
+                     _quickChip(
+                       onpressed: () {
+                         final text = "How's my portfolio doing?";
+                         setState(() {
+                           _controller.text = text;
+                           _controller.selection = TextSelection.fromPosition(
+                             TextPosition(offset: text.length),
+                           );
+                         });
+                       },
+                       title: "My Portfolio",
+                       subtitle: "How's my portfolio doing?",
+                       maxWidth: 220,
+                     ),
+                     const SizedBox(width: 12),
+                     AddShortcutCard(),
+                   ],
+                 ),
+               )
+                   : const SizedBox.shrink(key: ValueKey('emptyQuickChips')),
+             ),
                const SizedBox(height: 5),
                 _buildInputFields(),
               ],

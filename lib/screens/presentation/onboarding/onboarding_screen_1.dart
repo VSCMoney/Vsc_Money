@@ -13,77 +13,43 @@ class OnboardingScreen extends StatelessWidget {
     return SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          return Stack(
-            children: [
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 24),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Stack(
-                            alignment: Alignment.bottomCenter,
-                            children: [
-                              Container(
-                                width: 280,
-                                height: 280,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: const RadialGradient(
-                                    colors: [Color(0x0DF7F7F7), Colors.transparent],
-                                    radius: 0.9,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(
-                                width: 340,
-                                child: Column(
-                                  children: [
-                                    ToggleButtonsRow(),
-                                    SizedBox(height: 16),
-                                    Padding(
-                                      padding: EdgeInsets.all(10.0),
-                                      child: NewsCard(),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 130),
-                          Column(
-                            children: [
-                              Text(
-                                'Market Alerts That Match Your Goals',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w500,
-                                  fontStyle: FontStyle.italic,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              SizedBox(height: 16),
-                              Text(
-                                'Get real-time updates and AI-curated insights based on your investment objectives.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(height: 90),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Always\nAvailable',
+                    style: TextStyle(
+                      fontSize: 45,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      height: 1.2,
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+
+                // 🧾 Subtext
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    textAlign: TextAlign.justify,
+                    "On, alert, and responsive\n"
+                    "whenever you need financial clarity.",
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w400,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),

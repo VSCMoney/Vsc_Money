@@ -318,7 +318,7 @@ import '../widgets/drawer.dart';
 import 'home/home_screen.dart';
 
 class Conversations extends StatefulWidget {
-  final Function(ChatSession) onSessionTap;
+  final Function(ChatSession)? onSessionTap;
   final VoidCallback? onCreateNewChat;
 
 
@@ -334,7 +334,6 @@ class Conversations extends StatefulWidget {
 
 class _ConversationsState extends State<Conversations> {
   final ChatService _chatService = locator<ChatService>();
-  final theme = locator<ThemeService>().currentTheme;
 
   Map<String, List<ChatSession>> groupedSessions = {};
   TextEditingController _searchController = TextEditingController();
@@ -449,138 +448,142 @@ class _ConversationsState extends State<Conversations> {
     final grouped = _groupByDate(_filteredSessions);
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isTablet = screenWidth > 600;
-    final horizontalPadding = isTablet ? 24.0 : 16.0;
+    final horizontalPadding = isTablet ? 24.0 : 28.0;
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
-    return Scaffold(
-      drawer: CustomDrawer(
-        chatService: _chatService,
-        onSessionTap: widget.onSessionTap,
-        onCreateNewChat: widget.onCreateNewChat,
-       selectedRoute: "Conversations",
-      ),
-      backgroundColor: theme.background,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(100),
-        child: Builder(
-          builder: (context) => appBar(context, "Conversations", () {}, false, showNewChatButton: false),
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        drawer: CustomDrawer(
+          chatService: _chatService,
+          onSessionTap: widget.onSessionTap,
+          onCreateNewChat: widget.onCreateNewChat,
+         selectedRoute: "Conversations",
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          if (widget.onCreateNewChat != null) {
-            widget.onCreateNewChat!();
-          }
-          Navigator.pop(context);
-        },
-        backgroundColor: AppColors.primary, // 👈 your desired color here
-        child: Image.asset(
-          'assets/images/newChat.png',
-          height: 20,
+        backgroundColor: theme.background,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(100),
+          child: Builder(
+            builder: (context) => appBar(context, "Conversations", () {}, false, showNewChatButton: false),
+          ),
         ),
-        shape: const CircleBorder(),
-        elevation: 4,
-      ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            if (widget.onCreateNewChat != null) {
+              widget.onCreateNewChat!();
+            }
+            Navigator.pop(context);
+          },
+          backgroundColor: AppColors.primary, // 👈 your desired color here
+          child: Image.asset(
+            'assets/images/newChat.png',
+            height: 20,
+          ),
+          shape: const CircleBorder(),
+          elevation: 4,
+        ),
 
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _fetchSessions,
-          color: theme.text,
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: horizontalPadding,
-                    vertical: 16,
-                  ),
-                  child: Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: theme.border,
-                      borderRadius: BorderRadius.circular(22),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SafeArea(
+          child: RefreshIndicator(
+            onRefresh: _fetchSessions,
+            color: theme.text,
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding,
+                      vertical: 16,
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      children: [
-                         Icon(Icons.search, color: theme.icon, size: 22),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            style:  TextStyle(
-                              fontSize: 16,
-                              fontFamily: 'SF Pro Display',
-                              color: theme.text,
-                            ),
-                            decoration: const InputDecoration(
-                              hintText: 'Search',
-                              hintStyle: TextStyle(
-                                color: Colors.grey,
+                    child: Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: theme.border,
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                           Icon(Icons.search, color: theme.icon, size: 22),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: _searchController,
+                              style:  TextStyle(
                                 fontSize: 16,
                                 fontFamily: 'SF Pro Display',
+                                color: theme.text,
                               ),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(vertical: 12),
+                              decoration: const InputDecoration(
+                                hintText: 'Search',
+                                hintStyle: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 16,
+                                  fontFamily: 'SF Pro Display',
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(vertical: 12),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              if (_filteredSessions.isEmpty && !_isLoading)
-                SliverFillRemaining(
-                  child: Center(
-                    child: Text(
-                      "No conversations found",
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: theme.text,
-                        fontFamily: 'SF Pro Display',
+                        ],
                       ),
                     ),
                   ),
-                )
-              else
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                      final entries = grouped.entries.toList();
-                      if (index >= entries.length) return null;
+                ),
+                if (_filteredSessions.isEmpty && !_isLoading)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Text(
+                        "No conversations found",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: theme.text,
+                          fontFamily: 'SF Pro Display',
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                        final entries = grouped.entries.toList();
+                        if (index >= entries.length) return null;
 
-                      final entry = entries[index];
-                      final label = entry.key;
-                      final sessions = entry.value;
+                        final entry = entries[index];
+                        final label = entry.key;
+                        final sessions = entry.value;
 
-                      return Padding(
-                        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(top: 16, bottom: 8),
-                              child: Text(
-                                label,
-                                style:  TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  color: theme.text,
-                                  fontFamily: 'SF Pro Display',
+                        return Padding(
+                          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: 16, bottom: 8),
+                                child: Text(
+                                  label,
+                                  style:  TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: theme.text,
+                                    fontFamily: 'SF Pro Display',
+                                  ),
                                 ),
                               ),
-                            ),
-                            ...sessions.map((session) => _buildConversationItem(session)),
-                          ],
-                        ),
-                      );
-                    },
-                    childCount: grouped.length,
+                              ...sessions.map((session) => _buildConversationItem(session)),
+                            ],
+                          ),
+                        );
+                      },
+                      childCount: grouped.length,
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -588,12 +591,19 @@ class _ConversationsState extends State<Conversations> {
   }
 
   Widget _buildConversationItem(ChatSession session) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     return InkWell(
-        onTap: () {
+      onTap: () {
+        if (widget.onSessionTap != null) {
           widget.onSessionTap!(session);
-         Navigator.pop(context);
-        },
-        child: Padding(
+          if (Scaffold.of(context).isDrawerOpen) {
+            Navigator.pop(context); // ✅ only close drawer, not route stack
+          }
+        }
+      },
+
+      child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [

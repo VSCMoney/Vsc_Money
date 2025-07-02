@@ -1,11 +1,9 @@
-package com.konovalov.vad.yamnet
+package com.vsc.money.vad
 
 import android.content.Context
-import com.konovalov.vad.yamnet.utils.AudioUtils.getFramesCount
-import com.konovalov.vad.yamnet.utils.AudioUtils.toShortArray
-import com.konovalov.vad.yamnet.config.FrameSize
-import com.konovalov.vad.yamnet.config.Mode
-import com.konovalov.vad.yamnet.config.SampleRate
+import com.vsc.money.vad.config.FrameSize
+import com.vsc.money.vad.config.Mode
+import com.vsc.money.vad.config.SampleRate
 import org.tensorflow.lite.support.audio.TensorAudio
 import org.tensorflow.lite.support.audio.TensorAudio.TensorAudioFormat
 import org.tensorflow.lite.task.audio.classifier.AudioClassifier
@@ -54,7 +52,7 @@ class VadYamnet(
     mode: Mode,
     speechDurationMs: Int = 0,
     silenceDurationMs: Int = 0
-) : Closeable {
+) : Vad(), Closeable {
 
     /**
      * Valid Sample Rates and Frame Sizes for Yamnet VAD DNN model.
@@ -393,4 +391,34 @@ class VadYamnet(
         )
         this.isInitiated = true
     }
+
+
+    fun getFramesCount(sampleRate: Int, frameSize: Int, durationMs: Int): Int {
+        return ((sampleRate * durationMs) / 1000) / frameSize
+    }
+
+
+
+    fun toShortArray(byteArray: ByteArray): ShortArray {
+        val shortArray = ShortArray(byteArray.size / 2)
+        for (i in shortArray.indices) {
+            shortArray[i] = ((byteArray[i * 2 + 1].toInt() shl 8) or
+                    (byteArray[i * 2].toInt() and 0xFF)).toShort()
+        }
+        return shortArray
+    }
+
+    fun toShortArray(floatArray: FloatArray): ShortArray {
+        return floatArray.map {
+            (it * Short.MAX_VALUE).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+        }.toShortArray()
+    }
+
+    override fun isSpeech(data: ByteArray, length: Int): Boolean {
+        val result = classifyAudio(data)
+        return result.label.equals("Speech", ignoreCase = true)
+    }
+
+
+
 }

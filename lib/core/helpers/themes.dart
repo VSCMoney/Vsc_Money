@@ -9,6 +9,9 @@ class AppTheme {
   final Color box;
   final Color message;
   final Color shadow;
+  final Color secondaryText;
+  final Color searchBox;
+  final Color bottombackground;
 
   AppTheme({
     required this.background,
@@ -19,24 +22,34 @@ class AppTheme {
     required this.box,
     required this.message,
     required this.shadow,
+    required this.secondaryText,
+    required this.searchBox,
+    required this.bottombackground
   });
 
   static final light = AppTheme(
-    background: Colors.white,
-    text: Colors.black,
+    bottombackground: Colors.black,
+    searchBox: Color(0xFFF1EFEF),
+    secondaryText: Color(0xFF6E6E73),
+    background: Color(0xFFFAF9F7),
+    text: Color(0xFF000000),
     primary: Colors.blue,
-    icon: Colors.black87,
+    icon: Color(0xFF734012),
     border: Color(0xFF00000029),
     box: Colors.white,
-    message: Color(0xFFF1EFEF),
+    // message: Color(0xFFF1EFEF),
+      message: Color(0xFFF8F1EC),
     shadow: Colors.grey.shade300
   );
 
   static final dark = AppTheme(
+    bottombackground: Colors.white,
+    searchBox: Color(0xFF303030),
+    secondaryText: Color(0xFFB0B0B0),
     background: Color(0XFF1E1F22),
     text: Color(0xFFE0E0E0),
     primary: Colors.tealAccent,
-    icon: Colors.white70,
+    icon: Color(0xFFE0E0E0),
     border: Colors.grey.shade700,
       box: Color(0xFF303030),
     message: Color(0xFF303030),

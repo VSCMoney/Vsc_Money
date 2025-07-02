@@ -1,4 +1,4 @@
-package com.konovalov.vad.yamnet.config
+package com.vsc.money.vad.config
 
 /**
  * Created by Georgiy Konovalov on 6/1/2023.

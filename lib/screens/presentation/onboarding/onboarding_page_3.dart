@@ -19,54 +19,41 @@ class _GoalsOnbordingState extends State<GoalsOnbording> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                children: [
-                  const SizedBox(height: 60),
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 20),
-                        child: SvgPicture.asset(
-                          'assets/images/goal_onboarding.svg',
-                          fit: BoxFit.contain,
-                          height: 270,
-                        ),
-                      ),
-                      const SizedBox(height: 100),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 24),
-                        child: Column(
-                          children: [
-                            Text(
-                              'Turn Your Dreams into Financial Goals',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w500,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                            SizedBox(height: 26),
-                            Text(
-                              'Just tell your AI what you’re saving for — it’ll turn it into a plan.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 18.5,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 40), // for padding at the bottom
-                    ],
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(height: 90),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Bias\nFree',
+                    style: TextStyle(
+                      fontSize: 45,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      height: 1.2,
+                    ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 16),
+
+                // 🧾 Subtext
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    textAlign: TextAlign.justify,
+                    'No commissions. No agenda.\n'
+                    'Just advice that puts you first.',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w400,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         },

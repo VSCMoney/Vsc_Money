@@ -1,4 +1,4 @@
-package com.konovalov.vad.yamnet
+package com.vsc.money.vad
 
 /**
  * Created by Georgiy Konovalov on 6/1/2023.

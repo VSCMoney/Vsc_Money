@@ -4,6 +4,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vscmoney/screens/presentation/auth/otp_screen.dart';
 
+import '../../../services/auth_service.dart';
+import '../../../services/locator.dart';
 import '../../widgets/auth_button.dart';
 import '../../widgets/common_button.dart';
 
@@ -164,7 +166,7 @@ import '../../widgets/common_button.dart';
 //                           //   context,
 //                           //   MaterialPageRoute(builder: (context) => const OtpVerificationScreen()),
 //                           // );
-//                          // _sendOtp('+91${phoneController.text}');
+//                          // g_sendOtp('+91${phoneController.text}');
 //                           context.goNamed('otp',extra: "");
 //                         },
 //                       ),
@@ -280,7 +282,15 @@ class _AuthScreenState extends State<AuthScreen> {
                   AuthButton(
                     icon: Image.asset('assets/images/Group 10.png', height: 18),
                     label: 'Continue with Google',
-                    onTap: () {},
+                    onTap: () async{
+                      await locator<AuthService>().handleGoogleSignIn((flow) {
+                        if (flow == AuthFlow.home) {
+                          context.go('/home');
+                        } else if (flow == AuthFlow.nameEntry) {
+                          context.go('/enter_name');
+                        }
+                      });
+                    },
                   ),
                   const SizedBox(height: 16),
 

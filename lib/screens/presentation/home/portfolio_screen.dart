@@ -188,9 +188,15 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:vscmoney/constants/stock_detail_bottomsheet.dart';
+import 'package:vscmoney/main.dart';
 import 'package:vscmoney/screens/widgets/drawer.dart';
 
+import '../../../constants/colors.dart';
+import '../../../services/theme_service.dart';
+import 'chat_screen.dart';
 import 'home_screen.dart';
 
 class Goal {
@@ -243,75 +249,75 @@ class _GoalsPageState extends State<GoalsPage> {
     sorted.sort((a, b) => a.targetDate.compareTo(b.targetDate));
     return sorted;
   }
+  final GlobalKey<ChatGPTBottomSheetWrapperState> _sheetKey = GlobalKey();
+
 
   @override
   Widget build(BuildContext context) {
     final sortedGoals = _sortedGoals;
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+    return ChatGPTBottomSheetWrapper(
+      key:_sheetKey,
+      bottomSheet: ZomatoStockBottomSheet(),
+      child: Scaffold(
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(100),
+          child: Builder(
+            builder: (context) {
+              return appBar(
+                context,
+                "Goals",
+                () {
 
-    return Scaffold(
-      // appBar: PreferredSize(
-      //   preferredSize: const Size.fromHeight(100),
-      //   child: Builder(
-      //     builder: (context) => appBar(context, "Portfolio", () {},showNewChatButton: false),
-      //   ),
-      // ),
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(100),
-        child: Builder(
-          builder: (context) {
-            return appBar(
-              context,
-              "Portfolio",
-              () {
-
-              },
-              true,
-              showNewChatButton: false,
-            );
-          },
+                },
+                false,
+                showNewChatButton: false,
+              );
+            },
+          ),
         ),
-      ),
-      drawer: CustomDrawer(
-        selectedRoute: "Goals",
-      ),
-      backgroundColor: Colors.white,
-      floatingActionButton: FloatingActionButton(
-        shape: const CircleBorder(),
-        onPressed: () => _showAddGoalDialog(),
-        backgroundColor: Colors.grey[800],
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-      body: sortedGoals.isEmpty
-          ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+        drawer: CustomDrawer(
+          selectedRoute: "Goals",
+        ),
+        backgroundColor: theme.background,
+        floatingActionButton: FloatingActionButton(
+          shape: const CircleBorder(),
+          onPressed: () => _showAddGoalDialog(),
+          backgroundColor: AppColors.primary,
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
+        body: sortedGoals.isEmpty
+            ? Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
 
-            Icon(Icons.flag, size: 80, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              'No goals yet',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[600],
+              Icon(Icons.flag, size: 80, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text(
+                'No goals yet',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[600],
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Add your first goal by tapping the + button',
-              style: TextStyle(color: Colors.grey[500]),
-            ),
-          ],
-        ),
-      )
-          : SafeArea(
-        child: ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-          itemCount: sortedGoals.length,
-          itemBuilder: (context, index) {
-            return _buildTimelineItem(sortedGoals, index);
-          },
+              const SizedBox(height: 8),
+              Text(
+                'Add your first goal by tapping the + button',
+                style: TextStyle(color: Colors.grey[500]),
+              ),
+            ],
+          ),
+        )
+            : SafeArea(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            itemCount: sortedGoals.length,
+            itemBuilder: (context, index) {
+              return _buildTimelineItem(sortedGoals, index);
+            },
+          ),
         ),
       ),
     );
@@ -454,118 +460,18 @@ class _GoalsPageState extends State<GoalsPage> {
   }
 
   void _showAddGoalDialog() {
-    final formKey = GlobalKey<FormState>();
-    final TextEditingController labelController = TextEditingController();
-    final TextEditingController amountController = TextEditingController();
-    DateTime selectedDate = DateTime.now().add(const Duration(days: 365));
-    Color selectedColor = _availableColors.first;
-
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add New Goal'),
-        content: Form(
-          key: formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: labelController,
-                  decoration: const InputDecoration(labelText: 'Goal Name'),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a goal name';
-                    }
-                    return null;
-                  },
-                ),
-                TextFormField(
-                  controller: amountController,
-                  decoration: const InputDecoration(labelText: 'Goal Amount'),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a goal amount';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Text('Target Date: '),
-                    TextButton(
-                      onPressed: () async {
-                        final DateTime? pickedDate = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDate,
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime(2100),
-                        );
-                        if (pickedDate != null) {
-                          selectedDate = pickedDate;
-                        }
-                      },
-                      child: Text(DateFormat('MMM yyyy').format(selectedDate)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Text('Select Color:'),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _availableColors.map((color) {
-                    return GestureDetector(
-                      onTap: () {
-                        selectedColor = color;
-                      },
-                      child: Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: color == selectedColor ? Colors.black : Colors.transparent,
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                setState(() {
-                  _goals.add(Goal(
-                    id: DateTime.now().millisecondsSinceEpoch.toString(),
-                    targetDate: selectedDate,
-                    label: labelController.text,
-                    progress: 0.0,
-                    amount: amountController.text,
-                    color: selectedColor,
-                  ));
-                });
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Add Goal'),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) =>  CreateGoalsSheet(
+        onTap:(){
+          context.pop(context);
+         _sheetKey.currentState?.openSheet();
+        },
       ),
     );
+
   }
 
   // Method to add sample goals for testing UI
@@ -612,67 +518,584 @@ class _GoalsPageState extends State<GoalsPage> {
 
 
 
-PreferredSizeWidget appBars(BuildContext context, String title, VoidCallback onNewChatTap) {
-  return PreferredSize(
-    preferredSize: const Size.fromHeight(150),
-    child: Card(
-      elevation: 1.0,
+
+class CreateGoalsSheet extends StatefulWidget {
+  final VoidCallback onTap;
+   CreateGoalsSheet({super.key, required this.onTap});
+
+  @override
+  State<CreateGoalsSheet> createState() => _CreateGoalsSheetState();
+}
+
+class _CreateGoalsSheetState extends State<CreateGoalsSheet> {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
+
+    return Padding(
+      padding: MediaQuery.of(context).viewInsets, // for keyboard
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        color: Colors.white,
-        child: SafeArea(
-          bottom: false,
-          child: SizedBox(
-            height: 60,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // 👈 Center logo
-                Text("Goals" , style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                    fontSize: 18
-                ),),
-
-                // 👈 Row for left and right buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Left menu icon
-                    // ✅ Wrap this with Builder to get the right context
-                    Builder(
-                      builder: (BuildContext scaffoldContext) {
-                        return GestureDetector(
-                          onTap: () {
-                            print("jdn");
-                            // ✅ This will definitely open the drawer
-                            Scaffold.of(scaffoldContext).openDrawer();
-                          },
-                          child: SvgPicture.asset('assets/images/drawer.svg'),
-                        );
-                      },
-                    ),
-
-
-
-                    // Right-side icons
-                    Row(
-                      children: [
-                        GestureDetector(
-                            onTap: (){
-
-                            },
-                            child: const Icon(Icons.notifications_none_outlined, color: Colors.black)),
-                      ],
-                    ),
-                  ],
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+        decoration:  BoxDecoration(
+          color: theme.background,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+             Text(
+              'Define your Goal',
+              style: TextStyle(
+                color: theme.text,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                  fontFamily: 'Sf Pro Text'
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(
+                color: theme.box,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: theme.shadow),
+              ),
+              child:  TextField(
+                style: TextStyle(color: theme.text),
+                cursorColor: theme.text,
+                textInputAction: TextInputAction.go,
+                decoration: InputDecoration(
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  hintText: 'Save 60k for bali trip in 6 months',
+                  hintStyle: TextStyle(color: theme.secondaryText,fontFamily: 'Sf Pro Text'),
+                  border: InputBorder.none,
                 ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: widget.onTap,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFFFF9B21),
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child:  Text(
+                  'Create',
+                  style: TextStyle(
+                    color: theme.text,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                      fontFamily: 'Sf Pro Text'
+                  ),
+                ),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+
+class ZomatoStockBottomSheet extends StatelessWidget {
+  const ZomatoStockBottomSheet({super.key});
+
+  // Method to show the bottom sheet
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+    // Calculate responsive sizes
+    final paddingHorizontal = screenWidth * 0.05;
+    final bottomSheetHeight = screenHeight * 0.90;
+
+    return Container(
+      height: bottomSheetHeight,
+      padding: EdgeInsets.only(
+        top: 16,
+        left: paddingHorizontal,
+        right: paddingHorizontal,
+        bottom: 24,
+      ),
+      decoration:  BoxDecoration(
+        color: theme.background,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with X button and Zomato title
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.close, size: 28),
+                onPressed: () => Navigator.of(context).pop(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const Text(
+                'Zomato',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 28), // Balance for the X button
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // Stock details section
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Eternal',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Text(
+                        '₹1821.45',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: const Text(
+                          '-14.5 (1.19%)',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF2E7D32),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE3F2FD),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          '1D',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              // Zomato logo
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE23744),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Center(
+                  child: Text(
+                    'zomato',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // Stock chart
+          Container(
+            height: screenHeight * 0.15,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: CustomPaint(
+              painter: StockChartPainter(),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Time period selector
+          SizedBox(
+            height: 40,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildTimeButton('NSE', false, context),
+                _buildTimeButton('1D', true, context),
+                _buildTimeButton('1W', false, context),
+                _buildTimeButton('1M', false, context),
+                _buildTimeButton('1Y', false, context),
+                _buildTimeButton('5Y', false, context),
+                _buildTimeButton('All', false, context),
               ],
             ),
           ),
+
+          const Divider(height: 32),
+
+          // Performance section
+          const Text(
+            'Performance',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Today's range
+          _buildRangeIndicator(
+            'Today\'s low',
+            '210.54',
+            'Today\'s high',
+            '216.00',
+            0.3, // The position of the current value in the range (0-1)
+            context,
+          ),
+
+          const SizedBox(height: 24),
+
+          // 52 week range
+          _buildRangeIndicator(
+            '52 week low',
+            '210.54',
+            '52 week high',
+            '216.00',
+            0.6, // The position of the current value in the range (0-1)
+            context,
+          ),
+
+          const SizedBox(height: 24),
+
+          // Key stats grid
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem('Open Price', '210.54'),
+              ),
+              Expanded(
+                child: _buildStatItem('Prev. close', '210.54'),
+              ),
+              Expanded(
+                child: _buildStatItem('Volume', '60,62,086'),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem('Lower circuit', '210.54'),
+              ),
+              Expanded(
+                child: _buildStatItem('Upper circuit', '210.54'),
+              ),
+              const Expanded(child: SizedBox()), // Empty cell for alignment
+            ],
+          ),
+
+          const Spacer(),
+
+          // Bottom buttons
+          Row(
+            children: [
+              // Ask follow up button
+              Expanded(
+                flex: 4,
+                child: ElevatedButton(
+                  onPressed: () {},
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE28743),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text(
+                    'Ask follow up',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Circular refresh button
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE28743),
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.currency_rupee,
+                    color: Colors.white,
+                  ),
+                  onPressed: () {},
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Bottom indicator
+          Center(
+            child: Container(
+              width: 60,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper to build time period selector buttons
+  Widget _buildTimeButton(String text, bool isSelected, BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: isSelected ? const Color(0xFFFBE9D7) : Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: isSelected ? const Color(0xFFE28743) : Colors.grey[700],
         ),
       ),
-    ),
+    );
+  }
 
-  );
+  // Helper to build price range indicators
+  Widget _buildRangeIndicator(
+      String leftLabel,
+      String leftValue,
+      String rightLabel,
+      String rightValue,
+      double position,
+      BuildContext context,
+      ) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              leftLabel,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            Text(
+              rightLabel,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              leftValue,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              rightValue,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Stack(
+          children: [
+            Container(
+              width: double.infinity,
+              height: 6,
+              decoration: BoxDecoration(
+                color: Colors.purple[100],
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+            Positioned(
+              left: MediaQuery.of(context).size.width * position * 0.8, // Adjust for padding
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: const BoxDecoration(
+                  color: Colors.black,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Helper to build a stat item
+  Widget _buildStatItem(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey[600],
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
 }
+
+// Custom painter for stock chart
+class StockChartPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint linePaint = Paint()
+      ..color = Colors.green
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    final Paint fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.green.withOpacity(0.2),
+          Colors.green.withOpacity(0.05),
+          Colors.green.withOpacity(0.01),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    // Draw horizontal gray line (middle reference)
+    final Paint grayLinePaint = Paint()
+      ..color = Colors.grey.withOpacity(0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    canvas.drawLine(
+      Offset(0, size.height * 0.6),
+      Offset(size.width, size.height * 0.6),
+      grayLinePaint,
+    );
+
+    // Create a path for the stock line
+    final path = Path();
+    final fillPath = Path();
+
+    // Sample stock data points
+    final List<double> points = [
+      0.7, 0.5, 0.6, 0.4, 0.5, 0.3, 0.4, 0.5, 0.6, 0.7,
+      0.65, 0.6, 0.55, 0.5, 0.4, 0.35, 0.3, 0.4, 0.5,
+      0.3, 0.2, 0.3, 0.4, 0.5, 0.4, 0.5, 0.6, 0.7, 0.6, 0.5
+    ];
+
+    final stepX = size.width / (points.length - 1);
+
+    // Start paths
+    path.moveTo(0, size.height * points[0]);
+    fillPath.moveTo(0, size.height * points[0]);
+
+    // Create the line and fill
+    for (int i = 1; i < points.length; i++) {
+      path.lineTo(i * stepX, size.height * points[i]);
+      fillPath.lineTo(i * stepX, size.height * points[i]);
+    }
+
+    // Complete fill path
+    fillPath.lineTo(size.width, size.height); // Bottom right
+    fillPath.lineTo(0, size.height); // Bottom left
+    fillPath.close();
+
+    // Draw fill first (underneath)
+    canvas.drawPath(fillPath, fillPaint);
+
+    // Draw the line on top
+    canvas.drawPath(path, linePaint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
+// Example usage
+
+

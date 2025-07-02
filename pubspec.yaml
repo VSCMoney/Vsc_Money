@@ -16,7 +16,8 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.6
+version: 1.0.9
+
 
 environment:
   sdk: ^3.7.2
@@ -36,7 +37,6 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_svg: ^2.0.17
   pinput: ^5.0.1
-  file_picker: ^9.0.2
   url_launcher: ^6.3.1
   path_provider: ^2.1.5
   intl: ^0.20.2
@@ -54,12 +54,26 @@ dependencies:
   get_it: ^8.0.3
   rxdart: ^0.28.0
   lottie: ^3.3.1
-  flutter_audio_capture: ^1.1.9
+  #flutter_audio_capture: ^1.1.10
   waveform_recorder: ^1.7.0
+  gif: ^2.3.0
+  iconsax: ^0.0.8
+  phosphor_flutter: ^2.1.0
+  flutter_spinkit: ^5.2.1
+  flutter_webrtc: ^0.14.1
+  ffi: ^2.1.4
+  record: ^6.0.0
+  flutter_native_splash: ^2.4.6
+  google_sign_in: ^6.3.0
+  crypto: ^3.0.6
+  sign_in_with_apple: ^7.0.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+
+
 
 
   # The "flutter_lints" package below contains a set of recommended lints to
@@ -85,7 +99,7 @@ flutter:
     - assets/images/
   #   - images/a_dot_ham.jpeg
   fonts:
-    - family: DM Sans
+    - family: SF Pro Text
       fonts:
         - asset: assets/fonts/dm-sans/DMSans-Regular.ttf
         - asset: assets/fonts/dm-sans/DMSans-Bold.ttf
@@ -105,17 +119,27 @@ flutter:
         - asset: assets/fonts/josefin-sans/JosefinSans-Bold.ttf
           weight: 700
 
-    - family: SF Pro Display
-      fonts:
-        - asset: assets/fonts/sf-pro-display/SFPRODISPLAYREGULAR.OTF
-        - asset: assets/fonts/sf-pro-display/SFPRODISPLAYBOLD.OTF
-          weight: 700
-
     - family: SF Pro Text
       fonts:
-        - asset: assets/fonts/sf-pro-display/SFPRODISPLAYREGULAR.OTF
-        - asset: assets/fonts/sf-pro-display/SFPRODISPLAYBOLD.OTF
-          weight: 700
+      - asset: assets/fonts/SF-Pro-Text-Font-Family/SF-Pro-Text-Regular.otf
+        weight: 400
+      - asset: assets/fonts/SF-Pro-Text-Font-Family/SF-Pro-Text-Medium.otf
+        weight: 500
+      - asset: assets/fonts/SF-Pro-Text-Font-Family/SF-Pro-Text-Bold.otf
+        weight: 700
+#    - family: Satoshi
+#      fonts:
+#        - asset: assets/fonts/Satoshi-Regular.ttf
+#          weight: 400
+#        - asset: assets/fonts/Satoshi-Medium.ttf
+#          weight: 500
+#        - asset: assets/fonts/Satoshi-Bold.ttf
+#          weight: 700
+#        - asset: assets/fonts/Satoshi-Light.ttf
+#          weight: 300
+
+
+
 
 flutter_launcher_icons:
   android: true
@@ -126,16 +150,6 @@ flutter_launcher_icons:
   adaptive_icon_foreground: "assets/images/ioswhite.png"
 
 
-#flutter_native_splash:
-#  image: assets/images/splash_logo.png
-#  color: "#FFFFFF"
-#  ios_content_mode: scaleAspectFit
-#  android_gravity: center
-#  android: true
-#  ios: true
-#  android_12:
-#    image: assets/images/splash_logo.png
-#    icon_background_color: "#FFFFFF"
 
 
 

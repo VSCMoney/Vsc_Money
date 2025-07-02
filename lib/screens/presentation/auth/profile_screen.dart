@@ -11,6 +11,7 @@ import '../../../constants/colors.dart';
 import '../../../controllers/auth_controller.dart';
 import '../../../routes/AppRoutes.dart';
 import '../../../services/auth_service.dart';
+import '../../../services/theme_service.dart';
  // Replace with your home screen route
 
 // class EnterNameScreen extends StatefulWidget {
@@ -116,7 +117,7 @@ import '../../../services/auth_service.dart';
 //               //     style: TextStyle(
 //               //       fontSize: screenWidth * 0.04,
 //               //       fontWeight: FontWeight.w400,
-//               //       fontFamily: 'DM Sans',
+//               //       fontFamily: 'SF Pro Text',
 //               //       color: Colors.black87,
 //               //     ),
 //               //   ),
@@ -132,7 +133,7 @@ import '../../../services/auth_service.dart';
 //                         style: TextStyle(
 //                           fontSize: screenWidth * 0.042,
 //                           fontWeight: FontWeight.w400,
-//                           fontFamily: 'DM Sans',
+//                           fontFamily: 'SF Pro Text',
 //                           color: Colors.black,
 //                         ),
 //                       ),
@@ -207,7 +208,7 @@ import '../../../services/auth_service.dart';
 //                     style: TextStyle(
 //                       fontSize: screenWidth * 0.045,
 //                       color: Colors.white,
-//                       fontFamily: "DM Sans",
+//                       fontFamily: "SF Pro Text",
 //                       fontWeight: FontWeight.w500,
 //                     ),
 //                   ),
@@ -256,6 +257,7 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
   void _submitName() async {
     final fullName = _fullNameController.text.trim();
     if (fullName.isEmpty || !fullName.contains(" ")) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please enter full name (first & last)")),
       );
@@ -268,21 +270,23 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
 
     await _authService.completeUserProfile(firstName, lastName);
 
+    if (!mounted) return; // <- ADD THIS
+
     _authService.completeUserProfileAndNavigate((flow) {
+      if (!mounted) return; // <- ADD THIS TOO
       switch (flow) {
         case AuthFlow.home:
-          // Navigator.pushReplacementNamed(context, '/home');
           GoRouter.of(context).go('/home');
           break;
         case AuthFlow.nameEntry:
           break;
         case AuthFlow.login:
           context.go('/home');
-
           break;
       }
     });
   }
+
 
   @override
   void dispose() {
@@ -295,9 +299,9 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.background,
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.06),
@@ -320,8 +324,8 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
                     style: TextStyle(
                       fontSize: screenWidth * 0.042,
                       fontWeight: FontWeight.w400,
-                      fontFamily: 'DM Sans',
-                      color: Colors.black,
+                      fontFamily: 'SF Pro Text',
+                      color: theme.text,
                     ),
                   ),
                 ],
@@ -338,17 +342,17 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(5),
-                    borderSide: const BorderSide(color: Colors.black54, width: 2),
+                    borderSide:  BorderSide(color: theme.border, width: 2),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(5),
-                    borderSide: BorderSide(color: Colors.grey.withOpacity(0.6), width: 1.5),
+                    borderSide: BorderSide(color: theme.border, width: 1.5),
                   ),
                   contentPadding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: theme.background,
                 ),
-                style: TextStyle(fontSize: screenWidth * 0.045),
+                style: TextStyle(fontSize: screenWidth * 0.045,color: theme.text),
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -367,7 +371,7 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
                     style: TextStyle(
                       fontSize: screenWidth * 0.045,
                       color: Colors.white,
-                      fontFamily: "DM Sans",
+                      fontFamily: "SF Pro Text",
                       fontWeight: FontWeight.w500,
                     ),
                   ),

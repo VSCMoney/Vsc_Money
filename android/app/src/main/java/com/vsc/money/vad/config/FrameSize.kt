@@ -1,4 +1,4 @@
-package com.konovalov.vad.yamnet.config
+package com.vsc.money.vad.config
 
 /**
  * Created by Georgiy Konovalov on 6/1/2023.
@@ -11,5 +11,6 @@ enum class FrameSize(val value: Int) {
     FRAME_SIZE_243(243),
     FRAME_SIZE_487(487),
     FRAME_SIZE_731(731),
-    FRAME_SIZE_975(975);
+    FRAME_SIZE_975(975),
+    FRAME_SIZE_512(512);
 }

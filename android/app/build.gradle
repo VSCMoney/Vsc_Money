@@ -19,13 +19,31 @@ android {
     compileSdk 35
     ndkVersion '27.0.12077973'
 
+    aaptOptions {
+        noCompress "tflite"
+    }
+
     defaultConfig {
         applicationId "com.vsc.money"
         minSdk 24
         targetSdk 35
         versionCode 1
         versionName "1.0"
+        externalNativeBuild {
+            cmake {
+                cppFlags ""
+                abiFilters 'armeabi-v7a', 'arm64-v8a'
+            }
+        }
+
     }
+
+    externalNativeBuild {
+        cmake {
+            path file("src/main/cpp/CMakeLists.txt")
+        }
+    }
+
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -67,12 +85,21 @@ flutter {
 }
 
 dependencies {
+    // ✅ TensorFlow Lite base
+    implementation 'org.tensorflow:tensorflow-lite:2.12.0'
+
+    // ✅ TensorFlow Lite Support Library
+    implementation 'org.tensorflow:tensorflow-lite-support:0.4.3'
+
+    // ✅ TensorFlow Lite Task Library (Audio classifier)
+    implementation 'org.tensorflow:tensorflow-lite-task-audio:0.4.3'
     implementation 'com.google.firebase:firebase-appcheck-playintegrity'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     implementation platform('com.google.firebase:firebase-bom:33.12.0')
     implementation 'com.google.firebase:firebase-analytics'
     implementation "androidx.core:core:1.16.0"
     implementation("com.google.firebase:firebase-auth")
+
 }
 
 

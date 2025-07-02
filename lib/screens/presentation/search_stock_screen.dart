@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../controllers/session_manager.dart';
+import '../../services/theme_service.dart';
 import '../stock_detail_screen.dart';
 import 'home/chat_screen.dart';
 
@@ -538,24 +539,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
 
 
 
-  void _showAnimatedPortfolioSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return AnimatedPadding(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: BottomSheetDemo( // proceed with backend call
-          ),
-        );
-      },
-    );
-  }
+
 
 
   Future<void> _updatePortfolio({required bool add}) async {
@@ -692,15 +676,15 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
     final double screenWidth = MediaQuery.of(context).size.width;
     final double screenHeight = MediaQuery.of(context).size.height;
     final bool isTablet = screenWidth > 600;
-
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     // Adjust padding based on device size
     final horizontalPadding = isTablet ? 24.0 : 16.0;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.background,
       appBar: AppBar(
         leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black, size: 24),
+            icon:  Icon(Icons.arrow_back, color: theme.icon, size: 24),
             onPressed: () => Navigator.of(context).pop()
         ),
         titleSpacing: 0,
@@ -708,15 +692,15 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
           controller: _controller,
           onSubmitted: _searchStock,
           autofocus: true,
-          style: const TextStyle(
+          style:  TextStyle(
             fontSize: 16,
-            color: Colors.black,
+            color: theme.text,
             fontFamily: 'SF Pro Display',
           ),
-          decoration: const InputDecoration(
+          decoration:  InputDecoration(
             hintText: 'Search stocks',
             hintStyle: TextStyle(
-              color: Colors.grey,
+              color: theme.text,
               fontSize: 16,
               fontFamily: 'SF Pro Display',
             ),
@@ -724,7 +708,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
             contentPadding: EdgeInsets.symmetric(vertical: 14),
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: theme.background,
         elevation: 1,
       ),
       body: SafeArea(
@@ -836,9 +820,10 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
                           child: Text(
                             _stock!['name'] ?? '',
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontFamily: 'SF Pro Display',
+                              color: theme.text
                             ),
                           ),
                         ),
@@ -969,59 +954,3 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
 }
 
 
-class BottomSheetDemo extends StatelessWidget {
-  const BottomSheetDemo({super.key});
-
-  void _showAnimatedSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      barrierColor: Colors.black.withOpacity(0.3),
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _BottomSheetContent(),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[200],
-      appBar: AppBar(title: const Text("Demo")),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () => _showAnimatedSheet(context),
-          child: const Text("Show BottomSheet"),
-        ),
-      ),
-    );
-  }
-}
-
-class _BottomSheetContent extends StatelessWidget {
-  const _BottomSheetContent();
-
-  @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.75,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (_, controller) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: ListView.builder(
-          controller: controller,
-          padding: const EdgeInsets.all(16),
-          itemCount: 20,
-          itemBuilder: (_, index) => ListTile(
-            leading: const Icon(Icons.star),
-            title: Text("Item ${index + 1}"),
-          ),
-        ),
-      ),
-    );
-  }
-}

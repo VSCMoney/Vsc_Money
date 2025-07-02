@@ -2,6 +2,7 @@
 import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart'as http;
 import '../controllers/session_manager.dart';
 import '../models/stock_detail.dart';
@@ -67,6 +68,66 @@ class AuthService {
   void _setError(String error) => _setState(currentState.copyWith(status: AuthStatus.error, error: error));
   void _setUser(UserModel user) => _setState(currentState.copyWith(status: AuthStatus.success, user: user));
   void _clearState() => _setState(const AuthState());
+
+
+
+
+
+
+
+  Future<void> handleGoogleSignIn(Function(AuthFlow) onFlow) async {
+    _setLoading();
+    try {
+      // Step 1: Google native sign-in
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        _setState(currentState.copyWith(status: AuthStatus.idle));
+        return; // user cancelled
+      }
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // Step 2: Sign-in to Firebase
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      final UserCredential userCredential = await _firebaseAuth.signInWithCredential(credential);
+
+      // Step 3: Get ID token from Firebase user
+      final idToken = await userCredential.user?.getIdToken();
+      if (idToken == null) throw "Failed to get Firebase ID token";
+
+      // Step 4: Call your backend for custom JWT session
+      final res = await _api.post(
+        endpoint: "/api/v1/auth/verify_google_user",
+        body: {"id_token": idToken},
+      );
+
+      // Step 5: Save tokens, extract UID if needed
+      final accessToken = res["token"];
+      final refreshToken = res["refresh_token"];
+      String? uid = SessionManager.uid;
+      uid ??= extractUidFromToken(accessToken);
+
+      await SessionManager.saveTokens(accessToken, refreshToken, uid: uid);
+
+      // Step 6: Fetch user profile, continue flow
+      await fetchUserProfile();
+      final user = currentState.user;
+      if ((user?.firstName?.isEmpty ?? true) || (user?.lastName?.isEmpty ?? true)) {
+        onFlow(AuthFlow.nameEntry);
+      } else {
+        onFlow(AuthFlow.home);
+      }
+    } catch (e) {
+      print("❌ Google Sign-in error: $e");
+      _setError("Google Sign-in failed: $e");
+      onFlow(AuthFlow.login);
+    } finally {
+      _setState(currentState.copyWith(status: AuthStatus.idle));
+    }
+  }
+
 
   // 🔐 Verification and Flow Routing
   Future<void> verifyBackendToken(
@@ -193,6 +254,12 @@ class AuthService {
   }
 
 
+
+
+
+
+
+
   // Future<void> refreshAccessToken() async {
   //   try {
   //     final res = await _api.post(endpoint: "/api/v1/auth/refresh_token", body: {
@@ -244,6 +311,10 @@ class AuthService {
     await SessionManager.clearToken();     // clear local tokens
     _clearState();                         // clear user & state
   }
+
+
+
+
 
 
   // 🔐 OTP Verification (Firebase)
@@ -310,104 +381,5 @@ class AuthService {
 
 
 
-// class AuthService {
-//   static final FirebaseAuth _auth = FirebaseAuth.instance;
-//   static String? _verificationId;
-//   static int? _resendToken;
-//
-//   static Future<void> sendOtp(String phoneNumber) async {
-//     try {
-//       await _auth.setSettings(appVerificationDisabledForTesting: true);
-//       await _auth.verifyPhoneNumber(
-//         phoneNumber: phoneNumber,
-//         timeout: const Duration(seconds: 60),
-//         forceResendingToken: _resendToken, // Add this to reduce reCAPTCHA
-//         verificationCompleted: (PhoneAuthCredential credential) async {
-//           // Auto-retrieval (only Android sometimes)
-//           await _auth.signInWithCredential(credential);
-//         },
-//         verificationFailed: (FirebaseAuthException e) {
-//           // More detailed error handling
-//           String errorMessage = 'Verification failed';
-//           switch (e.code) {
-//             case 'invalid-phone-number':
-//               errorMessage = 'Invalid phone number format';
-//               break;
-//             case 'too-many-requests':
-//               errorMessage = 'Too many requests. Please try again later.';
-//               break;
-//             case 'app-not-authorized':
-//               errorMessage = 'App is not authorized for Firebase Authentication';
-//               break;
-//             default:
-//               errorMessage = e.message ?? 'Unknown error occurred';
-//           }
-//           throw Exception(errorMessage);
-//         },
-//         codeSent: (String verificationId, int? resendToken) {
-//           _verificationId = verificationId;
-//           _resendToken = resendToken; // Save for potential future resend
-//         },
-//         codeAutoRetrievalTimeout: (String verificationId) {
-//           _verificationId = verificationId;
-//         },
-//       );
-//     } catch (e) {
-//       // Additional error logging or handling
-//       print('OTP Send Error: $e');
-//       rethrow;
-//     }
-//   }
-//
-//   static Future<String> verifyOtp(String otp) async {
-//     try {
-//       if (_verificationId == null) {
-//         throw Exception("Verification ID not found. Please resend OTP.");
-//       }
-//
-//       final credential = PhoneAuthProvider.credential(
-//         verificationId: _verificationId!,
-//         smsCode: otp,
-//       );
-//
-//       final userCred = await _auth.signInWithCredential(credential);
-//       final idToken = await userCred.user?.getIdToken();
-//
-//       if (idToken == null) throw Exception("Failed to retrieve ID token");
-//
-//       // Optional: Clear verification ID after successful login
-//       _verificationId = null;
-//
-//       return idToken;
-//     } on FirebaseAuthException catch (e) {
-//       // More specific Firebase authentication errors
-//       String errorMessage = 'OTP verification failed';
-//       switch (e.code) {
-//         case 'invalid-verification-code':
-//           errorMessage = 'Invalid OTP. Please try again.';
-//           break;
-//         case 'session-expired':
-//           errorMessage = 'OTP session expired. Please resend OTP.';
-//           break;
-//         default:
-//           errorMessage = e.message ?? 'Verification failed';
-//       }
-//       throw Exception(errorMessage);
-//     } catch (e) {
-//       print('OTP Verify Error: $e');
-//       rethrow;
-//     }
-//   }
-//
-//   // Optional: Add a method to resend OTP
-//   static Future<void> resendOtp(String phoneNumber) async {
-//     try {
-//       await sendOtp(phoneNumber);
-//     } catch (e) {
-//       print('Resend OTP Error: $e');
-//       rethrow;
-//     }
-//   }
-// }
 
 

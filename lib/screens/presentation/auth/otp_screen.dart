@@ -9,6 +9,7 @@ import 'package:vscmoney/services/locator.dart';
 import '../../../constants/colors.dart';
 import '../../../controllers/auth_controller.dart';
 import '../../../services/auth_service.dart';
+import '../../../services/theme_service.dart';
 import '../../widgets/common_button.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -841,6 +842,7 @@ class _OtpVerificationState extends State<OtpVerification> with CodeAutoFill {
   }
 
   void _sendOtp() {
+    setState(() => isLoading = true);
     if (widget.phoneNumber == null) return;
     _authService.sendOtp(
       phoneNumber: widget.phoneNumber!,
@@ -922,18 +924,19 @@ class _OtpVerificationState extends State<OtpVerification> with CodeAutoFill {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final isResendAvailable = _seconds == 0;
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     final defaultPinTheme = PinTheme(
       width: 60,
       height: 60,
-      textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+      textStyle:  TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.text),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.box,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade400),
       ),
     );
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.background,
       body: SafeArea(
         child: LayoutBuilder(builder: (context, constraints) {
           return SingleChildScrollView(
@@ -959,15 +962,15 @@ class _OtpVerificationState extends State<OtpVerification> with CodeAutoFill {
                         ),
                       ),
                       SizedBox(height: screenHeight * 0.07),
-                      const Text(
+                       Text(
                         "Verify Code",
-                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.w400,fontFamily: 'DM Sans'),
+                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.w400,fontFamily: 'SF Pro Text',color: theme.text),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         "An authentication code has been sent to\n${widget.phoneNumber}",
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 16),
+                        style:  TextStyle(fontSize: 16,color: theme.text),
                       ),
                       const SizedBox(height: 32),
 
@@ -991,10 +994,22 @@ class _OtpVerificationState extends State<OtpVerification> with CodeAutoFill {
 
 
                       const SizedBox(height: 24),
+                      // CommonButton(
+                      //   label: "Verify",
+                      //   onPressed: isLoading ? null : _verifyManualOtp,
+                      // ),
                       CommonButton(
-                        label: "Verify",
                         onPressed: isLoading ? null : _verifyManualOtp,
+                        child: isLoading
+                            ? SizedBox(
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 1,
+                            color: Colors.white,
+                          ),
+                        )
+                            : const Text("Verify", style: TextStyle(fontSize: 18, color: Colors.white)),
                       ),
+
 
                       const SizedBox(height: 16),
                       GestureDetector(
@@ -1004,7 +1019,7 @@ class _OtpVerificationState extends State<OtpVerification> with CodeAutoFill {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: _canResend ? Colors.black : Colors.grey,
+                            color: _canResend ? theme.text : Colors.grey,
                           ),
                         ),
                       ),

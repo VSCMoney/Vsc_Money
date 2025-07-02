@@ -627,7 +627,7 @@ class ChatService {
 
     response.stream.transform(utf8.decoder).listen(
           (chunk) {
-        debugPrint("📩 Raw chunk received: ${chunk.length} chars");
+        //debugPrint("📩 Raw chunk received: ${chunk.length} chars");
 
         for (var line in chunk.split('\n')) {
           if (line.startsWith('data:')) {
@@ -636,7 +636,7 @@ class ChatService {
               final decoded = jsonDecode(jsonText);
               final text = decoded['text'] ?? '';
 
-              debugPrint("🔄 Processed text: ${text.length} chars");
+             // debugPrint("🔄 Processed text: ${text.length} chars");
 
               _messageSubject.add(ChatMessage(
                 id: messageId,
@@ -675,6 +675,7 @@ class ChatService {
     _messageSubject.close();
   }
 }
+
 
 
 
