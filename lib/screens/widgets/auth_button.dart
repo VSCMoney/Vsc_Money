@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../services/theme_service.dart';
+
 
 class AuthButton extends StatelessWidget {
   final Widget icon;
@@ -14,12 +16,13 @@ class AuthButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return SizedBox(
       width: double.infinity,
       height: 48,
       child: OutlinedButton(
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Colors.black12),
+          side:  BorderSide(color: theme.google),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(28),
           ),

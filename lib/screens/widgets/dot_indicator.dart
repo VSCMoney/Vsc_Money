@@ -14,7 +14,7 @@ class DotsIndicator extends StatelessWidget {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           margin: const EdgeInsets.symmetric(horizontal: 4),
-          width: currentPage == index ? 16 : 8,
+          width: currentPage == index ? 22 : 12,
           height: 8,
           decoration: BoxDecoration(
             color: currentPage == index ? AppColors.primary : Colors.grey,

@@ -1,28 +1,114 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-import '../../models/chat_message.dart';
+import '../../services/theme_service.dart';
 
 class MessageBubble extends StatelessWidget {
-  final ChatMessage message;
+  final String message;
+  final bool isUser;
+  final GlobalKey? bubbleKey;
+  final bool isLatest;
+  final VoidCallback? onHeightMeasured;
 
-  const MessageBubble({super.key, required this.message});
+  const MessageBubble({
+    Key? key,
+    required this.message,
+    required this.isUser,
+    this.bubbleKey,
+    this.isLatest = false,
+    this.onHeightMeasured,
+  }) : super(key: key);
+
+  void _measureBubbleHeight() {
+    if (isLatest && bubbleKey != null && onHeightMeasured != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final context = bubbleKey!.currentContext;
+        if (context != null) {
+          final RenderBox? box = context.findRenderObject() as RenderBox?;
+          if (box != null && box.hasSize) {
+            onHeightMeasured!();
+          }
+        }
+      });
+    }
+  }
+
+  void _copyToClipboard(BuildContext context) {
+    Clipboard.setData(ClipboardData(text: message));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Copied to clipboard')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: message.isUser ? Colors.grey.shade200 : const Color(0xFFFFF5EC),
-          borderRadius: BorderRadius.circular(16),
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
+    // Trigger height measurement
+    _measureBubbleHeight();
+
+    if (isUser) {
+      return Transform.translate(
+        offset: const Offset(0, 10),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 0, bottom: 0),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const SizedBox(width: 14),
+                GestureDetector(
+                  onTap: () => _copyToClipboard(context),
+                  child: const Icon(
+                    Icons.copy,
+                    size: 14,
+                    color: Color(0XFF7E7E7E),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.6,
+                  ),
+                  child: Container(
+                    key: bubbleKey,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    margin: const EdgeInsets.only(bottom: 2),
+                    decoration: BoxDecoration(
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                      color: theme.message,
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: Text(
+                      message,
+                      style: TextStyle(
+                        height: 1.9,
+                        fontFamily: 'DM Sans',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: theme.text,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        child: Text(
-          message.text,
-          style: const TextStyle(fontSize: 15),
-        ),
-      ),
-    );
+      );
+    }
+
+    // For bot messages, return basic container (will be handled by BotMessageWidget)
+    return const SizedBox.shrink();
   }
 }

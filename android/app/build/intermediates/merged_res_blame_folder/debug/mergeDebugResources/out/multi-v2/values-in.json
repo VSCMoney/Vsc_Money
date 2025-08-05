@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.vsc.money.app-mergeDebugResources-67:/values-in/values-in.xml",
+            "outputFile": "com.vitty.ai.app-mergeDebugResources-67:/values-in/values-in.xml",
             "map": [
                 {
                     "source": "/Users/piyushgoyal/.gradle/caches/8.9/transforms/addbe59adbd278ee67f8f5170d47ab5a/transformed/jetified-play-services-basement-18.5.0/res/values-in/values.xml",

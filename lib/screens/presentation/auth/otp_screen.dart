@@ -7,7 +7,6 @@ import 'package:vscmoney/screens/presentation/home/home_screen.dart';
 import 'package:vscmoney/services/locator.dart';
 
 import '../../../constants/colors.dart';
-import '../../../controllers/auth_controller.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/theme_service.dart';
 import '../../widgets/common_button.dart';
@@ -773,7 +772,6 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:sms_autofill/sms_autofill.dart';
-import '../../../controllers/auth_controller.dart';
 import 'package:pinput/pinput.dart';
 import '../../widgets/common_button.dart';
 
@@ -874,15 +872,20 @@ class _OtpVerificationState extends State<OtpVerification> with CodeAutoFill {
 
   void _handleFlow(AuthFlow flow) {
     switch (flow) {
-      case AuthFlow.home:
-        context.go('/home');
+      case AuthFlow.onboarding:
+      // This shouldn't happen during OTP flow, but handle it gracefully
+        context.go('/onboarding');
+        break;
+      case AuthFlow.login:
+        context.go('/phone_otp');
         break;
       case AuthFlow.nameEntry:
         context.go('/enter_name');
         break;
-      case AuthFlow.login:
-        context.go('/');
+      case AuthFlow.home:
+        context.go('/home');
         break;
+
     }
   }
 

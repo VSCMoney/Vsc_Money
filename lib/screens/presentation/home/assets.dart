@@ -2,9 +2,12 @@
 
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:vscmoney/screens/widgets/drawer.dart';
 
+import '../../../constants/app_bar.dart';
+import '../../../constants/bottomsheet.dart';
 import '../../../main.dart';
 import '../../../services/theme_service.dart';
 import 'home_screen.dart';
@@ -24,8 +27,14 @@ class AssetItem {
   }) : isGain = change >= 0;
 }
 
-class PortfolioScreen extends StatelessWidget {
+class PortfolioScreen extends StatefulWidget {
    PortfolioScreen({super.key});
+
+  @override
+  State<PortfolioScreen> createState() => _PortfolioScreenState();
+}
+
+class _PortfolioScreenState extends State<PortfolioScreen> {
   final GlobalKey<ChatGPTBottomSheetWrapperState> _sheetKey = GlobalKey();
 
   // You can replace this with actual API response
@@ -49,7 +58,7 @@ class PortfolioScreen extends StatelessWidget {
       backgroundColor: theme.background,
       //backgroundColor: Colors.black,
       drawer: CustomDrawer(
-        onTap: () => _sheetKey.currentState?.openSheet(),
+       // onTap: () => _sheetKey.currentState?.openSheet(),
         selectedRoute: "Portfolio",
       ),
       body: SafeArea(
@@ -80,13 +89,40 @@ class PortfolioScreen extends StatelessWidget {
                   children: [
                     CircleAvatar(radius: 5, backgroundColor: e == 'All' ? Colors.orange : Colors.white24),
                     const SizedBox(width: 6),
-                    Text(
+                    SelectableText(
                       e,
                       style:  TextStyle(
                         color: theme.text,
                         fontSize: 15,
                         fontFamily: 'SF Pro Text',
                       ),
+                      contextMenuBuilder: (context, editableTextState) {
+                        final selection = editableTextState.textEditingValue.selection;
+                        final text = editableTextState.textEditingValue.text;
+                        final selectedText = selection.textInside(text);
+                        return AdaptiveTextSelectionToolbar.buttonItems(
+                          anchors: editableTextState.contextMenuAnchors,
+                          buttonItems: [
+                            ContextMenuButtonItem(
+                              label: 'Ask Vitty 🤖',
+                              onPressed: () {
+                                Navigator.pop(context);
+                                showModalBottomSheet(
+                                  context: context,
+                                  builder: (_) => Text("Vitty: $selectedText"),
+                                );
+                              },
+                            ),
+                            ContextMenuButtonItem(
+                              label: 'Copy',
+                              onPressed: () {
+                                Navigator.pop(context);
+                                Clipboard.setData(ClipboardData(text: selectedText));
+                              },
+                            ),
+                          ],
+                        );
+                      },
                     )
                   ],
                 ))
@@ -198,38 +234,6 @@ class PortfolioScreen extends StatelessWidget {
   }
 
   // Widget _assetTile(AssetItem asset, BuildContext  context) {
-  //   final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
-  //   final color = asset.isGain ? Colors.green : Colors.redAccent;
-  //   final sign = asset.isGain ? '+' : '-';
-  //
-  //   return Row(
-  //     children: [
-  //       Text(asset.title,
-  //           style:  TextStyle(
-  //             color: theme.text,
-  //             fontSize: 15,
-  //             fontWeight: FontWeight.w400,
-  //             fontFamily: 'SF Pro Text',
-  //           )),
-  //       Spacer(),
-  //       Image.asset("assets/images/graph.png"),
-  //       Spacer(),
-  //       Column(
-  //         crossAxisAlignment: CrossAxisAlignment.end,
-  //         children: [
-  //           Text("₹${asset.amount.toStringAsFixed(2)}",
-  //               style:  TextStyle(color: theme.text, fontFamily: 'SF Pro Text')),
-  //           Text(
-  //             "$sign ₹${asset.change.abs().toStringAsFixed(2)} (${asset.changePercent.toStringAsFixed(2)}%)",
-  //             style: TextStyle(color: color, fontSize: 13, fontFamily: 'SF Pro Text'),
-  //           ),
-  //         ],
-  //       )
-  //     ],
-  //   );
-  // }
-
-
   Widget _assetTile(AssetItem asset, BuildContext context) {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     final color = asset.isGain ? Colors.green : Colors.redAccent;
@@ -295,7 +299,6 @@ class PortfolioScreen extends StatelessWidget {
       ),
     );
   }
-
 }
 
 // enum ChartType {

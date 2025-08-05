@@ -4,122 +4,239 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:math' as math;
 import 'dart:ui';
+import 'dart:ui' as ui;
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
 import 'dart:math';
-import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:vscmoney/constants/colors.dart';
+import 'package:vscmoney/screens/presentation/home/chat_screen.dart';
+import 'package:vscmoney/services/chat_service.dart';
 
-import 'constants/widgets.dart';
+import 'models/chat_session.dart';
 
-import 'package:flutter/material.dart';
-
-import 'package:flutter/material.dart';
-
-
-import 'dart:math';
-import 'package:flutter/material.dart';
-
-
-
-
-
-class DummyBoxScreen extends StatefulWidget {
-  @override
-  _DummyBoxScreenState createState() => _DummyBoxScreenState();
-}
-
-class _DummyBoxScreenState extends State<DummyBoxScreen> {
-  final List<Color> _boxColors = [];
-  ScrollController _scrollController = ScrollController();
-
-
-
-
-
-  Color _getRandomColor() {
-    final random = Random();
-    return Color.fromARGB(
-      255,
-      random.nextInt(256),
-      random.nextInt(256),
-      random.nextInt(256),
-    );
-  }
-
-  void jumpTO(){
-    setState(() {
-      //print("OFFSET: ${_scrollController.offset}");
-      var jump = _scrollController.position.maxScrollExtent;
-      print("JUMP : $jump");
-      _scrollController.jumpTo(jump);
-    });
-  }
-
-  void _addBox() {
-    setState(() {
-      _boxColors.add(_getRandomColor());
-      //_scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-    });
-  }
-
+class PremiumAccessScreen extends StatelessWidget {
+  const PremiumAccessScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-
-      print("max: ${_scrollController.position.maxScrollExtent}");
-
-      print("min : ${_scrollController.position.minScrollExtent}");
-      print("Offset: ${_scrollController.offset}");
-
-    });
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Dummy Box List'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.add),
-            onPressed: _addBox,
-          ),
-          IconButton(
-            icon: Icon(Icons.calculate),
-            onPressed: jumpTO,
-          )
-        ],
-      ),
-      body: ListView.builder(
-        controller: _scrollController,
-        itemCount: _boxColors.length + 1,
-        itemBuilder: (context, index) {
-if(index == _boxColors.length){
-  return SizedBox(height: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top - 10);
-}
-          return Container(
-            height: 100,
-            color: _boxColors[index],
-            alignment: Alignment.center,
-            margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-            child: Text(
-              'Box ${index + 1}',
+      backgroundColor: Colors.white,
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Column(
+          children: [
+            SizedBox(height: 60),
+
+            // Logo
+            Container(
+              width: 40,
+              height: 40,
+              child: Image.asset("assets/images/new_app_logo.png"),
+            ),
+
+            SizedBox(height: 20),
+
+            // Title
+            Text(
+              'Full Access Unlocked\nFor 21 Days!',
+              textAlign: TextAlign.center,
               style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold
+                fontSize: 25,
+                fontWeight: FontWeight.w700,
+                color: Colors.black,
+                height: 1.2,
               ),
             ),
-          );
-        },
+
+            SizedBox(height: 16),
+
+            // Subtitle
+            Text(
+              'Enjoy full access to your AI financial consultant',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.black,
+                fontFamily: "DM Sans",
+              ),
+            ),
+
+            SizedBox(height: 30),
+
+            // Features List
+            Expanded(
+              flex: 3,
+              child: Column(
+                children: [
+                  FeatureItem(
+                    icon: Icons.track_changes,
+                    iconColor: Color(0xFFFF6B35),
+                    title: 'Smart Goal Planning',
+                    description:
+                        'Unlock powerful tools to define, plan, and track what truly matters to you.',
+                  ),
+
+                  SizedBox(height: 32),
+
+                  FeatureItem(
+                    icon: Icons.insights,
+                    iconColor: Color(0xFFFF6B35),
+                    title: 'Deeper Wealth Insights',
+                    description:
+                        'Access personalised financial insights to grow faster and make informed decisions.',
+                  ),
+
+                  SizedBox(height: 32),
+
+                  FeatureItem(
+                    icon: Icons.chat_bubble_outline,
+                    iconColor: Color(0xFFFF6B35),
+                    title: '50 Prompts Per Day',
+                    description:
+                        'Ask up to 50 questions daily to gain deeper clarity and guidance from your AI advisor.',
+                  ),
+
+                  SizedBox(height: 32),
+
+                  FeatureItem(
+                    icon: Icons.tune,
+                    iconColor: Color(0xFFFF6B35),
+                    title: 'Tailored Experience',
+                    description:
+                        'Customise the app to match your financial needs and preferences.',
+                  ),
+                ],
+              ),
+            ),
+
+            //  SizedBox(height: 14),
+            Divider(thickness: 0.1, color: Colors.black),
+
+            // Bottom text
+            Text(
+              'Enjoy 21 days of full access—upgrade anytime to keep going with your AI advisor.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.black,
+                fontFamily: "DM Sans",
+              ),
+            ),
+
+            SizedBox(height: 24),
+
+            // Continue Button
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () {
+                  GoRouter.of(context).go('/home');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFFE87E2E),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Continue',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+
+            SizedBox(height: 32),
+
+            // Home indicator
+            Container(
+              width: 134,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(2.5),
+              ),
+            ),
+
+            SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }
 }
 
+class FeatureItem extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String description;
+
+  const FeatureItem({
+    Key? key,
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.description,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(5.0),
+          child: Icon(icon, color: iconColor, size: 20),
+        ),
+
+        SizedBox(width: 16),
+
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                  fontFamily: "DM Sans",
+                ),
+              ),
+
+              SizedBox(height: 4),
+
+              Text(
+                description,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  height: 1.4,
+                  fontFamily: "DM Sans",
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class AppleSignInButtonWidget extends StatelessWidget {
   const AppleSignInButtonWidget({super.key});
@@ -143,8 +260,7 @@ class AppleSignInButtonWidget extends StatelessWidget {
           },
           style: SignInWithAppleButtonStyle.black,
           height: 50,
-        )
-
+        ),
       ),
     );
   }
@@ -155,9 +271,13 @@ class AppleSignInService {
 
   /// Generate a cryptographically secure random nonce
   String _generateNonce([int length = 32]) {
-    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
     final random = Random.secure();
-    return List.generate(length, (_) => charset[random.nextInt(charset.length)]).join();
+    return List.generate(
+      length,
+      (_) => charset[random.nextInt(charset.length)],
+    ).join();
   }
 
   /// Return the sha256 hash of [input]
@@ -176,7 +296,9 @@ class AppleSignInService {
     }
 
     final header = utf8.decode(base64Url.decode(base64Url.normalize(parts[0])));
-    final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+    final payload = utf8.decode(
+      base64Url.decode(base64Url.normalize(parts[1])),
+    );
 
     print("🧩 JWT Header: $header");
     print("📦 JWT Payload: $payload");
@@ -195,11 +317,12 @@ class AppleSignInService {
       ],
       nonce: hashedNonce,
       webAuthenticationOptions: WebAuthenticationOptions(
-        clientId: 'com.vsc.money.signin', // ✅ FIX — THIS PASSES YOUR SERVICE ID
-        redirectUri: Uri.parse('https://mystic-primacy-455711-q3.firebaseapp.com/__/auth/handler'),
+        clientId: 'com.vitty.ai.signin', // ✅ FIX — THIS PASSES YOUR SERVICE ID
+        redirectUri: Uri.parse(
+          'https://mystic-primacy-455711-q3.firebaseapp.com/__/auth/handler',
+        ),
       ),
     );
-
 
     final idToken = appleCredential.identityToken;
 
@@ -215,413 +338,14 @@ class AppleSignInService {
     decodeIdentityToken(idToken); // 🔍 Log decoded JWT
 
     // Step 2: Create Firebase OAuth Credential
-    final oauthCredential = OAuthProvider("apple.com").credential(
-      idToken: idToken,
-      rawNonce: rawNonce,
-    );
+    final oauthCredential = OAuthProvider(
+      "apple.com",
+    ).credential(idToken: idToken, rawNonce: rawNonce);
 
     // Step 3: Firebase Sign-In
     return await _auth.signInWithCredential(oauthCredential);
   }
 }
-
-
-
-
-class ColorfulBoxesScreen extends StatefulWidget {
-  const ColorfulBoxesScreen({Key? key}) : super(key: key);
-
-  @override
-  State<ColorfulBoxesScreen> createState() => _ColorfulBoxesScreenState();
-}
-
-class _ColorfulBoxesScreenState extends State<ColorfulBoxesScreen> {
-  final List<BoxData> boxes = [];
-  final Random _random = Random();
-
-  // Predefined colors for variety
-  final List<Color> availableColors = [
-    Colors.red,
-    Colors.blue,
-    Colors.green,
-    Colors.orange,
-    Colors.purple,
-    Colors.pink,
-    Colors.teal,
-    Colors.indigo,
-    Colors.amber,
-    Colors.cyan,
-    Colors.lime,
-    Colors.deepOrange,
-    Colors.deepPurple,
-    Colors.lightBlue,
-    Colors.lightGreen,
-  ];
-
-  void _addNewBox() {
-    final randomColor = availableColors[_random.nextInt(availableColors.length)];
-    final randomHeight = 60.0 + _random.nextDouble() * 140; // 60-200 height range
-
-    setState(() {
-      boxes.add(BoxData(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        color: randomColor,
-        height: randomHeight,
-        text: "Box ${boxes.length + 1}",
-      ));
-    });
-
-    // Add some haptic feedback
-    _showSnackBar("Added Box ${boxes.length} with height ${randomHeight.toInt()}px");
-  }
-
-  void _removeBox(int index) {
-    setState(() {
-      boxes.removeAt(index);
-    });
-    _showSnackBar("Box removed!");
-  }
-
-  void _updateBoxHeight(int index, double newHeight) {
-    setState(() {
-      boxes[index] = boxes[index].copyWith(height: newHeight);
-    });
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 1),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
-      ),
-    );
-  }
-
-  void _showHeightDialog(int index) {
-    final TextEditingController heightController = TextEditingController();
-    heightController.text = boxes[index].height.toInt().toString();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Edit Height - ${boxes[index].text}"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: heightController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Height (px)",
-                hintText: "Enter height",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              "Current: ${boxes[index].height.toInt()}px",
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final newHeight = double.tryParse(heightController.text);
-              if (newHeight != null && newHeight > 0 && newHeight <= 300) {
-                _updateBoxHeight(index, newHeight);
-                Navigator.pop(context);
-                _showSnackBar("Height updated to ${newHeight.toInt()}px");
-              } else {
-                _showSnackBar("Please enter a valid height (1-300)");
-              }
-            },
-            child: const Text("Update"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text(
-          "Colorful Boxes",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        actions: [
-          if (boxes.isNotEmpty)
-            IconButton(
-              onPressed: () {
-                setState(() {
-                  boxes.clear();
-                });
-                _showSnackBar("All boxes cleared!");
-              },
-              icon: const Icon(Icons.clear_all),
-              tooltip: "Clear All",
-            ),
-        ],
-      ),
-      body: boxes.isEmpty
-          ? _buildEmptyState()
-          : _buildBoxesList(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addNewBox,
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.add, color: Colors.white),
-        tooltip: "Add New Box",
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.inbox_outlined,
-            size: 80,
-            color: Colors.grey,
-          ),
-          SizedBox(height: 16),
-          Text(
-            "No boxes yet!",
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            "Tap the + button to add colorful boxes",
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBoxesList() {
-    return Column(
-      children: [
-        // Stats Header
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          margin: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildStatItem("Total Boxes", "${boxes.length}"),
-              _buildStatItem("Avg Height", "${_getAverageHeight().toInt()}px"),
-              _buildStatItem("Max Height", "${_getMaxHeight().toInt()}px"),
-            ],
-          ),
-        ),
-
-        // Boxes List
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: boxes.length,
-            itemBuilder: (context, index) {
-              final box = boxes[index];
-              return _buildBoxItem(box, index);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatItem(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBoxItem(BoxData box, int index) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: box.color.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          height: box.height,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                box.color,
-                box.color.withOpacity(0.7),
-              ],
-            ),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => _showHeightDialog(index),
-              onLongPress: () => _removeBox(index),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          box.text,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => _removeBox(index),
-                          icon: const Icon(
-                            Icons.close,
-                            color: Colors.white,
-                          ),
-                          splashRadius: 20,
-                        ),
-                      ],
-                    ),
-
-                    if (box.height > 80) // Show details only if box is tall enough
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Height: ${box.height.toInt()}px",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "Tap to edit • Long press to delete",
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  double _getAverageHeight() {
-    if (boxes.isEmpty) return 0;
-    return boxes.map((b) => b.height).reduce((a, b) => a + b) / boxes.length;
-  }
-
-  double _getMaxHeight() {
-    if (boxes.isEmpty) return 0;
-    return boxes.map((b) => b.height).reduce((a, b) => a > b ? a : b);
-  }
-}
-
-// Data Model for Box
-class BoxData {
-  final String id;
-  final Color color;
-  final double height;
-  final String text;
-
-  const BoxData({
-    required this.id,
-    required this.color,
-    required this.height,
-    required this.text,
-  });
-
-  BoxData copyWith({
-    String? id,
-    Color? color,
-    double? height,
-    String? text,
-  }) {
-    return BoxData(
-      id: id ?? this.id,
-      color: color ?? this.color,
-      height: height ?? this.height,
-      text: text ?? this.text,
-    );
-  }
-}
-
-
-
 
 class ImprovedAppleSignInService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -629,9 +353,13 @@ class ImprovedAppleSignInService {
 
   // Generate nonce for Apple Sign-In security
   String generateNonce([int length = 32]) {
-    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
     final random = Random.secure();
-    return List.generate(length, (_) => charset[random.nextInt(charset.length)]).join();
+    return List.generate(
+      length,
+      (_) => charset[random.nextInt(charset.length)],
+    ).join();
   }
 
   // SHA256 hash for nonce
@@ -673,20 +401,22 @@ class ImprovedAppleSignInService {
       print('   Email: ${appleCredential.email ?? "Not provided"}');
       print('   Given Name: ${appleCredential.givenName ?? "Not provided"}');
       print('   Family Name: ${appleCredential.familyName ?? "Not provided"}');
-      print('   Identity Token Length: ${appleCredential.identityToken?.length ?? 0}');
-      print('   Authorization Code Length: ${appleCredential.authorizationCode?.length ?? 0}');
+      print(
+        '   Identity Token Length: ${appleCredential.identityToken?.length ?? 0}',
+      );
+      print(
+        '   Authorization Code Length: ${appleCredential.authorizationCode?.length ?? 0}',
+      );
 
       // Try Firebase authentication
       print('🔍 Testing Firebase authentication...');
-      final oauthCredential = OAuthProvider("apple.com").credential(
-        idToken: appleCredential.identityToken,
-        rawNonce: rawNonce,
-      );
+      final oauthCredential = OAuthProvider(
+        "apple.com",
+      ).credential(idToken: appleCredential.identityToken, rawNonce: rawNonce);
 
       print('✅ OAuth credential created successfully');
       print('   Provider ID: ${oauthCredential.providerId}');
       print('   Sign-in method: ${oauthCredential.signInMethod}');
-
     } catch (e) {
       print('❌ Debug failed: $e');
       if (e is FirebaseAuthException) {
@@ -728,10 +458,9 @@ class ImprovedAppleSignInService {
 
       // Step 4: Create Firebase OAuth credential
       print('🔍 Creating Firebase OAuth credential...');
-      final oauthCredential = OAuthProvider("apple.com").credential(
-        idToken: appleCredential.identityToken,
-        rawNonce: rawNonce,
-      );
+      final oauthCredential = OAuthProvider(
+        "apple.com",
+      ).credential(idToken: appleCredential.identityToken, rawNonce: rawNonce);
       print('✅ OAuth credential created');
 
       // Step 5: Sign in to Firebase
@@ -757,12 +486,8 @@ class ImprovedAppleSignInService {
       print('🔍 Sending to backend...');
       final response = await http.post(
         Uri.parse('$baseUrl/api/v1/auth/verify_apple_user'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'id_token': idToken,
-        }),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'id_token': idToken}),
       );
 
       print('📡 Backend response status: ${response.statusCode}');
@@ -770,16 +495,11 @@ class ImprovedAppleSignInService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         print('✅ Backend verification successful');
-        return {
-          'success': true,
-          'data': data,
-          'user': user,
-        };
+        return {'success': true, 'data': data, 'user': user};
       } else {
         print('❌ Backend verification failed: ${response.body}');
         throw Exception('Backend verification failed: ${response.body}');
       }
-
     } on SignInWithAppleAuthorizationException catch (e) {
       print('❌ Apple Authorization Error:');
       print('   Code: ${e.code}');
@@ -798,7 +518,9 @@ class ImprovedAppleSignInService {
       // Specific handling for invalid-credential
       if (e.code == 'invalid-credential') {
         print('🔧 INVALID CREDENTIAL DETECTED:');
-        print('   This usually means Firebase Apple provider is not configured correctly');
+        print(
+          '   This usually means Firebase Apple provider is not configured correctly',
+        );
         print('   Check: Service ID in Firebase = Bundle Identifier in Xcode');
         print('   Check: Apple Team ID, Key ID, and Private Key in Firebase');
       }
@@ -810,10 +532,7 @@ class ImprovedAppleSignInService {
       };
     } catch (e) {
       print('❌ General Error: $e');
-      return {
-        'success': false,
-        'error': e.toString(),
-      };
+      return {'success': false, 'error': e.toString()};
     }
   }
 
@@ -967,9 +686,7 @@ class AppleSignInDebugScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Apple Sign-In Debug'),
-      ),
+      appBar: AppBar(title: Text('Apple Sign-In Debug')),
       body: Padding(
         padding: EdgeInsets.all(20),
         child: Column(
@@ -1016,118 +733,1144 @@ class AppleSignInDebugScreen extends StatelessWidget {
 }
 
 
-class ChatDemo {
+
+
+
+
+
+
+
+
+
+
+
+class ThreadHistoryItem {
+  final String id;
   final String text;
-  final bool isUser;
-  final GlobalKey key;
+  final DateTime createdAt;
 
-  ChatDemo({required this.text, required this.isUser}) : key = GlobalKey();
-}
+  ThreadHistoryItem({
+    required this.id,
+    required this.text,
+    required this.createdAt,
+  });
 
-
-class ChatDemoPage extends StatefulWidget {
   @override
-  _ChatDemoPageState createState() => _ChatDemoPageState();
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is ThreadHistoryItem &&
+              runtimeType == other.runtimeType &&
+              text.trim() == other.text.trim();
+
+  @override
+  int get hashCode => text.trim().hashCode;
 }
 
-class _ChatDemoPageState extends State<ChatDemoPage> {
-  final List<ChatDemo> messages = [];
-  final ScrollController _scrollController = ScrollController();
-  final GlobalKey _textFieldKey = GlobalKey();
+class VittyThreadSheet extends StatefulWidget {
+  final ChatService chatService;
+  final String initialText;
+  final List<ThreadHistoryItem>? history;
+  VoidCallback onClose;
 
-  void _sendMessage() {
-    final userMsg = ChatDemo(text: "User message ${messages.length + 1}", isUser: true);
-    setState(() {
-      messages.add(userMsg);
-    });
+   VittyThreadSheet({
+    Key? key,
+    required this.chatService,
+    required this.initialText,
+    this.history,
+     required this.onClose,
+  }) : super(key: key);
 
-    Future.delayed(Duration(milliseconds: 100), () {
-      _alignMessageTop100pxAboveTextField(userMsg.key);
-    });
+  @override
+  _VittyThreadSheetState createState() => _VittyThreadSheetState();
+}
 
-    // Simulate bot reply
-    Future.delayed(Duration(seconds: 1), () {
-      setState(() {
-        messages.add(ChatDemo(text: "Bot reply ${messages.length + 1}", isUser: false));
-      });
-    });
+class _VittyThreadSheetState extends State<VittyThreadSheet>
+    with TickerProviderStateMixin {
+  ChatSession? _currentSession;
+  late List<ThreadHistoryItem> _history;
+  String? _selectedText;
+  late AnimationController _animationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _selectedText = widget.initialText.trim();
+
+    final initialItem = ThreadHistoryItem(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      text: _selectedText!,
+      createdAt: DateTime.now(),
+    );
+
+    final originalHistory = widget.history ?? [];
+
+    _history =
+        [
+          initialItem,
+          ...originalHistory,
+        ].where((item) => item.text.trim().isNotEmpty).toSet().toList();
+
+    _startSession(_selectedText!);
   }
 
-  void _alignMessageTop100pxAboveTextField(GlobalKey key) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final textFieldContext = _textFieldKey.currentContext;
-      final messageContext = key.currentContext;
+  Future<void> _startSession(String prompt) async {
+    if (!mounted) return;
 
-      if (textFieldContext == null || messageContext == null) {
-        Future.delayed(Duration(milliseconds: 100), () {
-          _alignMessageTop100pxAboveTextField(key);
-        });
-        return;
-      }
-
-      final textFieldTop = (textFieldContext.findRenderObject() as RenderBox)
-          .localToGlobal(Offset.zero)
-          .dy;
-      final messageTop = (messageContext.findRenderObject() as RenderBox)
-          .localToGlobal(Offset.zero)
-          .dy;
-
-      final targetY = textFieldTop - 100.0;
-      final adjustment = messageTop - targetY;
-
-      print("📍 TextField Top: $textFieldTop");
-      print("🧭 Message Top: $messageTop");
-      print("🎯 Target Y: $targetY");
-      print("↕️ Scroll By: $adjustment");
-
-      _scrollController.animateTo(
-        _scrollController.offset + adjustment,
-        duration: Duration(milliseconds: 300),
-        curve: Curves.easeOut,
+    try {
+      final title = prompt.length > 20 ? prompt.substring(0, 20) : prompt;
+      final session = await widget.chatService.createSession(
+        'Thread: $title...',
       );
+
+      if (mounted) {
+        setState(() {
+          _currentSession = session;
+        });
+      }
+    } catch (e) {
+      print('Error creating session: $e');
+      // Handle error - maybe show a snackbar or keep the previous session
+    }
+  }
+
+  void _onAskVitty(String newText) async {
+    print('_onAskVitty called with: $newText');
+
+    final trimmed = _selectedText?.trim();
+    if (trimmed != null &&
+        trimmed.isNotEmpty &&
+        !_history.any((item) => item.text.trim() == trimmed)) {
+      setState(() {
+        _history.insert(
+          0,
+          ThreadHistoryItem(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            text: trimmed,
+            createdAt: DateTime.now(),
+          ),
+        );
+      });
+    }
+
+    setState(() {
+      _selectedText = newText.trim();
+      _currentSession = null;
     });
+
+    await _startSession(_selectedText!);
+  }
+
+  void _onDropdownChanged(String value) async {
+    if (!mounted) return;
+
+    setState(() {
+      _selectedText = value.trim();
+      _currentSession = null;
+    });
+
+    // Add a small delay to ensure the UI has updated
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    if (mounted) {
+      await _startSession(_selectedText!);
+    }
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // Fix: Create a proper set of unique texts and ensure selected value is valid
+    final uniqueTexts = <String>{};
+    final dropdownItems = <DropdownMenuItem<String>>[];
+
+    // Add texts in order, but only unique ones
+    for (final item in _history) {
+      final trimmedText = item.text.trim();
+      if (trimmedText.isNotEmpty && !uniqueTexts.contains(trimmedText)) {
+        uniqueTexts.add(trimmedText);
+        final displayText =
+        trimmedText.length > 30
+            ? '${trimmedText.substring(0, 27)}...'
+            : trimmedText;
+
+        dropdownItems.add(
+          DropdownMenuItem<String>(
+            value: trimmedText,
+            child: Text(
+              displayText,
+              style: const TextStyle(color: Colors.black),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        );
+      }
+    }
+
+    // Ensure selected text is valid
+    final safeSelectedText =
+    uniqueTexts.contains(_selectedText?.trim())
+        ? _selectedText?.trim()
+        : (uniqueTexts.isNotEmpty ? uniqueTexts.first : null);
+
     return Scaffold(
-      appBar: AppBar(title: Text('Chat Demo')),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: EdgeInsets.symmetric(vertical: 8),
-              itemCount: messages.length,
-              itemBuilder: (_, index) {
-                final msg = messages[index];
-                return Container(
-                  key: msg.key,
-                  alignment: msg.isUser ? Alignment.centerRight : Alignment.centerLeft,
-                  margin: EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: msg.isUser ? Colors.blue.shade100 : Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(8),
+      body: WillPopScope(
+        onWillPop: () async {
+          // Only allow popping if explicitly requested
+          return true;
+        },
+        child: FractionallySizedBox(
+          heightFactor: 0.85, // reduced height
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                // Header
+                // Dropdown for thread history
+                if (dropdownItems.isNotEmpty && safeSelectedText != null) ...[
+                  // Header with iOS-style dropdown
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Center dropdown
+                        if (safeSelectedText != null)
+                          DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: safeSelectedText,
+                              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                                fontFamily: 'SF Pro Display',
+                              ),
+                              items: dropdownItems,
+                              onChanged: (value) {
+                                if (value != null && value != safeSelectedText) {
+                                  _onDropdownChanged(value);
+                                }
+                              },
+                            ),
+                          ),
+      
+                        // Close button (left aligned)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: IconButton(
+                            icon: const Icon(Icons.close, size: 20),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Text(msg.text),
-                );
-              },
+      
+                ],
+      
+                // Chat screen
+                Expanded(
+                  child:
+                  _currentSession == null
+                      ? const Center(child: CircularProgressIndicator())
+                      : ChatScreen(
+                    key: ValueKey(_currentSession?.id),
+                    session: _currentSession!,
+                    chatService: widget.chatService,
+                    onAskVitty: _onAskVitty,
+                    isThreadMode: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+
+
+
+
+
+
+
+//
+// class AnimatedOrb extends StatefulWidget {
+//   const AnimatedOrb({
+//     super.key,
+//     this.size = 64.0,
+//     this.backgroundColors = const [
+//       Color(0xFF814ACD), // purple for base glow
+//       Color(0xFFFC5CF5), // pink for base glow
+//     ],
+//     this.orbColors = const [
+//       Color(0xFFFC5CF5), // pink inside the orb
+//       Color(0xFF814ACD), // purple at the edge of the orb
+//     ],
+//     this.duration = const Duration(seconds: 6),
+//   });
+//
+//   final double size;
+//   final List<Color> backgroundColors;
+//   final List<Color> orbColors;
+//   final Duration duration;
+//
+//   @override
+//   State<AnimatedOrb> createState() => _AnimatedOrbState();
+// }
+//
+// class _AnimatedOrbState extends State<AnimatedOrb>
+//     with SingleTickerProviderStateMixin {
+//   late final AnimationController _controller;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     // AnimationController produces values between 0 and 1 during its duration:contentReference[oaicite:2]{index=2}.
+//     _controller = AnimationController(vsync: this, duration: widget.duration)
+//       ..repeat(); // loop forever
+//   }
+//
+//   @override
+//   void dispose() {
+//     _controller.dispose();
+//     super.dispose();
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final double baseSize = widget.size;
+//     final double orbSize = baseSize * 0.6;
+//
+//     return SizedBox(
+//       width: baseSize,
+//       height: baseSize,
+//       child: Stack(
+//         alignment: Alignment.center,
+//         children: [
+//           // 1. Static diffused circle (the glow).
+//           Container(
+//             width: baseSize,
+//             height: baseSize,
+//             decoration: BoxDecoration(
+//               shape: BoxShape.circle,
+//               // A radial gradient can specify its centre and radius in fractions:contentReference[oaicite:3]{index=3}.
+//               gradient: RadialGradient(
+//                 center: Alignment.center,
+//                 radius: 0.9,
+//                 colors: [
+//                   widget.backgroundColors[0].withOpacity(0.3),
+//                   widget.backgroundColors[1].withOpacity(0.3),
+//                   Colors.transparent,
+//                 ],
+//                 stops: const [0.0, 0.6, 1.0],
+//               ),
+//               // Box shadows create the soft edges of the diffused glow.
+//               boxShadow: [
+//                 BoxShadow(
+//                   color: widget.backgroundColors[0].withOpacity(0.5),
+//                   blurRadius: baseSize * 0.6,
+//                   spreadRadius: baseSize * 0.1,
+//                 ),
+//                 BoxShadow(
+//                   color: widget.backgroundColors[1].withOpacity(0.5),
+//                   blurRadius: baseSize * 0.6,
+//                   spreadRadius: baseSize * 0.1,
+//                 ),
+//               ],
+//             ),
+//           ),
+//           // 2. Animated orb on top.
+//           AnimatedBuilder(
+//             animation: _controller,
+//             builder: (_, __) {
+//               // Compute an angle from 0 to 2π based on the controller value.
+//               final double angle = _controller.value * 2 * math.pi;
+//               // Move the gradient’s centre around a circle (0.0–1.0 range).
+//               final double dx = 0.35 * math.cos(angle);
+//               final double dy = 0.35 * math.sin(angle);
+//               return Container(
+//                 width: orbSize,
+//                 height: orbSize,
+//                 decoration: BoxDecoration(
+//                   shape: BoxShape.circle,
+//                   gradient: RadialGradient(
+//                     // The animated centre causes the pink highlight to “orbit”.
+//                     center: Alignment(dx, dy),
+//                     radius: 0.8,
+//                     colors: widget.orbColors,
+//                     stops: const [0.0, 1.0],
+//                   ),
+//                 ),
+//               );
+//             },
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
+
+
+
+
+
+
+
+
+/// Demo that positions an animated orb above a prompt line.
+class AnimatedOrbDemo extends StatelessWidget {
+  const AnimatedOrbDemo({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // The orb itself (you can adjust size here).
+            const AnimatedYinYangOrb(size: 100.0),
+            const SizedBox(height: 24),
+            // A simple label suggesting user interaction.
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+
+
+
+
+
+
+// class AnimatedOrb extends StatefulWidget {
+//   final double size;
+//   final Duration duration;
+//
+//   const AnimatedOrb({
+//     super.key,
+//     this.size = 34.0,
+//     this.duration = const Duration(seconds: 8),
+//   });
+//
+//   @override
+//   State<AnimatedOrb> createState() => _AnimatedOrbState();
+// }
+//
+// class _AnimatedOrbState extends State<AnimatedOrb>
+//     with TickerProviderStateMixin {
+//   late final AnimationController _controller1;
+//   late final AnimationController _controller2;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _controller1 = AnimationController(
+//       vsync: this,
+//       duration: widget.duration,
+//     )..repeat();
+//
+//     _controller2 = AnimationController(
+//       vsync: this,
+//       duration: Duration(milliseconds: (widget.duration.inMilliseconds * 0.85).round()),
+//     )..repeat();
+//   }
+//
+//   @override
+//   void dispose() {
+//     _controller1.dispose();
+//     _controller2.dispose();
+//     super.dispose();
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final double haloSize = widget.size * 2.2;
+//
+//     return SizedBox(
+//       width: haloSize,
+//       height: haloSize,
+//       child: Stack(
+//         alignment: Alignment.center,
+//         children: [
+//           // Outer halo
+//           AnimatedBuilder(
+//             animation: Listenable.merge([_controller1, _controller2]),
+//             builder: (context, _) {
+//               final double rotation1 = _controller1.value * 2 * math.pi;
+//               final double rotation2 = _controller2.value * 2 * math.pi;
+//
+//               return Container(
+//                 width: haloSize,
+//                 height: haloSize,
+//                 decoration: BoxDecoration(
+//                   shape: BoxShape.circle,
+//                   gradient: RadialGradient(
+//                     center: Alignment.center,
+//                     radius: 1.0,
+//                     colors: [
+//                       const Color(0xFFE249FF).withOpacity(0.06),
+//                       const Color(0xFF3B2DFF).withOpacity(0.04),
+//                       Colors.transparent,
+//                     ],
+//                     stops: const [0.0, 0.5, 1.0],
+//                   ),
+//                 ),
+//               );
+//             },
+//           ),
+//
+//           // Base orb
+//           Container(
+//             width: widget.size,
+//             height: widget.size,
+//             decoration: const BoxDecoration(
+//               shape: BoxShape.circle,
+//               color: Colors.white,
+//             ),
+//           ),
+//
+//           // Pink gradient region - distinct and separate
+//           AnimatedBuilder(
+//             animation: _controller1,
+//             builder: (context, _) {
+//               final double rotation = _controller1.value * 2 * math.pi;
+//
+//               return ClipOval(
+//                 child: Container(
+//                   width: widget.size,
+//                   height: widget.size,
+//                   decoration: BoxDecoration(
+//                     shape: BoxShape.circle,
+//                     gradient: RadialGradient(
+//                       center: Alignment(
+//                         math.cos(rotation) * 0.45,
+//                         math.sin(rotation) * 0.45,
+//                       ),
+//                       radius: 0.8,
+//                       colors: [
+//                         const Color(0xFFE249FF).withOpacity(0.9), // Strong pink center
+//                         const Color(0xFFE249FF).withOpacity(0.7),
+//                         const Color(0xFFE249FF).withOpacity(0.4),
+//                         const Color(0xFFE249FF).withOpacity(0.15),
+//                         const Color(0xFFE249FF).withOpacity(0.05),
+//                         Colors.transparent,
+//                       ],
+//                       stops: const [0.0, 0.15, 0.3, 0.5, 0.7, 1.0],
+//                     ),
+//                   ),
+//                 ),
+//               );
+//             },
+//           ),
+//
+//           // Blue gradient region - distinct and separate
+//           AnimatedBuilder(
+//             animation: _controller2,
+//             builder: (context, _) {
+//               final double rotation = _controller2.value * 2 * math.pi;
+//
+//               return ClipOval(
+//                 child: Container(
+//                   width: widget.size,
+//                   height: widget.size,
+//                   decoration: BoxDecoration(
+//                     shape: BoxShape.circle,
+//                     gradient: RadialGradient(
+//                       center: Alignment(
+//                         math.cos(rotation + math.pi * 0.7) * 0.45, // Different offset to create separation
+//                         math.sin(rotation + math.pi * 0.7) * 0.45,
+//                       ),
+//                       radius: 0.9,
+//                       colors: [
+//                         const Color(0xFF3B2DFF).withOpacity(0.9), // Strong blue center
+//                         const Color(0xFF3B2DFF).withOpacity(0.7),
+//                         const Color(0xFF3B2DFF).withOpacity(0.4),
+//                         const Color(0xFF3B2DFF).withOpacity(0.15),
+//                         const Color(0xFF3B2DFF).withOpacity(0.05),
+//                         Colors.transparent,
+//                       ],
+//                       stops: const [0.0, 0.15, 0.3, 0.5, 0.7, 1.0],
+//                     ),
+//                   ),
+//                 ),
+//               );
+//             },
+//           ),
+//
+//           // Subtle highlight to maintain glassy effect
+//           AnimatedBuilder(
+//             animation: _controller1,
+//             builder: (context, _) {
+//               return ClipOval(
+//                 child: Container(
+//                   width: widget.size,
+//                   height: widget.size,
+//                   decoration: BoxDecoration(
+//                     shape: BoxShape.circle,
+//                     gradient: RadialGradient(
+//                       center: const Alignment(-0.3, -0.3),
+//                       radius: 0.4,
+//                       colors: [
+//                         Colors.white.withOpacity(0.2),
+//                         Colors.white.withOpacity(0.05),
+//                         Colors.transparent,
+//                       ],
+//                       stops: const [0.0, 0.3, 1.0],
+//                     ),
+//                   ),
+//                 ),
+//               );
+//             },
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
+
+
+
+
+class AnimatedYinYangOrb extends StatefulWidget {
+  final double size;
+  final Duration duration;
+
+  const AnimatedYinYangOrb({
+    super.key,
+    this.size = 120.0,
+    this.duration = const Duration(seconds: 10),
+  });
+
+  @override
+  State<AnimatedYinYangOrb> createState() => _AnimatedYinYangOrbState();
+}
+
+class _AnimatedYinYangOrbState extends State<AnimatedYinYangOrb>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: widget.duration,
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: widget.size,
+      height: widget.size,
+      child: Stack(
+        alignment: Alignment.center,
+        children:[
+          Container(
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.3),
+                  Colors.white.withOpacity(0.05),
+                ],
+              ),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.4),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.white.withOpacity(0.2),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                  offset: Offset(-4, -4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.25),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                  offset: Offset(4, 4),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(widget.size / 2),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  color: Colors.white.withOpacity(0.05),
+                ),
+              ),
+            ),
+          ),
+      AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return CustomPaint(
+            painter: AnimatedYinYangPainter(
+              animationValue: _controller.value,
+              blurSigma: 1
+            ),
+            size: Size(widget.size, widget.size),
+          );
+        },
+      ),
+        ],
+      ),
+    );
+  }
+}
+
+
+
+class YinYangPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    // Outer circle bounds
+    final outerCircleRect = Rect.fromCircle(center: center, radius: radius);
+
+    // Left gradient
+    final leftGradient = RadialGradient(
+      center: Alignment(-0.3, -0.3),
+      radius: 1.2,
+      colors: [
+        const Color(0xFFC06622),
+        const Color(0xFFC06622),
+       // const Color(0xFF3B0764),
+      ],
+      stops: [0.0, 0.6],
+    );
+
+    // Right gradient
+    final rightGradient = RadialGradient(
+      center: Alignment(0.3, 0.3),
+      radius: 1.2,
+      colors: [
+        const Color(0xFF6A3F36),
+        const Color(0xFF6A3F36),
+        //const Color(0xFF831843),
+      ],
+      stops: [0.0, 0.5,],
+    );
+
+    final leftPaint = Paint()
+      ..shader = leftGradient.createShader(outerCircleRect);
+    final rightPaint = Paint()
+      ..shader = rightGradient.createShader(outerCircleRect);
+
+    // Draw entire circle in left gradient
+    canvas.drawCircle(center, radius, leftPaint);
+
+    // Draw right half-circle in right gradient to overlap
+    final path = Path()
+      ..moveTo(center.dx, center.dy - radius)
+      ..arcTo(
+        Rect.fromCircle(center: center, radius: radius),
+        -math.pi / 2,
+        math.pi,
+        false,
+      )
+      ..arcTo(
+        Rect.fromCircle(center: Offset(center.dx, center.dy + radius / 2), radius: radius / 2),
+        math.pi / 2,
+        -math.pi,
+        false,
+      )
+      ..arcTo(
+        Rect.fromCircle(center: Offset(center.dx, center.dy - radius / 2), radius: radius / 2),
+        math.pi / 2,
+        math.pi,
+        false,
+      )
+      ..close();
+
+    canvas.drawPath(path, rightPaint);
+
+    // Small circles (dots)
+    final smallRadius = radius / 6;
+    final upperDotCenter = Offset(center.dx, center.dy - radius / 2);
+    final lowerDotCenter = Offset(center.dx, center.dy + radius / 2);
+
+    // Top small circle (right gradient)
+    canvas.drawCircle(upperDotCenter, smallRadius, rightPaint);
+
+    // Bottom small circle (left gradient)
+    canvas.drawCircle(lowerDotCenter, smallRadius, leftPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+
+class AnimatedYinYangPainter extends CustomPainter {
+  final double animationValue;
+  final double blurSigma;
+  final double edgeBlur;
+
+  AnimatedYinYangPainter({
+    required this.animationValue,
+    this.blurSigma = 3.0,
+    this.edgeBlur = 6.0, // Controls the blurring between colors
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    // Calculate rotation angle based on animation
+    final rotationAngle = animationValue * 2 * math.pi;
+
+    // Outer circle bounds
+    final outerCircleRect = Rect.fromCircle(center: center, radius: radius);
+
+    // Animate gradient centers by rotating them
+    final leftGradientCenter = Offset(
+      math.cos(rotationAngle - math.pi / 4) * 0.3,
+      math.sin(rotationAngle - math.pi / 4) * 0.3,
+    );
+
+    final rightGradientCenter = Offset(
+      math.cos(rotationAngle + math.pi / 2) * 0.3,
+      math.sin(rotationAngle + math.pi / 2) * 0.3,
+    );
+
+    // Left gradient with animated center
+    final leftGradient = RadialGradient(
+      center: Alignment(leftGradientCenter.dx, leftGradientCenter.dy),
+      radius: 1.2,
+      colors: [
+        Colors.transparent,
+        const Color(0xFFC06622),
+        const Color(0xFFC06622),
+      ],
+      stops: [0.0,0.0, 0.5,],
+    );
+
+    // Right gradient with animated center
+    final rightGradient = RadialGradient(
+      center: Alignment(rightGradientCenter.dx, rightGradientCenter.dy),
+      radius: 1.2,
+      colors: [
+        const Color(0xFF6A3F36),
+        const Color(0xFF6A3F36),
+      ],
+      stops: [0.0, 0.5],
+    );
+
+    // Create paints with standard blur
+    final leftPaint = Paint()
+      ..shader = leftGradient.createShader(outerCircleRect)
+      ..maskFilter = ui.MaskFilter.blur(ui.BlurStyle.normal, blurSigma);
+
+    final rightPaint = Paint()
+      ..shader = rightGradient.createShader(outerCircleRect)
+      ..maskFilter = ui.MaskFilter.blur(ui.BlurStyle.normal, blurSigma);
+
+    // Create paints with heavy blur for edges
+    final leftEdgePaint = Paint()
+      ..shader = leftGradient.createShader(outerCircleRect)
+      ..maskFilter = ui.MaskFilter.blur(ui.BlurStyle.normal, edgeBlur);
+
+    final rightEdgePaint = Paint()
+      ..shader = rightGradient.createShader(outerCircleRect)
+      ..maskFilter = ui.MaskFilter.blur(ui.BlurStyle.normal, edgeBlur);
+
+    // Draw base layers with standard blur
+    canvas.drawCircle(center, radius, leftPaint);
+
+    // Create animated yin-yang path
+    final path = Path();
+
+    // Start point rotated by animation
+    final startX = center.dx + math.cos(rotationAngle - math.pi / 2) * radius;
+    final startY = center.dy + math.sin(rotationAngle - math.pi / 2) * radius;
+
+    path.moveTo(startX, startY);
+
+    // Main arc (half circle) - rotated
+    path.arcTo(
+      Rect.fromCircle(center: center, radius: radius),
+      rotationAngle - math.pi / 2,
+      math.pi,
+      false,
+    );
+
+    // Upper small arc - position rotated
+    final upperArcCenter = Offset(
+      center.dx + math.cos(rotationAngle + math.pi / 2) * radius / 2,
+      center.dy + math.sin(rotationAngle + math.pi / 2) * radius / 2,
+    );
+
+    path.arcTo(
+      Rect.fromCircle(center: upperArcCenter, radius: radius / 2),
+      rotationAngle + math.pi / 2,
+      -math.pi,
+      false,
+    );
+
+    // Lower small arc - position rotated
+    final lowerArcCenter = Offset(
+      center.dx + math.cos(rotationAngle - math.pi / 2) * radius / 2,
+      center.dy + math.sin(rotationAngle - math.pi / 2) * radius / 2,
+    );
+
+    path.arcTo(
+      Rect.fromCircle(center: lowerArcCenter, radius: radius / 2),
+      rotationAngle + math.pi / 2,
+      math.pi,
+      false,
+    );
+
+    path.close();
+
+    // Draw the main path with standard blur
+    canvas.drawPath(path, rightPaint);
+
+    // Draw blurred edge layers for smoother transitions
+    // Create a thinner path for the edge blur effect
+    final edgePath = Path();
+    edgePath.addPath(path, Offset.zero);
+
+    // Draw the edge with heavy blur for soft transitions
+    canvas.drawPath(edgePath, rightEdgePaint);
+
+    // Create stroke paths for the boundaries to add more blur
+    final strokePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.0
+      ..maskFilter = ui.MaskFilter.blur(ui.BlurStyle.normal, edgeBlur * 1.5);
+
+    // Left stroke (orange)
+    final leftStrokePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 9.0
+      ..shader = leftGradient.createShader(outerCircleRect)
+      ..maskFilter = ui.MaskFilter.blur(ui.BlurStyle.normal, edgeBlur);
+
+
+
+    // Right stroke (copper)
+    final rightStrokePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 9.0
+      ..shader = rightGradient.createShader(outerCircleRect)
+      ..maskFilter = ui.MaskFilter.blur(ui.BlurStyle.normal, edgeBlur);
+
+    // Draw strokes along the path edges for blurred boundaries
+    canvas.drawPath(path, leftStrokePaint);
+   // canvas.drawPath(path, rightStrokePaint);
+
+    // Animated small circles (dots) with edge blur
+    final smallRadius = radius / 6;
+
+    // Upper dot position - rotated
+    final upperDotCenter = Offset(
+      center.dx + math.cos(rotationAngle - math.pi / 2) * radius / 2,
+      center.dy + math.sin(rotationAngle - math.pi / 2) * radius / 2,
+    );
+
+    // Lower dot position - rotated
+    final lowerDotCenter = Offset(
+      center.dx + math.cos(rotationAngle + math.pi / 2) * radius / 2,
+      center.dy + math.sin(rotationAngle + math.pi / 2) * radius / 2,
+    );
+
+    // Draw dots with both standard and edge blur
+    canvas.drawCircle(upperDotCenter, smallRadius, rightPaint);
+    canvas.drawCircle(upperDotCenter, smallRadius, rightEdgePaint);
+
+    canvas.drawCircle(lowerDotCenter, smallRadius, leftPaint);
+    canvas.drawCircle(lowerDotCenter, smallRadius, leftEdgePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return oldDelegate is AnimatedYinYangPainter &&
+        oldDelegate.animationValue != animationValue;
+  }
+}
+
+
+
+class AnimatedOrb extends StatefulWidget {
+  final double size;
+  final Duration duration;
+
+
+
+  const AnimatedOrb({
+    super.key,
+    this.size = 34.0,
+    this.duration = const Duration(seconds: 5),
+  });
+
+  @override
+  State<AnimatedOrb> createState() => _AnimatedOrbState();
+}
+
+class _AnimatedOrbState extends State<AnimatedOrb>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: widget.duration,
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double haloSize = widget.size * 1.2;
+
+    return SizedBox(
+      width: haloSize,
+      height: haloSize,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+
+          Container(
+            width: haloSize,
+            height: haloSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  const Color(0xFFE249FF).withOpacity(0.1), // soft pink
+                  const Color(0xFF3B2DFF).withOpacity(0.15), // soft blue
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.6, 1.0],
+              ),
             ),
           ),
           Container(
-            key: _textFieldKey,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            color: Colors.white,
-            child: Row(
-              children: [
-                Expanded(child: TextField(decoration: InputDecoration(hintText: "Type..."))),
-                IconButton(
-                  icon: Icon(Icons.send),
-                  onPressed: _sendMessage,
-                )
-              ],
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                center: const Alignment(-0.4, -0.4),
+                radius: 0.8,
+                colors: [
+                 // const Color(0xFFB8C0FF), // glassy purple-blue
+                 // const Color(0xFF8E9DFF),
+                  const Color(0xFFEEF1FF),
+                  const Color(0xFFCCD5FF),
+                  const Color(0xFFB5C7FF),
+                ],
+                stops: const [  0.5, 0.8, 1.0],
+              ),
             ),
+          ),
+
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              final double rotation = _controller.value * 2 * math.pi;
+              final Alignment highlightCenter1 = Alignment(
+                math.cos(rotation + math.pi) * 0.35,
+                math.sin(rotation + math.pi) * 0.35,
+              );
+
+              return Container(
+                width: widget.size,
+                height: widget.size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    center: highlightCenter1,
+                    radius: 0.4,
+                    colors: [
+                      const Color(0xFFC06622).withOpacity(0.6),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 4.0],
+                  ),
+                ),
+              );
+            },
+          ),
+
+          //--- Highlight layer 2 (different angle & color) ---
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              final double rotation = _controller.value * 2 * math.pi;
+              final Alignment highlightCenter2 = Alignment(
+                math.cos(rotation + math.pi / 2) * 0.5,
+                math.sin(rotation + math.pi / 2) * 0.5,
+              );
+
+              return Container(
+                width: widget.size,
+                height: widget.size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    center: highlightCenter2,
+                    radius: 0.4,
+                    colors: [
+                      const Color(0xFF6A3F36).withOpacity(0.8), // vibrant purple
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 4.0],
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -1136,6 +1879,194 @@ class _ChatDemoPageState extends State<ChatDemoPage> {
 }
 
 
+
+
+
+class HalfCircleClipper extends CustomClipper<Path> {
+  final bool isTop;
+
+  HalfCircleClipper({required this.isTop});
+
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    if (isTop) {
+      path.moveTo(0, size.height / 2);
+      path.arcToPoint(
+        Offset(size.width, size.height / 2),
+        radius: Radius.circular(size.width / 2),
+        clockwise: false,
+      );
+      path.lineTo(size.width, 0);
+      path.lineTo(0, 0);
+      path.close();
+    } else {
+      path.moveTo(0, size.height / 2);
+      path.arcToPoint(
+        Offset(size.width, size.height / 2),
+        radius: Radius.circular(size.width / 2),
+        clockwise: true,
+      );
+      path.lineTo(size.width, size.height);
+      path.lineTo(0, size.height);
+      path.close();
+    }
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
+
+
+
+
+
+
+
+
+class VPCMiddlewareDemoPage extends StatefulWidget {
+  const VPCMiddlewareDemoPage({Key? key}) : super(key: key);
+
+  @override
+  State<VPCMiddlewareDemoPage> createState() => _VPCMiddlewareDemoPageState();
+}
+
+class _VPCMiddlewareDemoPageState extends State<VPCMiddlewareDemoPage> {
+  final nameController = TextEditingController();
+  String greetResult = '';
+  String submitResult = '';
+  bool isLoadingGreet = false;
+  bool isLoadingSubmit = false;
+
+  final String baseUrl = 'https://fastapi-app-130321581049.asia-south1.run.app';
+
+
+  Future<void> callGreet() async {
+    setState(() => isLoadingGreet = true);
+    final url = Uri.parse('$baseUrl/greet');
+    final payload = {"name": nameController.text};
+
+    print('🟡 Sending /greet payload: $payload to $url');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'}, // ✅ FIXED
+        body: jsonEncode(payload),
+      );
+
+      print('📨 Received status: ${response.statusCode}');
+      print('📨 Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          greetResult = data['message'] ?? 'No message';
+        });
+      } else {
+        setState(() {
+          greetResult = '❌ Server error: ${response.statusCode}\n${response.body}';
+        });
+      }
+    } catch (e, stack) {
+      print('❌ Exception in /greet: $e');
+      print('🪵 StackTrace:\n$stack');
+      setState(() => greetResult = 'Error: $e');
+    } finally {
+      setState(() => isLoadingGreet = false);
+    }
+  }
+
+  Future<void> callSubmit() async {
+    setState(() => isLoadingSubmit = true);
+    final url = Uri.parse('$baseUrl/submit');
+
+    final payload = {
+      "name": nameController.text,
+      "age": 30,
+      "interests": ["flutter", "finance", "ai"],
+      "preferences": {"newsletter": true, "notifications": false}
+    };
+
+    print('🟡 Sending /submit payload: $payload to $url');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'}, // ✅ FIXED
+        body: jsonEncode(payload),
+      );
+
+      print('📨 Received status: ${response.statusCode}');
+      print('📨 Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          submitResult = const JsonEncoder.withIndent('  ').convert(data);
+        });
+      } else {
+        setState(() {
+          submitResult = '❌ Server error: ${response.statusCode}\n${response.body}';
+        });
+      }
+    } catch (e, stack) {
+      print('❌ Exception in /submit: $e');
+      print('🪵 StackTrace:\n$stack');
+      setState(() => submitResult = 'Error: $e');
+    } finally {
+      setState(() => isLoadingSubmit = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('VPC Middleware Demo')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: ListView(
+          children: [
+            TextField(
+              controller: nameController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Enter your name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: isLoadingGreet ? null : callGreet,
+              child: isLoadingGreet
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text('Call /api/v1/greet'),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              greetResult,
+              style: const TextStyle(fontSize: 16,color: Colors.white),
+            ),
+            const Divider(height: 32),
+            ElevatedButton(
+              onPressed: isLoadingSubmit ? null : callSubmit,
+              child: isLoadingSubmit
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text('Call /api/v1/submit'),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              submitResult,
+              style: const TextStyle(fontSize: 14,color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 
 

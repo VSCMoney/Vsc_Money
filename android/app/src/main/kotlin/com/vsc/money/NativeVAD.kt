@@ -1,4 +1,4 @@
-//package com.vsc.money
+//package com.vitty.ai
 //
 //import android.media.AudioFormat
 //import android.media.AudioRecord
@@ -94,7 +94,7 @@
 
 
 
-package com.vsc.money
+package com.vitty.ai
 
 import android.media.*
 import android.os.*

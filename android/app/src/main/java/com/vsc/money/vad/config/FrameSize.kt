@@ -1,4 +1,4 @@
-package com.vsc.money.vad.config
+package com.vitty.ai.vad.config
 
 /**
  * Created by Georgiy Konovalov on 6/1/2023.

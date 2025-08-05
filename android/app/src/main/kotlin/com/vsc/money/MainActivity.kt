@@ -2,10 +2,10 @@
 //
 //
 //
-//package com.vsc.money
+//package com.vitty.ai
 //
 //import android.os.Bundle
-//import com.vsc.money.vad.VadMicrophone
+//import com.vitty.ai.vad.VadMicrophone
 //import io.flutter.embedding.android.FlutterActivity
 //import io.flutter.embedding.engine.FlutterEngine
 //import io.flutter.plugin.common.EventChannel
@@ -37,10 +37,10 @@
 
 
 
-package com.vsc.money
+package com.vitty.ai
 
 import android.os.Bundle
-import com.vsc.money.vad.VadMicrophone
+import com.vitty.ai.vad.VadMicrophone
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel

@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.vsc.money.app-mergeDebugResources-67:/values-nb/values-nb.xml",
+            "outputFile": "com.vitty.ai.app-mergeDebugResources-67:/values-nb/values-nb.xml",
             "map": [
                 {
                     "source": "/Users/piyushgoyal/.gradle/caches/8.9/transforms/6b1bcbb09e06d65fa007baff857ce368/transformed/biometric-1.1.0/res/values-nb/values-nb.xml",

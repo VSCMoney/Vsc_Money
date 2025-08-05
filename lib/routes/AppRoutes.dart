@@ -1,13 +1,10 @@
-// lib/config/router/app_router.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:vscmoney/constants/widgets.dart';
 import 'package:vscmoney/screens/presentation/auth/auth_screen.dart';
 import 'package:vscmoney/screens/presentation/auth/phone_otp_scree.dart';
 import 'package:vscmoney/screens/presentation/auth/profile_screen.dart';
 import 'package:vscmoney/screens/presentation/conversations.dart';
 
-import '../main.dart';
 import '../models/chat_session.dart';
 import '../screens/presentation/onboarding/onoarding_page.dart';
 
@@ -20,6 +17,10 @@ import 'package:vscmoney/screens/presentation/home/portfolio_screen.dart';
 import 'package:vscmoney/screens/presentation/onboarding/onboarding_screen_1.dart';
 import 'package:vscmoney/screens/presentation/onboarding/onboarding_screen_2.dart';
 
+import '../screens/presentation/splash_screen.dart';
+import '../services/chat_service.dart';
+import '../services/conversation_service.dart';
+import '../services/locator.dart';
 import '../testpage.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
@@ -37,24 +38,17 @@ class AppRouter {
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
           child:  SplashScreen(),
-          transitionsBuilder: slideUpTransition,
+          transitionsBuilder: dissolveTransition,
         ),
       ),
-      // GoRoute(
-      //   path: '/splash',
-      //   pageBuilder: (context, state) => const MaterialPage(123456
-      //     child: SplashScreen(),
-      //     maintainState: true,
-      //   ),
-      // ),
-      // Onboarding flow
       GoRoute(
         path: '/onboarding',
         name: 'onboarding',
         pageBuilder: (context, state) => CustomTransitionPage(
+          transitionDuration: Duration(milliseconds: 900),
           key: state.pageKey,
           child: const OnboardingPage(),
-          transitionsBuilder: slideUpTransition,
+          transitionsBuilder: dissolveTransition,
         ),
       ),
       GoRoute(
@@ -64,12 +58,16 @@ class AppRouter {
           final onSessionTap = state.extra as void Function(ChatSession)?;
           return CustomTransitionPage(
             key: state.pageKey,
-            child: Conversations(onSessionTap: onSessionTap,),
+            child: Conversations(
+              onSessionTap: onSessionTap,
+              onCreateNewChat: () {}, // optional
+            ),
             transitionsBuilder: slideLeftTransition,
-            fullscreenDialog: true, // ✅ disables swipe back on iOS
+            fullscreenDialog: true,
           );
         },
       ),
+
 
 
       GoRoute(
@@ -114,51 +112,32 @@ class AppRouter {
           );
         },
       ),
-      // Home flow
-      // GoRoute(
-      //   path: '/home',
-      //   name: 'home',
-      //   pageBuilder: (context, state) => CustomTransitionPage(
-      //     key: state.pageKey,
-      //     child: const DashboardScreen(),
-      //     transitionsBuilder: fadeTransition,
-      //   ),
-      // ),
       GoRoute(
         path: '/home',
         name: 'home',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const DashboardScreen(),
-          transitionDuration: const Duration(milliseconds: 300), // ✅ Fast transition
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOut,
-              ),
-              child: child,
-            );
-          },
-        ),
+        pageBuilder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          final session = extra?['session'] as ChatSession?;
+
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: HomeScreen(initialSession: session), // ✅ no chatService or callback
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOut,
+                ),
+                child: child,
+              );
+            },
+          );
+        },
       ),
 
 
-      // GoRoute(
-      //   path: '/home',
-      //   pageBuilder: (context, state) {
-      //     return CustomTransitionPage(
-      //       key: state.pageKey,
-      //       child: const DashboardScreen(),
-      //       transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      //         return FadeTransition(
-      //           opacity: animation,
-      //           child: child,
-      //         );
-      //       },
-      //     );
-      //   },
-      // ),
+
 
 
 
@@ -206,15 +185,25 @@ class AppRouter {
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
           child: const PhoneOtpScreen(),
-          transitionsBuilder: slideLeftTransition,
+          transitionsBuilder: dissolveTransition,
         ),
       ),
       GoRoute(
         path: '/enter_name',
         name: 'enter_name',
         pageBuilder: (context, state) => CustomTransitionPage(
+          transitionDuration: Duration(seconds:1 ),
           key: state.pageKey,
           child: const EnterNameScreen(),
+          transitionsBuilder: dissolveTransition,
+        ),
+      ),
+      GoRoute(
+        path: '/premium',
+        name: 'premium',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const PremiumAccessScreen(),
           transitionsBuilder: slideLeftTransition,
         ),
       ),
@@ -245,6 +234,17 @@ class AppRouter {
 
 
 
+
+Widget dissolveTransition(BuildContext context, Animation<double> animation,
+    Animation<double> secondaryAnimation, Widget child) {
+  return FadeTransition(
+    opacity: animation.drive(
+      CurveTween(curve: Curves.easeInOut),
+      // 👈 smoother easing
+    ),
+    child: child,
+  );
+}
 
 
 // Fade transition
@@ -317,6 +317,19 @@ Widget sharedAxisTransition(BuildContext context, Animation<double> animation,
         ),
       );
     },
+    child: child,
+  );
+}
+
+Widget fadeTransitions(BuildContext context, Animation<double> animation,
+    Animation<double> secondaryAnimation, Widget child) {
+  final curvedAnimation = CurvedAnimation(
+    parent: animation,
+    curve: Curves.easeInOut, // ✅ smooth in-out
+  );
+
+  return FadeTransition(
+    opacity: Tween<double>(begin: 0.0, end: 1.0).animate(curvedAnimation),
     child: child,
   );
 }

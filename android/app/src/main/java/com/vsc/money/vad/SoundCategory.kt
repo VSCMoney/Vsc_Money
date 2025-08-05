@@ -1,4 +1,4 @@
-package com.vsc.money.vad
+package com.vitty.ai.vad
 
 /**
  * Created by Georgiy Konovalov on 6/1/2023.

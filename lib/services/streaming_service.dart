@@ -5,7 +5,7 @@ import 'dart:math';
 
 import 'package:http/http.dart' as http;
 
-import '../constants/constants.dart';
+import '../constants/keys.dart' as ApiConstants;
 import '../models/chat_message.dart';
 import '../screens/models/document_context.dart';
 

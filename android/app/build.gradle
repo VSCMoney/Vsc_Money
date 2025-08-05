@@ -15,7 +15,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace 'com.vsc.money'
+    namespace 'com.vitty.ai'
     compileSdk 35
     ndkVersion '27.0.12077973'
 
@@ -24,7 +24,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.vsc.money"
+        applicationId "com.vitty.ai"
         minSdk 24
         targetSdk 35
         versionCode 1

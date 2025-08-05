@@ -194,6 +194,8 @@ import 'package:vscmoney/constants/stock_detail_bottomsheet.dart';
 import 'package:vscmoney/main.dart';
 import 'package:vscmoney/screens/widgets/drawer.dart';
 
+import '../../../constants/app_bar.dart';
+import '../../../constants/bottomsheet.dart';
 import '../../../constants/colors.dart';
 import '../../../services/theme_service.dart';
 import 'chat_screen.dart';
@@ -258,7 +260,7 @@ class _GoalsPageState extends State<GoalsPage> {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return ChatGPTBottomSheetWrapper(
       key:_sheetKey,
-      bottomSheet: ZomatoStockBottomSheet(),
+      //bottomSheet: ZomatoStockBottomSheet(),
       child: Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(100),
@@ -467,7 +469,7 @@ class _GoalsPageState extends State<GoalsPage> {
       builder: (_) =>  CreateGoalsSheet(
         onTap:(){
           context.pop(context);
-         _sheetKey.currentState?.openSheet();
+        // _sheetKey.currentState?.openSheet();
         },
       ),
     );

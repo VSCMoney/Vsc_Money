@@ -1,9 +1,9 @@
-package com.vsc.money.vad
+package com.vitty.ai.vad
 
 import android.content.Context
-import com.vsc.money.vad.config.FrameSize
-import com.vsc.money.vad.config.Mode
-import com.vsc.money.vad.config.SampleRate
+import com.vitty.ai.vad.config.FrameSize
+import com.vitty.ai.vad.config.Mode
+import com.vitty.ai.vad.config.SampleRate
 import org.tensorflow.lite.support.audio.TensorAudio
 import org.tensorflow.lite.support.audio.TensorAudio.TensorAudioFormat
 import org.tensorflow.lite.task.audio.classifier.AudioClassifier

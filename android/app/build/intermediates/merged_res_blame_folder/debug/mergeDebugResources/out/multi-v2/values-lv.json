@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.vsc.money.app-mergeDebugResources-67:/values-lv/values-lv.xml",
+            "outputFile": "com.vitty.ai.app-mergeDebugResources-67:/values-lv/values-lv.xml",
             "map": [
                 {
                     "source": "/Users/piyushgoyal/.gradle/caches/8.9/transforms/4c59cf61e9fba3372be08e282c3393f7/transformed/jetified-play-services-base-18.5.0/res/values-lv/values.xml",

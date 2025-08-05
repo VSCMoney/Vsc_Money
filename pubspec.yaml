@@ -55,7 +55,7 @@ dependencies:
   rxdart: ^0.28.0
   lottie: ^3.3.1
   #flutter_audio_capture: ^1.1.10
-  waveform_recorder: ^1.7.0
+  #waveform_recorder: ^1.7.0
   gif: ^2.3.0
   iconsax: ^0.0.8
   phosphor_flutter: ^2.1.0
@@ -67,6 +67,11 @@ dependencies:
   google_sign_in: ^6.3.0
   crypto: ^3.0.6
   sign_in_with_apple: ^7.0.1
+  connectivity_plus: ^6.1.4
+  internet_connection_checker: ^3.0.1
+  fluttertoast: ^8.2.12
+  fl_chart: ^1.0.0
+  collection: ^1.19.1
 
 dev_dependencies:
   flutter_test:
@@ -144,10 +149,10 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path_ios: "assets/images/ioswhite.png"
-  image_path: "assets/images/ioswhite.png"
-  #adaptive_icon_background: "#ffffff"
-  adaptive_icon_foreground: "assets/images/ioswhite.png"
+  image_path_ios: "assets/images/Final_For_IOS.png"
+  image_path: "assets/images/Final For Android.svg"
+  adaptive_icon_background: "#ffffff"
+  adaptive_icon_foreground: "assets/images/Final_For_IOS.png"
 
 
 

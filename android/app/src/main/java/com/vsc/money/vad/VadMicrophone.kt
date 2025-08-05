@@ -1,12 +1,12 @@
-//package com.vsc.money.vad
+//package com.vitty.ai.vad
 //
 //import android.media.AudioFormat
 //import android.media.AudioRecord
 //import android.media.MediaRecorder
 //import android.content.Context
-//import com.vsc.money.vad.config.FrameSize
-//import com.vsc.money.vad.config.Mode
-//import com.vsc.money.vad.config.SampleRate
+//import com.vitty.ai.vad.config.FrameSize
+//import com.vitty.ai.vad.config.Mode
+//import com.vitty.ai.vad.config.SampleRate
 //import io.flutter.plugin.common.EventChannel
 //import kotlinx.coroutines.*
 //
@@ -73,15 +73,15 @@
 
 
 
-package com.vsc.money.vad
+package com.vitty.ai.vad
 
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.content.Context
-import com.vsc.money.vad.config.FrameSize
-import com.vsc.money.vad.config.Mode
-import com.vsc.money.vad.config.SampleRate
+import com.vitty.ai.vad.config.FrameSize
+import com.vitty.ai.vad.config.Mode
+import com.vitty.ai.vad.config.SampleRate
 import io.flutter.plugin.common.EventChannel
 import kotlinx.coroutines.*
 import kotlin.math.pow

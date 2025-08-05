@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.vsc.money.app-mergeDebugResources-67:/values-km/values-km.xml",
+            "outputFile": "com.vitty.ai.app-mergeDebugResources-67:/values-km/values-km.xml",
             "map": [
                 {
                     "source": "/Users/piyushgoyal/.gradle/caches/8.9/transforms/120416f3d9dc3bb38804ae0d5a015833/transformed/jetified-credentials-1.2.0-rc01/res/values-km/values-km.xml",

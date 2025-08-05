@@ -1,4 +1,4 @@
-package com.vsc.money
+package com.vitty.ai
 
 import android.Manifest
 import android.app.Activity

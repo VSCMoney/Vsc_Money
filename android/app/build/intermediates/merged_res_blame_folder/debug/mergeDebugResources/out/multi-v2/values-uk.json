@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.vsc.money.app-mergeDebugResources-67:/values-uk/values-uk.xml",
+            "outputFile": "com.vitty.ai.app-mergeDebugResources-67:/values-uk/values-uk.xml",
             "map": [
                 {
                     "source": "/Users/piyushgoyal/.gradle/caches/8.9/transforms/7201879f7d5a968041bbec6edd66e814/transformed/appcompat-1.2.0/res/values-uk/values-uk.xml",

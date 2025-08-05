@@ -2,7 +2,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-import '../../constants/constants.dart';
+import '../../constants/keys.dart' as ApiConstants;
 
 class ApiHelpers {
   static Future<String> sendToGemini({

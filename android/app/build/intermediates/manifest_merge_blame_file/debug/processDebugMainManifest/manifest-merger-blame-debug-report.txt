@@ -1,6 +1,6 @@
 1<?xml version="1.0" encoding="utf-8"?>
 2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-3    package="com.vsc.money"
+3    package="com.vitty.ai"
 4    android:versionCode="1"
 5    android:versionName="1.0" >
 6
@@ -114,12 +114,12 @@
 56
 57    <permission
 57-->[androidx.core:core:1.16.0] /Users/piyushgoyal/.gradle/caches/8.9/transforms/8ed5d35f7975f7008e45d356a7fecc7b/transformed/core-1.16.0/AndroidManifest.xml:22:5-24:47
-58        android:name="com.vsc.money.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+58        android:name="com.vitty.ai.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 58-->[androidx.core:core:1.16.0] /Users/piyushgoyal/.gradle/caches/8.9/transforms/8ed5d35f7975f7008e45d356a7fecc7b/transformed/core-1.16.0/AndroidManifest.xml:23:9-81
 59        android:protectionLevel="signature" />
 59-->[androidx.core:core:1.16.0] /Users/piyushgoyal/.gradle/caches/8.9/transforms/8ed5d35f7975f7008e45d356a7fecc7b/transformed/core-1.16.0/AndroidManifest.xml:24:9-44
 60
-61    <uses-permission android:name="com.vsc.money.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+61    <uses-permission android:name="com.vitty.ai.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
 61-->[androidx.core:core:1.16.0] /Users/piyushgoyal/.gradle/caches/8.9/transforms/8ed5d35f7975f7008e45d356a7fecc7b/transformed/core-1.16.0/AndroidManifest.xml:26:5-97
 61-->[androidx.core:core:1.16.0] /Users/piyushgoyal/.gradle/caches/8.9/transforms/8ed5d35f7975f7008e45d356a7fecc7b/transformed/core-1.16.0/AndroidManifest.xml:26:22-94
 62
@@ -135,7 +135,7 @@
 71
 72        <!-- Existing activity configuration -->
 73        <activity
-74            android:name="com.vsc.money.MainActivity"
+74            android:name="com.vitty.ai.MainActivity"
 75            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
 76            android:exported="true"
 77            android:hardwareAccelerated="true"
@@ -166,7 +166,7 @@
 102
 103        <provider
 104            android:name="androidx.core.content.FileProvider"
-105            android:authorities="com.vsc.money.provider"
+105            android:authorities="com.vitty.ai.provider"
 106            android:exported="false"
 107            android:grantUriPermissions="true" >
 108            <meta-data
@@ -278,7 +278,7 @@
 164-->[:share_plus] /Users/piyushgoyal/.pub-cache/hosted/pub.dev/share_plus-10.1.4/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:13:9-21:20
 165            android:name="dev.fluttercommunity.plus.share.ShareFileProvider"
 165-->[:share_plus] /Users/piyushgoyal/.pub-cache/hosted/pub.dev/share_plus-10.1.4/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:14:13-77
-166            android:authorities="com.vsc.money.flutter.share_provider"
+166            android:authorities="com.vitty.ai.flutter.share_provider"
 166-->[:share_plus] /Users/piyushgoyal/.pub-cache/hosted/pub.dev/share_plus-10.1.4/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:15:13-74
 167            android:exported="false"
 167-->[:share_plus] /Users/piyushgoyal/.pub-cache/hosted/pub.dev/share_plus-10.1.4/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:16:13-37
@@ -471,7 +471,7 @@
 274-->[com.google.firebase:firebase-common:21.0.0] /Users/piyushgoyal/.gradle/caches/8.9/transforms/ce7245775691d0944eb2d07975a5e7e4/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:23:9-28:39
 275            android:name="com.google.firebase.provider.FirebaseInitProvider"
 275-->[com.google.firebase:firebase-common:21.0.0] /Users/piyushgoyal/.gradle/caches/8.9/transforms/ce7245775691d0944eb2d07975a5e7e4/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:24:13-77
-276            android:authorities="com.vsc.money.firebaseinitprovider"
+276            android:authorities="com.vitty.ai.firebaseinitprovider"
 276-->[com.google.firebase:firebase-common:21.0.0] /Users/piyushgoyal/.gradle/caches/8.9/transforms/ce7245775691d0944eb2d07975a5e7e4/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:25:13-72
 277            android:directBootAware="true"
 277-->[com.google.firebase:firebase-common:21.0.0] /Users/piyushgoyal/.gradle/caches/8.9/transforms/ce7245775691d0944eb2d07975a5e7e4/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:26:13-43
@@ -483,7 +483,7 @@
 280-->[androidx.lifecycle:lifecycle-process:2.7.0] /Users/piyushgoyal/.gradle/caches/8.9/transforms/f12f7666759a7193b33a0ba522ab97be/transformed/jetified-lifecycle-process-2.7.0/AndroidManifest.xml:24:9-32:20
 281            android:name="androidx.startup.InitializationProvider"
 281-->[androidx.lifecycle:lifecycle-process:2.7.0] /Users/piyushgoyal/.gradle/caches/8.9/transforms/f12f7666759a7193b33a0ba522ab97be/transformed/jetified-lifecycle-process-2.7.0/AndroidManifest.xml:25:13-67
-282            android:authorities="com.vsc.money.androidx-startup"
+282            android:authorities="com.vitty.ai.androidx-startup"
 282-->[androidx.lifecycle:lifecycle-process:2.7.0] /Users/piyushgoyal/.gradle/caches/8.9/transforms/f12f7666759a7193b33a0ba522ab97be/transformed/jetified-lifecycle-process-2.7.0/AndroidManifest.xml:26:13-68
 283            android:exported="false" >
 283-->[androidx.lifecycle:lifecycle-process:2.7.0] /Users/piyushgoyal/.gradle/caches/8.9/transforms/f12f7666759a7193b33a0ba522ab97be/transformed/jetified-lifecycle-process-2.7.0/AndroidManifest.xml:27:13-37

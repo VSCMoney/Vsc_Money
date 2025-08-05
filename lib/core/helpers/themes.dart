@@ -12,6 +12,8 @@ class AppTheme {
   final Color secondaryText;
   final Color searchBox;
   final Color bottombackground;
+  List<Color> gradient;
+  final Color google;
 
   AppTheme({
     required this.background,
@@ -24,10 +26,17 @@ class AppTheme {
     required this.shadow,
     required this.secondaryText,
     required this.searchBox,
-    required this.bottombackground
+    required this.bottombackground,
+    required this.gradient,
+    required this.google
   });
 
   static final light = AppTheme(
+    gradient: [
+      Color(0xFFF1EAE4),
+      Color(0xFFFFFFFF),
+    ],
+    google: Color(0xFFC8C8C8),
     bottombackground: Colors.black,
     searchBox: Color(0xFFF1EFEF),
     secondaryText: Color(0xFF6E6E73),
@@ -43,6 +52,10 @@ class AppTheme {
   );
 
   static final dark = AppTheme(
+      gradient: [
+        Color(0xFF303030),
+        Color(0xFF303030),
+      ],
     bottombackground: Colors.white,
     searchBox: Color(0xFF303030),
     secondaryText: Color(0xFFB0B0B0),
@@ -53,6 +66,7 @@ class AppTheme {
     border: Colors.grey.shade700,
       box: Color(0xFF303030),
     message: Color(0xFF303030),
-    shadow: Color(0xFF00000029)
+    shadow: Color(0xFF00000029),
+      google: Colors.white,
   );
 }
