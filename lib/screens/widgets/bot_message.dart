@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -6,10 +10,11 @@ import '../../models/chat_message.dart';
 import '../../services/locator.dart';
 import '../../services/theme_service.dart';
 
-// class BotMessageWidget extends StatelessWidget {
+// class BotMessageWidget extends StatefulWidget {
 //   final String message;
 //   final bool isComplete;
 //   final bool isLatest;
+//   final String? currentStatus;
 //   final Function(String)? onAskVitty;
 //
 //   const BotMessageWidget({
@@ -17,8 +22,132 @@ import '../../services/theme_service.dart';
 //     required this.message,
 //     required this.isComplete,
 //     this.isLatest = false,
+//     this.currentStatus,
 //     this.onAskVitty,
 //   }) : super(key: key);
+//
+//   @override
+//   State<BotMessageWidget> createState() => _BotMessageWidgetState();
+// }
+//
+// class _BotMessageWidgetState extends State<BotMessageWidget> {
+//   String _displayedText = '';
+//   String _fullReceivedText = '';
+//   bool _isTyping = false;
+//   Timer? _typingTimer;
+//
+//   // Typing speed: characters per second
+//   static const int _typingSpeed = 30; // Adjust this to make it faster or slower
+//   static const int _typingIntervalMs = 1000 ~/ _typingSpeed; // milliseconds between each character
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     print("🚀 BotMessageWidget initState:");
+//     print("   - initial message: '${widget.message}'");
+//     print("   - initial status: '${widget.currentStatus}'");
+//
+//     _fullReceivedText = widget.message;
+//     _startTypingEffect();
+//   }
+//
+//   @override
+//   void didUpdateWidget(BotMessageWidget oldWidget) {
+//     super.didUpdateWidget(oldWidget);
+//
+//     // Debug status changes
+//     if (widget.currentStatus != oldWidget.currentStatus) {
+//       print("🔄 Status changed: '${oldWidget.currentStatus}' → '${widget.currentStatus}'");
+//     }
+//
+//     // When new message content arrives
+//     if (widget.message != oldWidget.message) {
+//       print("📝 Message changed: '${oldWidget.message}' → '${widget.message}'");
+//       _fullReceivedText = widget.message;
+//
+//       // If we're not currently typing and have actual content, start the typing effect
+//       if (!_isTyping && widget.message.isNotEmpty) {
+//         _startTypingEffect();
+//       }
+//       // If we are typing, the timer will automatically pick up the new content
+//     }
+//
+//     // Handle status changes - when status appears, stop typing temporarily
+//     if (widget.currentStatus != oldWidget.currentStatus) {
+//       if (widget.currentStatus != null) {
+//         // Status appeared - pause typing effect
+//         print("⏸️ Pausing typing for status: ${widget.currentStatus}");
+//         _pauseTypingForStatus();
+//       } else if (oldWidget.currentStatus != null && widget.currentStatus == null) {
+//         // Status cleared - resume or start typing effect
+//         print("▶️ Status cleared, resuming typing effect");
+//         if (_fullReceivedText.isNotEmpty && !_isTyping) {
+//           _startTypingEffect();
+//         }
+//       }
+//       setState(() {});
+//     }
+//   }
+//
+//   void _startTypingEffect() {
+//     if (_fullReceivedText.isEmpty || _isTyping || widget.currentStatus != null) {
+//       print("❌ Cannot start typing: receivedText empty: ${_fullReceivedText.isEmpty}, isTyping: $_isTyping, hasStatus: ${widget.currentStatus != null}");
+//       return;
+//     }
+//
+//     print("▶️ Starting typing effect for: '${_fullReceivedText.substring(0, _fullReceivedText.length.clamp(0, 50))}...'");
+//     _isTyping = true;
+//
+//     _typingTimer = Timer.periodic(
+//       Duration(milliseconds: _typingIntervalMs),
+//           (timer) {
+//         if (!mounted) {
+//           timer.cancel();
+//           return;
+//         }
+//
+//         // If there's a status update, pause typing
+//         if (widget.currentStatus != null) {
+//           print("⏸️ Pausing typing due to status: ${widget.currentStatus}");
+//           timer.cancel();
+//           _isTyping = false;
+//           return;
+//         }
+//
+//         // If we've displayed all available text
+//         if (_displayedText.length >= _fullReceivedText.length) {
+//           // If the message is complete from backend, stop typing
+//           if (widget.isComplete) {
+//             print("✅ Typing complete");
+//             timer.cancel();
+//             _isTyping = false;
+//             setState(() {
+//               _displayedText = _fullReceivedText; // Ensure we show the complete text
+//             });
+//           }
+//           // If not complete, just wait for more content (timer keeps running)
+//           return;
+//         }
+//
+//         // Add next character
+//         setState(() {
+//           _displayedText = _fullReceivedText.substring(0, _displayedText.length + 1);
+//         });
+//       },
+//     );
+//   }
+//
+//   void _pauseTypingForStatus() {
+//     print("⏸️ Pausing typing for status");
+//     _typingTimer?.cancel();
+//     _isTyping = false;
+//   }
+//
+//   @override
+//   void dispose() {
+//     _typingTimer?.cancel();
+//     super.dispose();
+//   }
 //
 //   List<TextSpan> _processTextWithFormatting(String text, TextStyle baseStyle) {
 //     final regexBold = RegExp(r"\*\*(.+?)\*\*");
@@ -57,10 +186,18 @@ import '../../services/theme_service.dart';
 //   }
 //
 //   List<TextSpan> _buildFormattedSpans(String fullText, TextStyle baseStyle) {
+//     // During streaming, show simple formatting
+//     if (!widget.isComplete || _isTyping) {
+//       return _processTextWithFormatting(fullText, baseStyle);
+//     }
+//
+//     // Apply full formatting when complete
 //     final lines = fullText.trim().split('\n');
 //     List<TextSpan> spans = [];
 //
-//     for (var line in lines) {
+//     for (int i = 0; i < lines.length; i++) {
+//       final line = lines[i];
+//
 //       if (line.trim().isEmpty) {
 //         spans.add(const TextSpan(text: '\n'));
 //         continue;
@@ -76,11 +213,54 @@ import '../../services/theme_service.dart';
 //         emoji = '💰 ';
 //       }
 //
-//       spans.add(TextSpan(text: '\n$emoji'));
+//       // Add newline only if not the first line
+//       if (i > 0) {
+//         spans.add(TextSpan(text: '\n$emoji'));
+//       } else if (emoji.isNotEmpty) {
+//         spans.add(TextSpan(text: emoji));
+//       }
+//
 //       spans.addAll(_processTextWithFormatting(line, baseStyle));
 //     }
 //
 //     return spans;
+//   }
+//
+//   Widget _buildStatusIndicator() {
+//     if (widget.currentStatus == null) return const SizedBox.shrink();
+//
+//     return PremiumShimmerWidget(
+//       text: widget.currentStatus!,
+//       isComplete: false, // Always animate for status
+//       baseColor: const Color(0xFF9CA3AF),
+//       highlightColor: const Color(0xFF6B7280),
+//     );
+//   }
+//
+//
+//   Widget _buildTypewriterCursor() {
+//     // Show cursor when typing or when there's more content to display
+//     final showCursor = _isTyping || (!widget.isComplete && _displayedText.length < _fullReceivedText.length);
+//
+//     if (!showCursor) return const SizedBox.shrink();
+//
+//     return TweenAnimationBuilder<double>(
+//       tween: Tween(begin: 0.0, end: 1.0),
+//       duration: const Duration(milliseconds: 500),
+//       builder: (context, value, child) {
+//         return Opacity(
+//           opacity: (value * 2) % 1.0 > 0.5 ? 1.0 : 0.3,
+//           child: Container(
+//             width: 2,
+//             height: 20,
+//             decoration: BoxDecoration(
+//               color: Colors.grey.shade600,
+//               borderRadius: BorderRadius.circular(1),
+//             ),
+//           ),
+//         );
+//       },
+//     );
 //   }
 //
 //   Widget _buildContextMenu(BuildContext context, EditableTextState editableTextState) {
@@ -96,10 +276,10 @@ import '../../services/theme_service.dart';
 //     return AdaptiveTextSelectionToolbar(
 //       anchors: editableTextState.contextMenuAnchors,
 //       children: [
-//         if (onAskVitty != null)
+//         if (widget.onAskVitty != null)
 //           TextButton(
 //             onPressed: () {
-//               onAskVitty!(selectedText);
+//               widget.onAskVitty!(selectedText);
 //               ContextMenuController.removeAny();
 //             },
 //             style: TextButton.styleFrom(
@@ -145,17 +325,44 @@ import '../../services/theme_service.dart';
 //       color: theme.text,
 //     );
 //
-//     final spans = _buildFormattedSpans(message, style);
+//     // Always use displayed text for typewriter effect
+//     final textToShow = _displayedText;
+//     final spans = _buildFormattedSpans(textToShow, style);
+//
+//     // // Debug widget state
+//     // print("🎨 BotMessageWidget build:");
+//     // print("   - currentStatus: '${widget.currentStatus}'");
+//     // print("   - message: '${widget.message.length > 50 ? widget.message.substring(0, 50) + '...' : widget.message}'");
+//     // print("   - displayedText: '${_displayedText.length > 50 ? _displayedText.substring(0, 50) + '...' : _displayedText}'");
+//     // print("   - isTyping: $_isTyping");
+//     // print("   - isComplete: ${widget.isComplete}");
 //
 //     return Padding(
-//       padding: const EdgeInsets.only(bottom: 4, top: 2),
+//       padding: const EdgeInsets.only(bottom: 4, top: 20),
 //       child: Column(
 //         crossAxisAlignment: CrossAxisAlignment.start,
 //         children: [
-//           SelectableText.rich(
-//             TextSpan(style: style, children: spans),
-//             contextMenuBuilder: _buildContextMenu,
-//           ),
+//           // Status indicator
+//           _buildStatusIndicator(),
+//
+//           // Main content with typewriter effect
+//           if (textToShow.isNotEmpty || _isTyping || widget.currentStatus != null)
+//             Row(
+//               crossAxisAlignment: CrossAxisAlignment.end,
+//               children: [
+//                 Expanded(
+//                   child: widget.currentStatus != null
+//                       ? const SizedBox.shrink() // Hide text content when showing status
+//                       : SelectableText.rich(
+//                     TextSpan(style: style, children: spans),
+//                     contextMenuBuilder: _buildContextMenu,
+//                   ),
+//                 ),
+//                 // Show typewriter cursor only when actually typing text (not during status)
+//                 if (widget.currentStatus == null) _buildTypewriterCursor(),
+//               ],
+//             ),
+//
 //           const SizedBox(height: 15),
 //           _buildActionButtons(),
 //         ],
@@ -169,24 +376,26 @@ import '../../services/theme_service.dart';
 //         _AnimatedActionButton(
 //           icon: Icons.copy,
 //           size: 14,
-//           isVisible: isComplete,
+//           isVisible: widget.isComplete && !_isTyping,
 //         ),
 //         const SizedBox(width: 12),
 //         _AnimatedActionButton(
 //           icon: Icons.thumb_up_alt_outlined,
 //           size: 16,
-//           isVisible: isComplete,
+//           isVisible: widget.isComplete && !_isTyping,
 //         ),
 //         const SizedBox(width: 12),
 //         _AnimatedActionButton(
 //           icon: Icons.thumb_down_alt_outlined,
 //           size: 16,
-//           isVisible: isComplete,
+//           isVisible: widget.isComplete && !_isTyping,
 //         ),
 //       ],
 //     );
 //   }
 // }
+//
+//
 //
 // class _AnimatedActionButton extends StatelessWidget {
 //   final IconData icon;
@@ -221,46 +430,336 @@ import '../../services/theme_service.dart';
 
 
 
-// STEP 1: Replace your existing BotMessageWidget with this enhanced version
 
-class BotMessageWidget extends StatelessWidget {
-  final ChatMessage message;
+import 'dart:async';
+import 'package:flutter/material.dart';
+
+
+
+class BotMessageWidget extends StatefulWidget {
+  final String message;
+  final bool isComplete;
+  final bool isLatest;
+  final bool isHistorical;
+  final String? currentStatus;
   final Function(String)? onAskVitty;
+  final Map<String, dynamic>? tableData;
   final Function(String)? onStockTap;
+  final VoidCallback? onRenderComplete;
+
+  // Handle force stop from chat service
+  final bool? forceStop;
+  final String? stopTs;
 
   const BotMessageWidget({
     Key? key,
     required this.message,
+    required this.isComplete,
+    this.isLatest = false,
+    this.isHistorical = false,  // ✅ NEW: Add this with default false
+    this.currentStatus,
     this.onAskVitty,
+    this.tableData,
     this.onStockTap,
+    this.onRenderComplete,
+    this.forceStop,
+    this.stopTs,
   }) : super(key: key);
 
-  List<TextSpan> _processTextWithFormatting(String text, TextStyle baseStyle) {
-    final regexBold = RegExp(r"\*\*(.+?)\*\*");
-    List<TextSpan> spans = [];
-    int lastMatchEnd = 0;
+  @override
+  State<BotMessageWidget> createState() => _BotMessageWidgetState();
+}
 
-    for (var match in regexBold.allMatches(text)) {
-      if (match.start > lastMatchEnd) {
-        spans.add(
-          TextSpan(
-            text: text.substring(lastMatchEnd, match.start),
-            style: baseStyle,
+class _BotMessageWidgetState extends State<BotMessageWidget> {
+  static const _kPlaceholder = '___TABLE_PLACEHOLDER___';
+  static const int _cps = 28;
+  static const int _postHoldMs = 900;
+
+  Timer? _timer;
+  bool _isTyping = false;
+  bool _hasCompletedTyping = false;
+  bool _wasForceStopped = false; // ✅ FIXED: Correct variable name
+
+  String _preFull = '';
+  String _postFull = '';
+  int _preShown = 0;
+  int _postShown = 0;
+
+  List<Map<String, dynamic>> _availableTableRows = [];
+  String? _availableTableHeading;
+  bool _hasTableDataAvailable = false;
+  bool _shouldShowTable = false;
+  bool _postDelayApplied = false;
+
+  int get _intervalMs => 1000 ~/ _cps;
+  String get _preDisplay => _preFull.substring(0, _preShown.clamp(0, _preFull.length));
+  String get _postDisplay => _postFull.substring(0, _postShown.clamp(0, _postFull.length));
+  bool get _reachedPlaceholder => _preShown >= _preFull.length;
+
+  @override
+  void initState() {
+    super.initState();
+    _recomputeSegments(widget.message);
+    _updateTableData();
+
+    // Check for force stop on init
+    if (widget.forceStop == true) {
+      _handleForceStop();
+      return;
+    }
+
+    // ✅ CHANGE: Historical messages OR complete messages should appear instantly
+    if (widget.isComplete || widget.isHistorical) {
+      // Show all content immediately without typing animation
+      _preShown = _preFull.length;
+      _postShown = _postFull.length;
+      _hasCompletedTyping = true;
+      _shouldShowTable = _hasTableDataAvailable;
+
+      // ✅ NEW: For historical messages, immediately call onRenderComplete
+      if (widget.isHistorical) {
+        print("📄 Historical message - showing instantly");
+        Future.microtask(() => widget.onRenderComplete?.call());
+      }
+    } else {
+      // Only start typing animation for NEW messages (not historical)
+      print("⌨️ New message - starting typing animation");
+      _startOrResumeTyping();
+    }
+  }
+
+  void _recomputeSegments(String full) {
+    final parts = full.split(_kPlaceholder);
+    _preFull = parts.isNotEmpty ? parts.first : '';
+    _postFull = parts.length > 1 ? parts.sublist(1).join(_kPlaceholder) : '';
+    _preShown = _preShown.clamp(0, _preFull.length);
+    _postShown = _postShown.clamp(0, _postFull.length);
+  }
+
+  void _updateTableData() {
+    if (widget.tableData != null) {
+      final rowsRaw = (widget.tableData!['rows'] as List?) ?? const [];
+      _availableTableRows = rowsRaw
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList();
+      _availableTableHeading = widget.tableData!['heading']?.toString();
+      _hasTableDataAvailable = _availableTableRows.isNotEmpty;
+    } else {
+      _availableTableRows = [];
+      _availableTableHeading = null;
+      _hasTableDataAvailable = false;
+      _shouldShowTable = false;
+    }
+  }
+
+  // ✅ NEW: Handle force stop - finish animation immediately
+  void _handleForceStop() {
+    print("🛑 Force stop detected - finishing animation immediately");
+
+    _timer?.cancel();
+    _isTyping = false;
+    _wasForceStopped = true; // ✅ FIXED: Correct variable name
+
+    // Show current state without further animation
+    if (_hasTableDataAvailable && _reachedPlaceholder) {
+      _shouldShowTable = true;
+    }
+
+    // Mark as completed
+    _hasCompletedTyping = true;
+
+    setState(() {});
+
+    // Notify parent that render is complete
+    widget.onRenderComplete?.call();
+  }
+
+  @override
+  void didUpdateWidget(BotMessageWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // ✅ NEW: Check for force stop changes
+    if (widget.forceStop == true && oldWidget.forceStop != true) {
+      _handleForceStop();
+      return;
+    }
+
+    if (widget.message != oldWidget.message) {
+      _recomputeSegments(widget.message);
+      if (!_isTyping && !_hasCompletedTyping && !_wasForceStopped &&
+          (widget.currentStatus == null || widget.currentStatus!.isEmpty)) {
+        _startOrResumeTyping();
+      }
+    }
+
+    if (widget.tableData != oldWidget.tableData) {
+      _updateTableData();
+      setState(() {});
+    }
+
+    if (widget.currentStatus != oldWidget.currentStatus) {
+      if (widget.currentStatus != null && widget.currentStatus!.isNotEmpty) {
+        _pauseTyping();
+      } else {
+        if (!_hasCompletedTyping && !_wasForceStopped) _startOrResumeTyping();
+      }
+      setState(() {});
+    }
+  }
+
+  void _startOrResumeTyping() {
+    if (_isTyping || _hasCompletedTyping || _wasForceStopped) return;
+    if (widget.currentStatus != null && widget.currentStatus!.isNotEmpty) return;
+    if (widget.forceStop == true) return;
+
+    // ✅ NEW: Never start typing animation for historical messages
+    if (widget.isHistorical) {
+      print("🚫 Skipping typing animation for historical message");
+      return;
+    }
+
+    print("▶️ Starting typing animation for new message");
+    _isTyping = true;
+    _timer?.cancel();
+    _timer = Timer.periodic(Duration(milliseconds: _intervalMs), _tick);
+  }
+
+  void _pauseTyping() {
+    _timer?.cancel();
+    _isTyping = false;
+  }
+
+  void _finishTyping() {
+    _timer?.cancel();
+    _isTyping = false;
+    _hasCompletedTyping = true;
+    setState(() {});
+
+    // ✅ Only notify if not force stopped (to avoid duplicate notifications)
+    if (!_wasForceStopped) {
+      widget.onRenderComplete?.call();
+    }
+  }
+
+  void _applyPostDelayOnce() {
+    if (_postDelayApplied || _wasForceStopped) return; // ✅ Skip delay if force stopped
+    _postDelayApplied = true;
+    _pauseTyping();
+    Future.delayed(const Duration(milliseconds: _postHoldMs), () {
+      if (!mounted || _hasCompletedTyping || _wasForceStopped) return;
+      _startOrResumeTyping();
+    });
+  }
+
+  void _tick(Timer t) {
+    if (!mounted) {
+      t.cancel();
+      return;
+    }
+
+    // ✅ Stop ticking if force stopped
+    if (widget.forceStop == true || _wasForceStopped) {
+      _handleForceStop();
+      return;
+    }
+
+    if (widget.currentStatus != null && widget.currentStatus!.isNotEmpty) {
+      _pauseTyping();
+      return;
+    }
+
+    if (_preShown < _preFull.length) {
+      setState(() => _preShown++);
+      return;
+    }
+
+    if (_reachedPlaceholder && _hasTableDataAvailable && !_shouldShowTable) {
+      setState(() => _shouldShowTable = true);
+      _applyPostDelayOnce();
+      return;
+    }
+
+    if (_shouldShowTable && !_postDelayApplied) {
+      _applyPostDelayOnce();
+      return;
+    }
+
+    if (_postShown < _postFull.length) {
+      setState(() => _postShown++);
+      return;
+    }
+
+    _finishTyping();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  // ---------- UI helpers ----------
+  Widget _buildStatusIndicator() {
+    if (widget.currentStatus == null || widget.currentStatus!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: PremiumShimmerWidget(
+        text: widget.currentStatus!,
+        isComplete: false,
+        baseColor: const Color(0xFF9CA3AF),
+        highlightColor: const Color(0xFF6B7280),
+      ),
+    );
+  }
+
+  Widget _buildTypewriterCursor() {
+    // ✅ CHANGE: Hide cursor for historical messages, force stopped, or completed messages
+    final showCursor = _isTyping &&
+        !_hasCompletedTyping &&
+        !_wasForceStopped &&
+        !widget.isHistorical;  // ✅ NEW: Hide for historical messages
+
+    if (!showCursor) return const SizedBox.shrink();
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 500),
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: (value * 2) % 1.0 > 0.5 ? 1.0 : 0.3,
+          child: Container(
+            width: 2,
+            height: 20,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade600,
+              borderRadius: BorderRadius.circular(1),
+            ),
           ),
         );
+      },
+    );
+  }
+
+  List<TextSpan> _buildFormattedSpans(String text, TextStyle baseStyle) {
+    final regexBold = RegExp(r"\*\*(.+?)\*\*");
+    final spans = <TextSpan>[];
+    int lastMatchEnd = 0;
+
+    for (final match in regexBold.allMatches(text)) {
+      if (match.start > lastMatchEnd) {
+        spans.add(TextSpan(text: text.substring(lastMatchEnd, match.start), style: baseStyle));
       }
-
-      spans.add(
-        TextSpan(
-          text: match.group(1),
-          style: baseStyle.copyWith(
-            fontWeight: FontWeight.w700,
-            height: 1.5,
-            fontFamily: "SF Pro Text",
-          ),
+      spans.add(TextSpan(
+        text: match.group(1),
+        style: baseStyle.copyWith(
+          fontWeight: FontWeight.w700,
+          height: 1.5,
+          fontFamily: "SF Pro Text",
         ),
-      );
-
+      ));
       lastMatchEnd = match.end;
     }
 
@@ -271,245 +770,34 @@ class BotMessageWidget extends StatelessWidget {
     return spans;
   }
 
-  List<TextSpan> _buildFormattedSpans(String fullText, TextStyle baseStyle) {
-    final lines = fullText.trim().split('\n');
-    List<TextSpan> spans = [];
-
-    for (var line in lines) {
-      if (line.trim().isEmpty) {
-        spans.add(const TextSpan(text: '\n'));
-        continue;
-      }
-
-      String emoji = '';
-      if (line.trim().startsWith(RegExp(r"^(\*|•|-|\d+\.)\s"))) {
-        emoji = '👉 ';
-      } else if (line.contains('Tip') || line.contains('Note')) {
-        emoji = '💡 ';
-      } else if (line.contains('Save') || line.contains('budget')) {
-        emoji = '💰 ';
-      }
-
-      spans.add(TextSpan(text: '\n$emoji'));
-      spans.addAll(_processTextWithFormatting(line, baseStyle));
-    }
-
-    return spans;
-  }
-
-  // Helper method to extract text content from table data
-  String _extractTableText(Map<String, dynamic> data) {
-    final headers = data['headers'] as List<String>? ?? [];
-    final rows = data['rows'] as List<List<String>>? ?? [];
-
-    if (headers.isEmpty || rows.isEmpty) {
-      return 'Invalid table data';
-    }
-
-    String tableText = headers.join('\t') + '\n';
-    for (var row in rows) {
-      tableText += row.join('\t') + '\n';
-    }
-
-    return tableText;
-  }
-
-  // Helper method to extract text from key-value data
-  String _extractKeyValueText(Map<String, dynamic> data) {
-    final displayData = Map<String, dynamic>.from(data);
-    displayData.remove('display_type');
-
-    String text = '';
-    for (var entry in displayData.entries) {
-      text += '${entry.key}: ${entry.value}\n';
-    }
-
-    return text;
-  }
-
-  Widget _buildTableView(Map<String, dynamic> data, dynamic theme) {
-    final headers = data['headers'] as List<String>? ?? [];
-    final rows = data['rows'] as List<List<String>>? ?? [];
-
-    if (headers.isEmpty || rows.isEmpty) {
-      return SelectableText(
-        'Invalid table data',
-        style: TextStyle(
-          color: theme.text,
-          fontFamily: 'DM Sans',
-        ),
-        contextMenuBuilder: _buildContextMenu,
-      );
-    }
-
-    final isStockTable = headers.isNotEmpty &&
-        headers.first.toLowerCase().contains('stock');
-
-    // Create a selectable table using Column and Row layout
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.text.withOpacity(0.2)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          // Header row
-          Container(
-            decoration: BoxDecoration(
-              color: theme.text.withOpacity(0.05),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(8),
-                topRight: Radius.circular(8),
-              ),
-            ),
-            child: IntrinsicHeight(
-              child: Row(
-                children: headers.asMap().entries.map((entry) {
-                  final isLast = entry.key == headers.length - 1;
-                  return Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: Border(
-                          right: isLast
-                              ? BorderSide.none
-                              : BorderSide(color: theme.text.withOpacity(0.2)),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: SelectableText(
-                          entry.value,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            fontFamily: 'DM Sans',
-                            color: theme.text,
-                          ),
-                          contextMenuBuilder: _buildContextMenu,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-          // Data rows
-          ...rows.asMap().entries.map((rowEntry) {
-            final rowIndex = rowEntry.key;
-            final row = rowEntry.value;
-            final isLastRow = rowIndex == rows.length - 1;
-
-            return Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: isLastRow
-                      ? BorderSide.none
-                      : BorderSide(color: theme.text.withOpacity(0.2)),
-                ),
-              ),
-              child: IntrinsicHeight(
-                child: Row(
-                  children: row.asMap().entries.map((cellEntry) {
-                    final columnIndex = cellEntry.key;
-                    final cellValue = cellEntry.value;
-                    final isLastColumn = columnIndex == row.length - 1;
-
-                    return Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border(
-                            right: isLastColumn
-                                ? BorderSide.none
-                                : BorderSide(color: theme.text.withOpacity(0.2)),
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: isStockTable && columnIndex == 0 && onStockTap != null
-                              ? GestureDetector(
-                            onTap: () {
-                              print("🔍 Stock tapped: $cellValue");
-                              onStockTap!(cellValue);
-                            },
-                            child: SelectableText(
-                              cellValue,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontFamily: 'DM Sans',
-                                color: Colors.blue[700],
-                                fontWeight: FontWeight.w600,
-                                decoration: TextDecoration.underline,
-                                decorationColor: Colors.blue[700],
-                              ),
-                              contextMenuBuilder: _buildContextMenu,
-                            ),
-                          )
-                              : SelectableText(
-                            cellValue,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontFamily: 'DM Sans',
-                              color: theme.text,
-                            ),
-                            contextMenuBuilder: _buildContextMenu,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            );
-          }).toList(),
-        ],
-      ),
-    );
-  }
-
-  // Context menu builder for SelectableText
-  Widget _buildContextMenu(BuildContext context, EditableTextState editableTextState) {
-    final value = editableTextState.textEditingValue;
+  Widget _buildContextMenu(BuildContext context, EditableTextState s) {
+    final value = s.textEditingValue;
     final selection = value.selection;
-
-    if (!selection.isValid || selection.isCollapsed) {
-      return const SizedBox.shrink();
-    }
-
+    if (!selection.isValid || selection.isCollapsed) return const SizedBox.shrink();
     final selectedText = value.text.substring(selection.start, selection.end);
 
     return AdaptiveTextSelectionToolbar(
-      anchors: editableTextState.contextMenuAnchors,
+      anchors: s.contextMenuAnchors,
       children: [
-        if (onAskVitty != null)
+        if (widget.onAskVitty != null)
           TextButton(
             onPressed: () {
-              onAskVitty!(selectedText);
+              widget.onAskVitty!(selectedText);
               ContextMenuController.removeAny();
             },
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Ask Vitty'),
+                const Text('Ask Vitty',style: TextStyle(color: Colors.black),),
                 const SizedBox(width: 8),
-                Image.asset(
-                  'assets/images/vitty.png',
-                  width: 20,
-                  height: 20,
-                ),
+                Image.asset('assets/images/vitty.png', width: 20, height: 20),
               ],
             ),
           ),
         TextButton(
           onPressed: () {
             Clipboard.setData(ClipboardData(text: selectedText));
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Copied!')),
-            );
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied!')));
             ContextMenuController.removeAny();
           },
           child: const Text('Copy', style: TextStyle(color: Colors.black)),
@@ -520,270 +808,99 @@ class BotMessageWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = locator<ThemeService>().currentTheme;
-
+    final textColor = Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black;
     final style = TextStyle(
       fontFamily: 'DM Sans',
       fontSize: 16,
       fontWeight: FontWeight.w500,
       height: 1.75,
-      color: theme.text,
+      color: textColor,
     );
+
+    final hasPostText = _postDisplay.isNotEmpty;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4, top: 2),
+      padding: const EdgeInsets.only(bottom: 4, top: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (message.statusUpdates.isNotEmpty)
-            _buildStatusUpdates(theme),
+          _buildStatusIndicator(),
 
-          if (message.payloads.isNotEmpty)
-            _buildResponsePayloads(theme, style),
-
-          if (message.text.isNotEmpty && message.payloads.isEmpty)
-            SelectableText.rich(
-              TextSpan(
-                style: style,
-                children: _buildFormattedSpans(message.text, style),
-              ),
-              contextMenuBuilder: _buildContextMenu,
-            ),
-
-          const SizedBox(height: 15),
-          _buildActionButtons(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusUpdates(dynamic theme) {
-    if (message.statusUpdates.isEmpty || message.payloads.isNotEmpty) {
-      return SizedBox.shrink();
-    }
-
-    StatusUpdate currentStatus;
-    final incompleteStatuses = message.statusUpdates.where((s) => !s.isComplete).toList();
-    if (incompleteStatuses.isNotEmpty) {
-      currentStatus = incompleteStatuses.last;
-    } else {
-      currentStatus = message.statusUpdates.last;
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          return FadeTransition(
-            opacity: Tween<double>(begin: 0.0, end: 1.0).animate(animation),
-            child: child,
-          );
-        },
-        child: _buildCurrentStatusItem(currentStatus, theme),
-      ),
-    );
-  }
-
-  Widget _buildCurrentStatusItem(StatusUpdate status, dynamic theme) {
-    return Container(
-      key: ValueKey(status.id),
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 30),
-        child: StatusUpdateWidget(
-          statusUpdates: [status],
-          theme: theme,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResponsePayloads(dynamic theme, TextStyle style) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: message.payloads.map((payload) {
-        return AnimatedPayloadRenderer(
-          key: ValueKey('payload_${payload.id}'),
-          payload: payload,
-          theme: theme,
-          style: style,
-          onStockTap: onStockTap, // ENSURE THIS IS PASSED
-          contextMenuBuilder: _buildContextMenu,
-          messageId: message.id,
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildPayloadRenderer(ResponsePayload payload, dynamic theme, TextStyle style) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (payload.title != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: SelectableText(
-                payload.title!,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'DM Sans',
-                  color: theme.text,
-                ),
-                contextMenuBuilder: _buildContextMenu,
-              ),
-            ),
-          if (payload.description != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: SelectableText(
-                payload.description!,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontFamily: 'DM Sans',
-                  color: theme.text.withOpacity(0.7),
-                ),
-                contextMenuBuilder: _buildContextMenu,
-              ),
-            ),
-          _renderPayloadContent(payload, theme, style),
-        ],
-      ),
-    );
-  }
-
-  Widget _renderPayloadContent(ResponsePayload payload, dynamic theme, TextStyle style) {
-    switch (payload.type) {
-      case PayloadType.text:
-        return SelectableText.rich(
-          TextSpan(
-            style: style,
-            children: _buildFormattedSpans(payload.data, style),
-          ),
-          contextMenuBuilder: _buildContextMenu,
-        );
-      case PayloadType.json:
-        return _buildJsonPayload(payload.data, theme);
-      case PayloadType.chart:
-        return _buildChartPayload(payload.data, theme);
-    }
-  }
-
-  Widget _buildJsonPayload(Map<String, dynamic> data, dynamic theme) {
-    final displayType = data['display_type'] as String?;
-
-    if (displayType == 'table') {
-      return _buildTableView(data, theme);
-    } else {
-      return _buildKeyValueView(data, theme);
-    }
-  }
-
-  Widget _buildKeyValueView(Map<String, dynamic> data, dynamic theme) {
-    final displayData = Map<String, dynamic>.from(data);
-    displayData.remove('display_type');
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.text.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: theme.text.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: displayData.entries.map((entry) =>
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: SelectableText.rich(
-                TextSpan(
-                  style: TextStyle(
-                    color: theme.text,
-                    fontSize: 14,
-                    fontFamily: 'DM Sans',
+          if (_preDisplay.isNotEmpty)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: SelectableText.rich(
+                    TextSpan(style: style, children: _buildFormattedSpans(_preDisplay, style)),
+                    contextMenuBuilder: _buildContextMenu,
                   ),
-                  children: [
-                    TextSpan(
-                      text: '${entry.key}: ',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    TextSpan(text: entry.value.toString()),
-                  ],
                 ),
-                contextMenuBuilder: _buildContextMenu,
-              ),
+                if ((_isTyping && !_hasCompletedTyping && !_wasForceStopped) &&
+                    (!_shouldShowTable || _preShown < _preFull.length))
+                  _buildTypewriterCursor(),
+              ],
             ),
-        ).toList(),
-      ),
-    );
-  }
 
-  Widget _buildChartPayload(dynamic data, dynamic theme) {
-    return Container(
-      height: 200,
-      decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.withOpacity(0.3)),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.bar_chart, size: 48, color: Colors.blue),
-            const SizedBox(height: 8),
-            SelectableText(
-              'Chart will be rendered here',
-              style: TextStyle(
-                color: theme.text,
-                fontFamily: 'DM Sans',
-              ),
-              contextMenuBuilder: _buildContextMenu,
+          if (_shouldShowTable && _availableTableRows.isNotEmpty) ...[
+            KeyValueTableWidget(
+              heading: _availableTableHeading,
+              rows: _availableTableRows,
+              columnOrder: widget.tableData?['columnOrder']?.cast<String>(),
+              onCardTap: widget.onStockTap,
             ),
           ],
-        ),
+
+          if (hasPostText)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: SelectableText.rich(
+                    TextSpan(style: style, children: _buildFormattedSpans(_postDisplay, style)),
+                    contextMenuBuilder: _buildContextMenu,
+                  ),
+                ),
+                if (_shouldShowTable && _isTyping && !_hasCompletedTyping && !_wasForceStopped && _postShown < _postFull.length)
+                  _buildTypewriterCursor(),
+              ],
+            ),
+
+          // ✅ Show action buttons if completed OR force stopped
+          if ((_hasCompletedTyping || widget.isComplete || _wasForceStopped) && !_isTyping) ...[
+            const SizedBox(height: 15),
+            _buildActionButtons(),
+          ],
+        ],
       ),
     );
   }
 
   Widget _buildActionButtons() {
     return Row(
-      children: [
-        _AnimatedActionButton(
-          icon: Icons.copy,
-          size: 14,
-          isVisible: message.isComplete,
-        ),
-        const SizedBox(width: 12),
-        _AnimatedActionButton(
-          icon: Icons.thumb_up_alt_outlined,
-          size: 16,
-          isVisible: message.isComplete,
-        ),
-        const SizedBox(width: 12),
-        _AnimatedActionButton(
-          icon: Icons.thumb_down_alt_outlined,
-          size: 16,
-          isVisible: message.isComplete,
-        ),
+      children: const [
+        _AnimatedActionButton(icon: Icons.copy, size: 14, isVisible: true),
+        SizedBox(width: 12),
+        _AnimatedActionButton(icon: Icons.thumb_up_alt_outlined, size: 16, isVisible: true),
+        SizedBox(width: 12),
+        _AnimatedActionButton(icon: Icons.thumb_down_alt_outlined, size: 16, isVisible: true),
       ],
     );
   }
 }
-// Keep your existing _AnimatedActionButton class unchanged
+
+
 class _AnimatedActionButton extends StatelessWidget {
   final IconData icon;
   final double size;
   final bool isVisible;
 
   const _AnimatedActionButton({
+    Key? key,
     required this.icon,
     required this.size,
     required this.isVisible,
-  });
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -795,12 +912,9 @@ class _AnimatedActionButton extends StatelessWidget {
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 300),
         opacity: isVisible ? 1 : 0,
-        child: Icon(
-          icon,
-          size: size,
-          color: Colors.grey,
-        ),
+        child: Icon(icon, size: size, color: Colors.grey),
       ),
     );
   }
 }
+

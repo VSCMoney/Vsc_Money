@@ -4,8 +4,10 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/chat_message.dart';
+import 'colors.dart';
 
 
 
@@ -503,9 +505,7 @@ class PremiumShimmerWidget extends StatefulWidget {
 class _PremiumShimmerWidgetState extends State<PremiumShimmerWidget>
     with TickerProviderStateMixin {
   late AnimationController _shimmerController;
-  late AnimationController _revealController;
   late Animation<double> _shimmerAnimation;
-  late Animation<double> _revealAnimation;
 
   @override
   void initState() {
@@ -513,28 +513,16 @@ class _PremiumShimmerWidgetState extends State<PremiumShimmerWidget>
 
     // Shimmer animation - continuous wave effect
     _shimmerController = AnimationController(
-      duration: const Duration(seconds: 5),
+      duration: const Duration(milliseconds: 1500), // Faster shimmer cycle
       vsync: this,
     );
     _shimmerAnimation = Tween<double>(begin: -1.0, end: 2.0).animate(
       CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
     );
 
-    // Text reveal animation - progressive text visibility
-    _revealController = AnimationController(
-      duration: Duration(milliseconds: widget.text.length * 30 + 300),
-      vsync: this,
-    );
-    _revealAnimation = CurvedAnimation(
-      parent: _revealController,
-      curve: Curves.easeOut,
-    );
-
+    // Start continuous shimmer for status
     if (!widget.isComplete) {
       _shimmerController.repeat();
-      _revealController.forward();
-    } else {
-      _revealController.value = 1.0;
     }
   }
 
@@ -545,83 +533,49 @@ class _PremiumShimmerWidgetState extends State<PremiumShimmerWidget>
     if (widget.isComplete != oldWidget.isComplete) {
       if (widget.isComplete) {
         _shimmerController.stop();
-        _revealController.forward();
       } else {
         _shimmerController.repeat();
-        _revealController.forward();
       }
-    }
-
-    if (widget.text != oldWidget.text) {
-      _revealController.duration = Duration(seconds: widget.text.length * 30 + 5);
-      _revealController.reset();
-      _revealController.forward();
     }
   }
 
   @override
   void dispose() {
     _shimmerController.dispose();
-    _revealController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_shimmerAnimation, _revealAnimation]),
+      animation: _shimmerAnimation,
       builder: (context, child) {
-        final revealProgress = _revealAnimation.value;
-        final visibleLength = (widget.text.length * revealProgress).round();
-        final visibleText = widget.text.substring(0, visibleLength.clamp(0, widget.text.length));
-        final hiddenText = widget.text.substring(visibleLength.clamp(0, widget.text.length));
-
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Visible text (normal color)
-            if (visibleText.isNotEmpty)
-              Text(
-                visibleText,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: widget.isComplete ? Color(0xFF374151) : Color(0xFF6B7280),
-                  fontFamily: 'DM Sans',
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            // Hidden text with shimmer effect
-            if (hiddenText.isNotEmpty && !widget.isComplete)
-              Flexible(
-                child: ShaderMask(
-                  shaderCallback: (bounds) {
-                    return LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        widget.baseColor.withOpacity(0.3),
-                        widget.highlightColor.withOpacity(0.8),
-                        widget.baseColor.withOpacity(0.3),
-                      ],
-                      stops: [
-                        (_shimmerAnimation.value - 0.3).clamp(0.0, 1.0),
-                        _shimmerAnimation.value.clamp(0.0, 1.0),
-                        (_shimmerAnimation.value + 0.3).clamp(0.0, 1.0),
-                      ],
-                    ).createShader(bounds);
-                  },
-                  child: Text(
-                    hiddenText,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.white,
-                      fontFamily: 'DM Sans',
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-          ],
+        return ShaderMask(
+          shaderCallback: (bounds) {
+            return LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                widget.baseColor.withOpacity(0.4),
+                widget.highlightColor.withOpacity(0.9),
+                widget.baseColor.withOpacity(0.4),
+              ],
+              stops: [
+                (_shimmerAnimation.value - 0.3).clamp(0.0, 1.0),
+                _shimmerAnimation.value.clamp(0.0, 1.0),
+                (_shimmerAnimation.value + 0.3).clamp(0.0, 1.0),
+              ],
+            ).createShader(bounds);
+          },
+          child: Text(
+            widget.text,
+            style: TextStyle(
+              fontSize: 15,
+              color: Colors.white, // White color for shader mask
+              fontFamily: 'DM Sans',
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         );
       },
     );
@@ -640,116 +594,548 @@ class _PremiumShimmerWidgetState extends State<PremiumShimmerWidget>
 
 
 
-class StatusUpdateWidget extends StatefulWidget {
-  final List<StatusUpdate> statusUpdates;
-  final dynamic theme;
+// class StatusUpdateWidget extends StatefulWidget {
+//   final List<StatusUpdate> statusUpdates;
+//   final dynamic theme;
+//
+//   const StatusUpdateWidget({
+//     Key? key,
+//     required this.statusUpdates,
+//     required this.theme,
+//   }) : super(key: key);
+//
+//   @override
+//   _StatusUpdateWidgetState createState() => _StatusUpdateWidgetState();
+// }
+//
+// class _StatusUpdateWidgetState extends State<StatusUpdateWidget>
+//     with TickerProviderStateMixin {
+//   late AnimationController _transitionController;
+//   late Animation<double> _fadeAnimation;
+//   late Animation<Offset> _slideAnimation;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _transitionController = AnimationController(
+//       duration: const Duration(milliseconds: 400),
+//       vsync: this,
+//     );
+//
+//     _fadeAnimation = CurvedAnimation(
+//       parent: _transitionController,
+//       curve: Curves.easeInOut,
+//     );
+//
+//     _slideAnimation = Tween<Offset>(
+//       begin: const Offset(0, 0.3),
+//       end: Offset.zero,
+//     ).animate(CurvedAnimation(
+//       parent: _transitionController,
+//       curve: Curves.easeOutCubic,
+//     ));
+//
+//     _transitionController.forward();
+//   }
+//
+//   @override
+//   void didUpdateWidget(StatusUpdateWidget oldWidget) {
+//     super.didUpdateWidget(oldWidget);
+//
+//     if (widget.statusUpdates.length != oldWidget.statusUpdates.length ||
+//         (widget.statusUpdates.isNotEmpty && oldWidget.statusUpdates.isNotEmpty &&
+//             widget.statusUpdates.last.message != oldWidget.statusUpdates.last.message)) {
+//       _transitionController.reset();
+//       _transitionController.forward();
+//     }
+//   }
+//
+//   @override
+//   void dispose() {
+//     _transitionController.dispose();
+//     super.dispose();
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     if (widget.statusUpdates.isEmpty) return const SizedBox.shrink();
+//
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: widget.statusUpdates.map((status) {
+//         final isLatest = status == widget.statusUpdates.last;
+//
+//         return AnimatedSwitcher(
+//           duration: const Duration(seconds: 5),
+//           switchInCurve: Curves.easeInOut,
+//           switchOutCurve: Curves.easeInOut,
+//           transitionBuilder: (Widget child, Animation<double> animation) {
+//             return FadeTransition(
+//               opacity: animation,
+//               child: child,
+//             );
+//           },
+//           child: Container(
+//             key: ValueKey(status.id),
+//             child: buildStatusItem(status),
+//           ),
+//         );
+//     }      ).toList(),
+//     );
+//   }
+//
+//   // Even simpler usage
+//   Widget buildStatusItem(StatusUpdate status) {
+//     return PremiumShimmerWidget(
+//       text: status.message,
+//       isComplete: status.isComplete,
+//       baseColor: const Color(0xFF9CA3AF),
+//       highlightColor: const Color(0xFF6B7280),
+//     );
+//   }
+// }
 
-  const StatusUpdateWidget({
+
+
+
+
+
+
+
+
+
+class KeyValueTableWidget extends StatefulWidget {
+  final String? heading;
+  final List<Map<String, dynamic>> rows;
+  final List<String>? columnOrder;
+
+  /// Will receive the row's `_id` (string). If `_id` is not present,
+  /// we fall back to the card's name.
+  final Function(String idOrFallback)? onCardTap;
+
+  // spacing
+  final double cardSpacing;
+  final double headerBottomSpacing;
+
+  const KeyValueTableWidget({
     Key? key,
-    required this.statusUpdates,
-    required this.theme,
+    this.heading,
+    required this.rows,
+    this.columnOrder,
+    this.onCardTap,
+    this.cardSpacing = 8,
+    this.headerBottomSpacing = 8,
   }) : super(key: key);
 
   @override
-  _StatusUpdateWidgetState createState() => _StatusUpdateWidgetState();
+  State<KeyValueTableWidget> createState() => _KeyValueTableWidgetState();
 }
 
-class _StatusUpdateWidgetState extends State<StatusUpdateWidget>
+class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
     with TickerProviderStateMixin {
-  late AnimationController _transitionController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
+  late List<AnimationController> _fadeControllers;
+  late List<Animation<double>> _fadeAnimations;
+  late AnimationController _headerController;
+  late Animation<double> _headerAnimation;
+
+  bool _shouldHideField(String k) => k.trim().toLowerCase() == '_id';
 
   @override
   void initState() {
     super.initState();
-    _transitionController = AnimationController(
-      duration: const Duration(milliseconds: 400),
+    _initAnims();
+    _startAnims();
+  }
+
+  void _initAnims() {
+    _headerController = AnimationController(
+      duration: const Duration(milliseconds: 500),
       vsync: this,
     );
+    _headerAnimation =
+        CurvedAnimation(parent: _headerController, curve: Curves.easeOutCubic);
 
-    _fadeAnimation = CurvedAnimation(
-      parent: _transitionController,
-      curve: Curves.easeInOut,
+    _fadeControllers = List.generate(
+      widget.rows.length,
+          (_) => AnimationController(
+        duration: const Duration(milliseconds: 500),
+        vsync: this,
+      ),
     );
+    _fadeAnimations = _fadeControllers
+        .map((c) => CurvedAnimation(parent: c, curve: Curves.easeOutCubic))
+        .toList();
+  }
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _transitionController,
-      curve: Curves.easeOutCubic,
-    ));
-
-    _transitionController.forward();
+  void _startAnims() {
+    _headerController.forward();
+    for (var i = 0; i < _fadeControllers.length; i++) {
+      Future.delayed(Duration(milliseconds: 120 * i), () {
+        if (mounted) _fadeControllers[i].forward();
+      });
+    }
   }
 
   @override
-  void didUpdateWidget(StatusUpdateWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
+  void didUpdateWidget(KeyValueTableWidget old) {
+    super.didUpdateWidget(old);
+    if (widget.rows.length != old.rows.length) {
+      _disposeAnims();
+      _initAnims();
+      _startAnims();
+    }
+  }
 
-    if (widget.statusUpdates.length != oldWidget.statusUpdates.length ||
-        (widget.statusUpdates.isNotEmpty && oldWidget.statusUpdates.isNotEmpty &&
-            widget.statusUpdates.last.message != oldWidget.statusUpdates.last.message)) {
-      _transitionController.reset();
-      _transitionController.forward();
+  void _disposeAnims() {
+    _headerController.dispose();
+    for (final c in _fadeControllers) {
+      c.dispose();
     }
   }
 
   @override
   void dispose() {
-    _transitionController.dispose();
+    _disposeAnims();
     super.dispose();
+  }
+
+  // -------------------- data helpers --------------------
+
+  /// Extract a human-friendly name for the card.
+  String _extractEntityName(Map<String, dynamic> row) {
+    const nameFields = ['name', 'company', 'symbol', 'ticker', 'title'];
+    for (final f in nameFields) {
+      if (row.containsKey(f) && row[f] != null) {
+        var v = row[f].toString();
+        if (v.length > 25) v = '${v.substring(0, 22)}...';
+        return v;
+      }
+    }
+    return 'Entity';
+  }
+
+  /// Extract the `_id` or `id` as a string; empty string if not found.
+  String _extractEntityId(Map<String, dynamic> row) {
+    final raw = row['_id'] ?? row['id'];
+    if (raw == null) return '';
+    return raw.toString();
+  }
+
+  Map<String, String> _processRowData(Map<String, dynamic> row) {
+    final processed = <String, String>{};
+    processed['name'] = _extractEntityName(row);
+    processed.addAll(_extractImportantFields(row));
+    return processed;
+  }
+
+  Map<String, String> _extractImportantFields(Map<String, dynamic> row) {
+    final result = <String, String>{};
+    final priority = [
+      'price',
+      'sector',
+      'category',
+      'industry',
+      'market_cap',
+      'pe_ratio',
+      'revenue',
+      'profit',
+      'rating',
+      'score',
+      'percentage',
+      'change',
+      'volume',
+      'returns',
+      'yield',
+      'growth'
+    ];
+    int count = 0;
+
+    // priority fields
+    for (final k in priority) {
+      if (count >= 4) break;
+      if (row.containsKey(k) && row[k] != null) {
+        result[_label(k)] = _format(k, row[k]);
+        count++;
+      }
+    }
+
+    // nested maps → skip _id
+    if (count < 4) {
+      for (final e in row.entries) {
+        if (count >= 4) break;
+        if (e.value is Map) {
+          final nested = Map<String, dynamic>.from(e.value as Map);
+          for (final ne in nested.entries) {
+            if (count >= 4) break;
+            if (_shouldHideField(ne.key)) continue; // hide _id
+            final v = ne.value;
+            if (v != null && (v is num || v is String)) {
+              result[_label(ne.key)] = _format(ne.key, v);
+              count++;
+            }
+          }
+        }
+      }
+    }
+
+    // remaining top-level fields → skip name-ish and _id
+    if (count < 4) {
+      for (final e in row.entries) {
+        if (count >= 4) break;
+        if (_shouldHideField(e.key)) continue; // hide _id
+        if (!_isNameField(e.key) && e.value != null && e.value is! Map) {
+          final lab = _label(e.key);
+          if (!result.containsKey(lab)) {
+            result[lab] = _format(e.key, e.value);
+            count++;
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  bool _isNameField(String k) =>
+      {'name', 'company', 'symbol', 'ticker', 'title'}.contains(k.toLowerCase());
+
+  String _label(String k) {
+    const map = {
+      'price': 'Price',
+      'sector': 'Sector',
+      'market_cap': 'Market Cap',
+      'pe_ratio': 'P/E',
+      'dividend_yield': 'Dividend',
+      'revenue': 'Revenue',
+      'profit': 'Profit',
+      'rating': 'Rating',
+      'volume': 'Volume',
+      'change': 'Change',
+      'returns': 'Returns',
+      'yield': 'Yield',
+      'growth': 'Growth',
+      'industry': 'Industry',
+      'category': 'Category',
+    };
+    final lk = k.toLowerCase();
+    if (map.containsKey(lk)) return map[lk]!;
+    final cleaned = k.replaceAll('_', ' ').replaceAll('.', ' ');
+    return cleaned
+        .split(' ')
+        .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
+
+  String _format(String k, dynamic v) {
+    if (v == null) return '—';
+    final lk = k.toLowerCase();
+
+    if (lk.contains('price') || lk.contains('market_cap')) {
+      if (v is num) {
+        if (v > 10000000) return '₹${(v / 10000000).toStringAsFixed(1)}Cr';
+        if (v > 100000) return '₹${(v / 100000).toStringAsFixed(1)}L';
+        return '₹${v.toStringAsFixed(2)}';
+      }
+    }
+    if (lk.contains('return') ||
+        lk.contains('change') ||
+        lk.contains('growth') ||
+        lk.contains('yield')) {
+      if (v is num) return '${v.toStringAsFixed(1)}%';
+    }
+    if (lk.contains('rating') || lk.contains('score')) {
+      if (v is num) return '${v.toStringAsFixed(1)}/5';
+    }
+    if (v is String) return v.length > 12 ? '${v.substring(0, 9)}...' : v;
+    if (v is num) {
+      if (v > 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
+      if (v > 1000) return '${(v / 1000).toStringAsFixed(1)}K';
+      return v.toStringAsFixed(1);
+    }
+    return v.toString();
+  }
+
+  Widget _stat(String label, String value) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade500,
+                fontWeight: FontWeight.w400,
+                fontFamily: "DM Sans",
+              )),
+          const SizedBox(height: 3),
+          Text(value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+                fontFamily: "DM Sans",
+              )),
+        ],
+      ),
+    );
+  }
+  String _pickId(Map<String, dynamic> row) {
+    final candidates = ['_id', 'id', 'isin', 'symbol', 'ticker'];
+    for (final k in candidates) {
+      final v = row[k];
+      if (v != null) {
+        final s = v.toString().trim();
+        if (s.isNotEmpty) return s;
+      }
+    }
+    // last resort: use the display name so UX doesn’t break
+    return _extractEntityName(row);
+  }
+
+
+  Widget _card(Map<String, dynamic> row, Animation<double> anim, int i) {
+    final data = _processRowData(row);
+    final name = data['name'] ?? 'Entity';
+    final id = _extractEntityId(row); // <-- _id / id here
+    final fields = Map<String, String>.from(data)..remove('name');
+    final entries = fields.entries.toList();
+
+    return FadeTransition(
+      opacity: anim,
+      child: SlideTransition(
+        position:
+        Tween<Offset>(begin: const Offset(0, .06), end: Offset.zero).animate(anim),
+        child: GestureDetector(
+          onTap: () {
+            // Pass `_id` to the consumer (fallback to name if missing)
+            final assetId = _pickId(row);
+            widget.onCardTap?.call(assetId);
+          },
+          child: Container(
+            margin: EdgeInsets.only(
+              bottom: i < widget.rows.length - 1 ? widget.cardSpacing : 0,
+            ),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xffFAF9F7),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200, width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                          fontFamily: "DM Sans",
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.bookmark_border,
+                        size: 25, color: Color(0xff734012)),
+                  ],
+                ),
+                if (entries.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    _stat(entries[0].key, entries[0].value),
+                    const SizedBox(width: 16),
+                    _stat(entries.length > 1 ? entries[1].key : '',
+                        entries.length > 1 ? entries[1].value : ''),
+                  ]),
+                  if (entries.length >= 3) ...[
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      _stat(entries[2].key, entries[2].value),
+                      const SizedBox(width: 16),
+                      _stat(entries.length > 3 ? entries[3].key : '',
+                          entries.length > 3 ? entries[3].value : ''),
+                    ]),
+                  ],
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _header(String text) {
+    return FadeTransition(
+      opacity: _headerAnimation,
+      child: SlideTransition(
+        position:
+        Tween<Offset>(begin: const Offset(0, .06), end: Offset.zero).animate(_headerAnimation),
+        child: Padding(
+          padding: EdgeInsets.only(bottom: widget.headerBottomSpacing, left: 4),
+          child: Row(
+            children: [
+              const SizedBox(width: 8),
+              const Text("🔰 ",
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                      fontFamily: "DM Sans")),
+              Expanded(
+                child: Text(
+                  text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                      fontFamily: "DM Sans"),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.statusUpdates.isEmpty) return const SizedBox.shrink();
+    if (widget.rows.isEmpty) return const SizedBox.shrink();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: widget.statusUpdates.map((status) {
-        final isLatest = status == widget.statusUpdates.last;
-
-        return AnimatedSwitcher(
-          duration: const Duration(seconds: 5),
-          switchInCurve: Curves.easeInOut,
-          switchOutCurve: Curves.easeInOut,
-          transitionBuilder: (Widget child, Animation<double> animation) {
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
-          },
-          child: Container(
-            key: ValueKey(status.id),
-            child: buildStatusItem(status),
-          ),
-        );
-    }      ).toList(),
-    );
-  }
-
-  // Even simpler usage
-  Widget buildStatusItem(StatusUpdate status) {
-    return PremiumShimmerWidget(
-      text: status.message,
-      isComplete: status.isComplete,
-      baseColor: const Color(0xFF9CA3AF),
-      highlightColor: const Color(0xFF6B7280),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if ((widget.heading ?? '').isNotEmpty) _header(widget.heading!),
+          ...widget.rows.asMap().entries.map((e) {
+            final i = e.key;
+            final anim =
+            i < _fadeAnimations.length ? _fadeAnimations[i] : _headerAnimation;
+            return _card(e.value, anim, i);
+          }),
+        ],
+      ),
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1140,215 +1526,368 @@ class _TypewriterTextState extends State<TypewriterText>
   }
 }
 
-// FIXED ANIMATED TABLE - NO RE-ANIMATION
+//FIXED ANIMATED TABLE - NO RE-AnimationController
 
-class AnimatedPayloadRenderer extends StatelessWidget {
-  final ResponsePayload payload;
-  final dynamic theme;
-  final TextStyle style;
-  final Function(String)? onStockTap;
-  final Function(BuildContext, EditableTextState)? contextMenuBuilder;
+// Since your current ChatMessage model doesn't use payloads,
+// here's a simplified version that works with your structured data
+
+// Since your current ChatMessage model doesn't use payloads,
+// here's a simplified version that works with your structured data
+
+class AnimatedTableRenderer extends StatefulWidget {
+  final Map<String, dynamic> structuredData;
   final String messageId;
+  final Function(String)? onStockTap;
+  final EditableTextContextMenuBuilder? contextMenuBuilder;
 
-  const AnimatedPayloadRenderer({
+  const AnimatedTableRenderer({
     Key? key,
-    required this.payload,
-    required this.theme,
-    required this.style,
+    required this.structuredData,
+    required this.messageId,
     this.onStockTap,
     this.contextMenuBuilder,
-    required this.messageId,
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final payloadId = '${messageId}_payload_${payload.id}';
-    final hasAnimated = ChatAnimationTracker.hasAnimated(payloadId);
+  State<AnimatedTableRenderer> createState() => _AnimatedTableRendererState();
+}
 
-    if (!hasAnimated) {
-      ChatAnimationTracker.markAsAnimated(payloadId);
-    }
+class _AnimatedTableRendererState extends State<AnimatedTableRenderer>
+    with TickerProviderStateMixin {
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeInOut,
+    ));
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    // Start animations
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _fadeController.forward();
+        _slideController.forward();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    _slideController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_fadeAnimation, _slideAnimation]),
+      builder: (context, child) {
+        return FadeTransition(
+          opacity: _fadeAnimation,
+          child: SlideTransition(
+            position: _slideAnimation,
+            child: _buildTableContent(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTableContent() {
+    final heading = widget.structuredData['heading']?.toString();
+    final rowsRaw = widget.structuredData['rows'] as List?;
+    final columnOrderRaw = widget.structuredData['columnOrder'] as List?;
+    final captionRaw = widget.structuredData['caption']?.toString();
+
+    final rows = rowsRaw?.map((e) {
+      if (e is Map) {
+        return Map<String, dynamic>.from(e);
+      }
+      return <String, dynamic>{};
+    }).toList() ?? <Map<String, dynamic>>[];
+
+    final columnOrder = columnOrderRaw?.map((e) => e?.toString() ?? '').toList();
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (payload.title != null)
+          // Heading
+          if (heading != null && heading.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 12),
               child: Text(
-                payload.title!,
-                style: TextStyle(
+                heading,
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   fontFamily: 'DM Sans',
-                  color: theme.text,
                 ),
               ),
             ),
-          if (payload.description != null)
+
+          // Table
+          _buildAnimatedTable(rows, columnOrder),
+
+          // Caption (if any)
+          if (captionRaw != null && captionRaw.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(top: 8),
               child: Text(
-                payload.description!,
+                captionRaw,
                 style: TextStyle(
                   fontSize: 14,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey[600],
                   fontFamily: 'DM Sans',
-                  color: theme.text.withOpacity(0.7),
                 ),
               ),
             ),
-          _renderPayloadContent(),
         ],
       ),
     );
   }
 
-  Widget _renderPayloadContent() {
-    switch (payload.type) {
-      case PayloadType.text:
-        return _buildStreamingText(payload.data);
-      case PayloadType.json:
-        return _buildJsonPayload(payload.data);
-      case PayloadType.chart:
-        return _buildChartPayload(payload.data);
+  Widget _buildAnimatedTable(List<Map<String, dynamic>> rows, List<String>? columnOrder) {
+    if (rows.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        child: const Text('No data available'),
+      );
     }
+
+    // Determine columns
+    final allKeys = <String>{};
+    for (final row in rows) {
+      allKeys.addAll(row.keys);
+    }
+
+    final columns = columnOrder ?? allKeys.toList();
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          // Header row
+          _buildHeaderRow(columns),
+
+          // Data rows with staggered animation
+          ...rows.asMap().entries.map((entry) {
+            final index = entry.key;
+            final row = entry.value;
+
+            return _buildAnimatedDataRow(row, columns, index);
+          }),
+        ],
+      ),
+    );
   }
 
-  Widget _buildStreamingText(String text) {
-    final textId = '${messageId}_text_${payload.id}';
-    final hasAnimated = ChatAnimationTracker.hasAnimated(textId);
+  Widget _buildHeaderRow(List<String> columns) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(8),
+          topRight: Radius.circular(8),
+        ),
+      ),
+      child: Row(
+        children: columns.map((column) {
+          return Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              child: Text(
+                column,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  fontFamily: 'DM Sans',
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
 
-    if (!hasAnimated) {
-      ChatAnimationTracker.markAsAnimated(textId);
-    }
-
+  Widget _buildAnimatedDataRow(Map<String, dynamic> row, List<String> columns, int index) {
     return TweenAnimationBuilder<double>(
-      duration: hasAnimated ? Duration.zero : Duration(milliseconds: text.length * 20),
-      tween: Tween(begin: hasAnimated ? 1.0 : 0.0, end: 1.0),
-      curve: Curves.easeOut,
-      builder: (context, value, _) {
-        final visibleLength = (text.length * value).round();
-        final visibleText = text.substring(0, visibleLength);
+      duration: Duration(milliseconds: 200 + (index * 100)), // Staggered timing
+      tween: Tween(begin: 0.0, end: 1.0),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Transform.translate(
+          offset: Offset(0, 20 * (1 - value)),
+          child: Opacity(
+            opacity: value,
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Colors.grey[200]!),
+                ),
+              ),
+              child: Row(
+                children: columns.map((column) {
+                  final cellValue = row[column]?.toString() ?? '';
+                  final isStockCell = _isStockColumn(column);
 
-        return Text(
-          visibleText,
-          style: style,
+                  return Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      child: _buildSelectableCell(cellValue, isStockCell),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
         );
       },
     );
   }
 
-  Widget _buildJsonPayload(Map<String, dynamic> data) {
-    final displayType = data['display_type'] as String?;
-
-    if (displayType == 'table') {
-      return _buildFadeInWrapper(
-        child: AnimatedTable(
-          data: data,
-          theme: theme,
-          onStockTap: onStockTap,
-          messageId: messageId,
-        ),
-      );
-    } else {
-      return _buildFadeInWrapper(
-        child: _buildKeyValueView(data),
-      );
-    }
+  bool _isStockColumn(String columnName) {
+    // Determine if this column contains stock names/symbols
+    final stockColumnNames = [
+      'name', 'company', 'stock', 'symbol', 'ticker',
+      'company name', 'stock name', 'security'
+    ];
+    return stockColumnNames.contains(columnName.toLowerCase());
   }
 
-  Widget _buildChartPayload(dynamic data) {
-    return _buildFadeInWrapper(
-      child: Container(
-        height: 200,
-        decoration: BoxDecoration(
-          color: Colors.blue.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.blue.withOpacity(0.3)),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.bar_chart, size: 48, color: Colors.blue),
-              const SizedBox(height: 8),
-              Text(
-                'Chart will be rendered here',
-                style: TextStyle(
-                  color: theme.text,
-                  fontFamily: 'DM Sans',
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildKeyValueView(Map<String, dynamic> data) {
-    final displayData = Map<String, dynamic>.from(data);
-    displayData.remove('display_type');
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.text.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: theme.text.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: displayData.entries.map((entry) =>
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: RichText(
-                text: TextSpan(
-                  style: TextStyle(
-                    color: theme.text,
-                    fontSize: 14,
-                    fontFamily: 'DM Sans',
-                  ),
-                  children: [
-                    TextSpan(
-                      text: '${entry.key}: ',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    TextSpan(text: entry.value.toString()),
-                  ],
-                ),
-              ),
-            ),
-        ).toList(),
-      ),
-    );
-  }
-
-  Widget _buildFadeInWrapper({required Widget child}) {
-    final fadeId = '${messageId}_fade_${payload.id}';
-    final hasAnimated = ChatAnimationTracker.hasAnimated(fadeId);
-
-    if (!hasAnimated) {
-      ChatAnimationTracker.markAsAnimated(fadeId);
-
-      return TweenAnimationBuilder<double>(
-        duration: const Duration(milliseconds: 600),
-        tween: Tween(begin: 0.0, end: 1.0),
-        curve: Curves.easeInOut,
-        builder: (context, opacity, _) {
-          return Opacity(
-            opacity: opacity,
-            child: child,
-          );
+  Widget _buildSelectableCell(String cellValue, bool isStockCell) {
+    if (isStockCell && widget.onStockTap != null) {
+      // Stock cell - tappable and styled
+      return GestureDetector(
+        onTap: () {
+          print("🔍 Stock tapped from animated table: $cellValue");
+          widget.onStockTap!(cellValue);
         },
+        child: SelectableText(
+          cellValue,
+          style: TextStyle(
+            fontSize: 14,
+            fontFamily: 'DM Sans',
+            color: Colors.blue[700],
+            fontWeight: FontWeight.w600,
+            decoration: TextDecoration.underline,
+            decorationColor: Colors.blue[700],
+          ),
+          contextMenuBuilder: widget.contextMenuBuilder,
+        ),
       );
     } else {
-      return child;
+      // Regular cell
+      return SelectableText(
+        cellValue,
+        style: const TextStyle(
+          fontSize: 14,
+          fontFamily: 'DM Sans',
+        ),
+        contextMenuBuilder: widget.contextMenuBuilder,
+      );
     }
   }
 }
+
+// Simple animation tracker to prevent re-animations
+
+// Updated KeyValueTableWidget to use animation (optional)
+class AnimatedKeyValueTableWidget extends StatelessWidget {
+  final String? heading;
+  final List<Map<String, dynamic>> rows;
+  final List<String>? columnOrder;
+  final Function(String)? onStockTap;
+
+  const AnimatedKeyValueTableWidget({
+    Key? key,
+    this.heading,
+    required this.rows,
+    this.columnOrder,
+    this.onStockTap,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final messageId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    return AnimatedTableRenderer(
+      structuredData: {
+        'heading': heading,
+        'rows': rows,
+        'columnOrder': columnOrder,
+      },
+      messageId: messageId,
+      onStockTap: onStockTap,
+      contextMenuBuilder: _buildContextMenu,
+    );
+  }
+
+  Widget _buildContextMenu(BuildContext context, EditableTextState editableTextState) {
+    final value = editableTextState.textEditingValue;
+    final selection = value.selection;
+
+    if (!selection.isValid || selection.isCollapsed) {
+      return const SizedBox.shrink();
+    }
+
+    final selectedText = value.text.substring(selection.start, selection.end);
+
+    return AdaptiveTextSelectionToolbar(
+      anchors: editableTextState.contextMenuAnchors,
+      children: [
+        TextButton(
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: selectedText));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Copied!')),
+            );
+            ContextMenuController.removeAny();
+          },
+          child: const Text('Copy', style: TextStyle(color: Colors.black)),
+        ),
+      ],
+    );
+  }
+}
+
+
+
 
 class AnimatedTable extends StatefulWidget {
   final Map<String, dynamic> data;

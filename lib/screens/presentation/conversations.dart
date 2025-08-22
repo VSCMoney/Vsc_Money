@@ -11,6 +11,7 @@ import 'package:vscmoney/services/locator.dart';
 import 'package:vscmoney/services/theme_service.dart';
 
 import '../../constants/app_bar.dart';
+import '../../constants/bottomsheet.dart';
 import '../../models/chat_session.dart';
 import '../../services/chat_service.dart';
 import '../../services/conversation_service.dart';
@@ -23,12 +24,10 @@ import 'package:get_it/get_it.dart';
 
 class Conversations extends StatefulWidget {
   final Function(ChatSession)? onSessionTap;
-  final VoidCallback? onCreateNewChat;
 
   const Conversations({
     super.key,
     required this.onSessionTap,
-    this.onCreateNewChat,
   });
 
   @override
@@ -38,8 +37,14 @@ class Conversations extends StatefulWidget {
 class _ConversationsState extends State<Conversations> {
   final ChatService _chatService = locator<ChatService>();
   final ConversationsService _conversationsService = locator<ConversationsService>();
+  final ChatService chat = locator<ChatService>();
   final TextEditingController _searchController = TextEditingController();
   late StreamSubscription _sessionsSubscription;
+  final GlobalKey<ChatGPTBottomSheetWrapperState> _sheetKey =
+  GlobalKey(debugLabel: 'BottomSheetWrapper');
+
+  // ✅ NEW: Track to prevent duplicate navigation
+  bool _isNavigating = false;
 
   @override
   void initState() {
@@ -63,6 +68,81 @@ class _ConversationsState extends State<Conversations> {
     _conversationsService.searchSessions(_searchController.text.trim());
   }
 
+  void _openSettingsSheet() {
+    final settingsSheet = BottomSheetManager.buildSettingsSheet(
+      onTap: () => _sheetKey.currentState?.closeSheet(),
+    );
+    _sheetKey.currentState?.openSheet(settingsSheet);
+  }
+
+  // ✅ NEW: Better session tap handling with debouncing
+  // void _onSessionTap(ChatSession session) async {
+  //   if (_isNavigating) return; // Prevent duplicate taps
+  //
+  //   _isNavigating = true;
+  //   debugPrint("🔍 CONVERSATIONS: Session tapped: ${session.id}");
+  //
+  //   try {
+  //     // ✅ Method 1: Pass session ID only (recommended)
+  //     await context.push('/home?sessionId=${session.id}');
+  //
+  //     // ✅ Alternative Method 2: Use onSessionTap callback if needed
+  //     // widget.onSessionTap?.call(session);
+  //
+  //   } catch (e) {
+  //     debugPrint("❌ Navigation error: $e");
+  //   } finally {
+  //     if (mounted) {
+  //       _isNavigating = false;
+  //     }
+  //   }
+  // }
+
+
+  // 5. Update Conversations navigation to use sessionId only
+  void _onSessionTap(ChatSession session) async {
+    if (_isNavigating) return;
+
+    _isNavigating = true;
+    debugPrint("🔍 CONVERSATIONS: Session tapped: ${session.id}");
+
+    try {
+      // ✅ FIX: Use pushReplacement instead of push to avoid navigation stack issues
+      await context.push('/home?sessionId=${session.id}');
+
+      // ✅ Alternative: Use go instead of push
+      // context.go('/home?sessionId=${session.id}');
+
+    } catch (e) {
+      debugPrint("❌ Navigation error: $e");
+    } finally {
+      if (mounted) {
+        _isNavigating = false;
+      }
+    }
+  }
+
+
+  // ✅ NEW: Better new chat handling
+  void _createNewChat() async {
+    if (_isNavigating) return;
+
+    _isNavigating = true;
+    debugPrint("🆕 CONVERSATIONS: Creating new chat");
+
+    try {
+      // Create new session and navigate
+      await chat.createNewChatSession();
+      await context.push('/home'); // Navigate to new session
+    } catch (e) {
+      debugPrint("❌ New chat error: $e");
+    } finally {
+      if (mounted) {
+        _isNavigating = false;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = _conversationsService.currentState;
@@ -71,129 +151,130 @@ class _ConversationsState extends State<Conversations> {
     final horizontalPadding = isTablet ? 24.0 : 28.0;
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
-    return PopScope(
-      canPop: false,
-      child: Scaffold(
-        drawer: CustomDrawer(
-          chatService: _chatService,
-          onSessionTap: widget.onSessionTap,
-          onCreateNewChat: widget.onCreateNewChat,
-          selectedRoute: "Conversations",
-        ),
-        backgroundColor: theme.background,
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(100),
-          child: Builder(
-            builder: (context) => appBar(context, "Conversations", () {}, false, showNewChatButton: false),
+    return ChatGPTBottomSheetWrapper(
+      key: _sheetKey,
+      child: PopScope(
+        canPop: false,
+        child: Scaffold(
+          drawer: CustomDrawer(
+            onTap: _openSettingsSheet,
+            chatService: _chatService,
+            onSessionTap: widget.onSessionTap,
+            selectedRoute: "Conversations",
           ),
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            widget.onCreateNewChat?.call();
-            Navigator.pop(context);
-          },
-          backgroundColor: AppColors.primary,
-          child: Image.asset('assets/images/newChat.png', height: 20),
-          shape: const CircleBorder(),
-          elevation: 4,
-        ),
-        body: state.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SafeArea(
-          child: RefreshIndicator(
-            onRefresh: _conversationsService.loadSessions,
-            color: theme.text,
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: horizontalPadding,
-                      vertical: 16,
-                    ),
-                    child: Container(
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: theme.shadow,
-                        borderRadius: BorderRadius.circular(22),
+          backgroundColor: theme.background,
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(100),
+            child: Builder(
+              builder: (context) => appBar(context, "Conversations", () {}, false, showNewChatButton: false),
+            ),
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: _createNewChat, // ✅ Use optimized method
+            backgroundColor: AppColors.primary,
+            child: Image.asset('assets/images/newChat.png', height: 20),
+            shape: const CircleBorder(),
+            elevation: 4,
+          ),
+          body: state.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SafeArea(
+            child: RefreshIndicator(
+              onRefresh: _conversationsService.loadSessions,
+              color: theme.text,
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                        vertical: 16,
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          Icon(Icons.search, color: theme.icon, size: 22),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: _searchController,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontFamily: 'SF Pro Display',
-                                color: theme.text,
-                              ),
-                              decoration: const InputDecoration(
-                                hintText: 'Search',
-                                hintStyle: TextStyle(
-                                  color: Colors.black,
+                      child: Container(
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: theme.shadow,
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Icon(Icons.search, color: Color(0xFF7E7E7E), size: 22),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: _searchController,
+                                style: TextStyle(
                                   fontSize: 16,
-                                  fontFamily: 'SF Pro Display',
+                                  fontFamily: 'DM Sans',
+                                  color: theme.text,
                                 ),
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(vertical: 12),
+                                decoration: const InputDecoration(
+                                  hintText: 'Search',
+                                  hintStyle: TextStyle(
+                                    color: Color(0xFF7E7E7E),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    fontFamily: 'DM Sans',
+                                  ),
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.symmetric(vertical: 10.5),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                if (state.filteredSessions.isEmpty && !state.isLoading)
-                  SliverFillRemaining(
-                    child: Center(
-                      child: Text(
-                        "No conversations found",
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: theme.text,
-                          fontFamily: 'SF Pro Display',
+                          ],
                         ),
                       ),
                     ),
-                  )
-                else
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                        final entries = state.groupedSessions.entries.toList();
-                        if (index >= entries.length) return null;
+                  ),
+                  if (state.filteredSessions.isEmpty && !state.isLoading)
+                    SliverFillRemaining(
+                      child: Center(
+                        child: Text(
+                          "No conversations found",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: theme.text,
+                            fontFamily: 'DM Sans',
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                          final entries = state.groupedSessions.entries.toList();
+                          if (index >= entries.length) return null;
 
-                        final entry = entries[index];
-                        return Padding(
-                          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(top: 16, bottom: 8),
-                                child: Text(
-                                  entry.key,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: theme.text,
-                                    fontFamily: 'SF Pro Display',
+                          final entry = entries[index];
+                          return Padding(
+                            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 16, bottom: 8),
+                                  child: Text(
+                                    entry.key,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xff7E7E7E),
+                                      fontFamily: 'DM Sans',
+                                    ),
                                   ),
                                 ),
-                              ),
-                              ...entry.value.map((session) => _buildConversationItem(session)),
-                            ],
-                          ),
-                        );
-                      },
-                      childCount: state.groupedSessions.length,
+                                ...entry.value.map((session) => _buildConversationItem(session)),
+                              ],
+                            ),
+                          );
+                        },
+                        childCount: state.groupedSessions.length,
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -207,36 +288,29 @@ class _ConversationsState extends State<Conversations> {
     return Builder(
       builder: (innerContext) => InkWell(
         onTap: () {
-          context.push('/home', extra: {
-            'session': session
-          });
-
-
-          if (Scaffold.of(innerContext).isDrawerOpen) {
-            Navigator.pop(innerContext);
-          }
+          print("🖱️ Conversation item tapped: ${session.id} - ${session.title}");
+          _onSessionTap(session);
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
-         child: Row(
-        children: [
-        Expanded(
-        child: Text(
-            session.title.trim().isEmpty ? "Untitled Chat" : session.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w400,
-          color: theme.text,
-          fontFamily: 'SF Pro Display',
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  session.title.trim().isEmpty ? "Untitled Chat" : session.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    color: theme.text,
+                    fontFamily: 'DM Sans',
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    ),
-    ],
-    ),
-
-    ),
       ),
     );
   }

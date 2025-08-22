@@ -10,6 +10,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
@@ -18,8 +19,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:vscmoney/constants/colors.dart';
 import 'package:vscmoney/screens/presentation/home/chat_screen.dart';
+import 'package:vscmoney/services/asset_service.dart';
 import 'package:vscmoney/services/chat_service.dart';
 
+import 'models/asset_model.dart';
+import 'models/chat_message.dart';
 import 'models/chat_session.dart';
 
 class PremiumAccessScreen extends StatelessWidget {
@@ -770,18 +774,18 @@ class VittyThreadSheet extends StatefulWidget {
   final ChatService chatService;
   final String initialText;
   final List<ThreadHistoryItem>? history;
-  VoidCallback onClose;
+  final VoidCallback onClose;
 
-   VittyThreadSheet({
+  const VittyThreadSheet({
     Key? key,
     required this.chatService,
     required this.initialText,
     this.history,
-     required this.onClose,
+    required this.onClose,
   }) : super(key: key);
 
   @override
-  _VittyThreadSheetState createState() => _VittyThreadSheetState();
+  State<VittyThreadSheet> createState() => _VittyThreadSheetState();
 }
 
 class _VittyThreadSheetState extends State<VittyThreadSheet>
@@ -790,6 +794,8 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
   late List<ThreadHistoryItem> _history;
   String? _selectedText;
   late AnimationController _animationController;
+  bool _isLoading = false;
+  bool _isDropdownExpanded = false;
 
   @override
   void initState() {
@@ -800,85 +806,156 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
     );
 
     _selectedText = widget.initialText.trim();
-
-    final initialItem = ThreadHistoryItem(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      text: _selectedText!,
-      createdAt: DateTime.now(),
-    );
-
-    final originalHistory = widget.history ?? [];
-
-    _history =
-        [
-          initialItem,
-          ...originalHistory,
-        ].where((item) => item.text.trim().isNotEmpty).toSet().toList();
-
+    _initializeHistory();
     _startSession(_selectedText!);
+  }
+
+  void _initializeHistory() {
+    // ✅ FIXED: Better history initialization
+    final originalHistory = widget.history ?? <ThreadHistoryItem>[];
+
+    // Create a copy of the original history
+    _history = List<ThreadHistoryItem>.from(originalHistory);
+
+    // Add initial text only if it's not already in history
+    final initialText = widget.initialText.trim();
+    if (initialText.isNotEmpty &&
+        !_history.any((item) => item.text.trim() == initialText)) {
+
+      final initialItem = ThreadHistoryItem(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        text: initialText,
+        createdAt: DateTime.now(),
+      );
+
+      // Add to beginning of history
+      _history.insert(0, initialItem);
+    }
+
+    print("📚 Initialized history with ${_history.length} items:");
+    for (int i = 0; i < _history.length; i++) {
+      print("  $i: ${_history[i].text}");
+    }
   }
 
   Future<void> _startSession(String prompt) async {
     if (!mounted) return;
 
+    setState(() {
+      _isLoading = true;
+      _currentSession = null;
+    });
+
     try {
-      final title = prompt.length > 20 ? prompt.substring(0, 20) : prompt;
-      final session = await widget.chatService.createSession(
-        'Thread: $title...',
-      );
+      final title = prompt.length > 20 ? '${prompt.substring(0, 20)}...' : prompt;
+      final session = await widget.chatService.createSession('Thread: $title');
 
       if (mounted) {
         setState(() {
           _currentSession = session;
+          _isLoading = false;
         });
       }
     } catch (e) {
-      print('Error creating session: $e');
-      // Handle error - maybe show a snackbar or keep the previous session
+      print('❌ Error creating session: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to create session: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   void _onAskVitty(String newText) async {
-    print('_onAskVitty called with: $newText');
+    if (!mounted) return;
 
-    final trimmed = _selectedText?.trim();
-    if (trimmed != null &&
-        trimmed.isNotEmpty &&
-        !_history.any((item) => item.text.trim() == trimmed)) {
-      setState(() {
-        _history.insert(
-          0,
-          ThreadHistoryItem(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            text: trimmed,
-            createdAt: DateTime.now(),
-          ),
-        );
-      });
+    print('🤖 _onAskVitty called with: "$newText"');
+
+    final trimmedNewText = newText.trim();
+    if (trimmedNewText.isEmpty) return;
+
+    // ✅ FIXED: Add the current selected text to history BEFORE switching
+    if (_selectedText != null && _selectedText!.isNotEmpty) {
+      _addToHistory(_selectedText!);
     }
 
+    // ✅ FIXED: Add the new text to history as well
+    _addToHistory(trimmedNewText);
+
+    // Update selected text
     setState(() {
-      _selectedText = newText.trim();
-      _currentSession = null;
+      _selectedText = trimmedNewText;
+      _isDropdownExpanded = false;
     });
 
     await _startSession(_selectedText!);
   }
 
-  void _onDropdownChanged(String value) async {
-    if (!mounted) return;
+  void _onHistoryItemSelected(String value) async {
+    if (!mounted || value == _selectedText?.trim()) return;
+
+    print('📖 History item selected: "$value"');
+
+    // ✅ FIXED: Add current text to history before switching
+    if (_selectedText != null && _selectedText!.isNotEmpty) {
+      _addToHistory(_selectedText!);
+    }
 
     setState(() {
       _selectedText = value.trim();
-      _currentSession = null;
+      _isDropdownExpanded = false;
     });
 
-    // Add a small delay to ensure the UI has updated
-    await Future.delayed(const Duration(milliseconds: 100));
+    await _startSession(_selectedText!);
+  }
 
-    if (mounted) {
-      await _startSession(_selectedText!);
+  // ✅ NEW: Helper method to properly add items to history
+  void _addToHistory(String text) {
+    final trimmedText = text.trim();
+    if (trimmedText.isEmpty) return;
+
+    // Check if item already exists
+    final existingIndex = _history.indexWhere((item) => item.text.trim() == trimmedText);
+
+    if (existingIndex != -1) {
+      // ✅ FIXED: Move existing item to top instead of creating duplicate
+      final existingItem = _history.removeAt(existingIndex);
+      _history.insert(0, existingItem);
+      print("📝 Moved existing item to top: \"$trimmedText\"");
+    } else {
+      // Add new item to top
+      final newItem = ThreadHistoryItem(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        text: trimmedText,
+        createdAt: DateTime.now(),
+      );
+
+      _history.insert(0, newItem);
+      print("📝 Added new item to history: \"$trimmedText\"");
     }
+
+    // ✅ OPTIONAL: Limit history size to prevent memory issues
+    if (_history.length > 20) {
+      _history = _history.take(20).toList();
+    }
+
+    print("📚 History now has ${_history.length} items:");
+    for (int i = 0; i < _history.length && i < 5; i++) { // Show first 5
+      print("  $i: ${_history[i].text}");
+    }
+  }
+
+  void _toggleDropdown() {
+    setState(() {
+      _isDropdownExpanded = !_isDropdownExpanded;
+    });
   }
 
   @override
@@ -889,123 +966,244 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    // Fix: Create a proper set of unique texts and ensure selected value is valid
-    final uniqueTexts = <String>{};
-    final dropdownItems = <DropdownMenuItem<String>>[];
-
-    // Add texts in order, but only unique ones
-    for (final item in _history) {
-      final trimmedText = item.text.trim();
-      if (trimmedText.isNotEmpty && !uniqueTexts.contains(trimmedText)) {
-        uniqueTexts.add(trimmedText);
-        final displayText =
-        trimmedText.length > 30
-            ? '${trimmedText.substring(0, 27)}...'
-            : trimmedText;
-
-        dropdownItems.add(
-          DropdownMenuItem<String>(
-            value: trimmedText,
-            child: Text(
-              displayText,
-              style: const TextStyle(color: Colors.black),
-              overflow: TextOverflow.ellipsis,
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            _buildExpandableHeader(),
+            Expanded(
+              child: _buildContent(),
             ),
-          ),
-        );
-      }
-    }
-
-    // Ensure selected text is valid
-    final safeSelectedText =
-    uniqueTexts.contains(_selectedText?.trim())
-        ? _selectedText?.trim()
-        : (uniqueTexts.isNotEmpty ? uniqueTexts.first : null);
-
-    return Scaffold(
-      body: WillPopScope(
-        onWillPop: () async {
-          // Only allow popping if explicitly requested
-          return true;
-        },
-        child: FractionallySizedBox(
-          heightFactor: 0.85, // reduced height
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                // Header
-                // Dropdown for thread history
-                if (dropdownItems.isNotEmpty && safeSelectedText != null) ...[
-                  // Header with iOS-style dropdown
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Center dropdown
-                        if (safeSelectedText != null)
-                          DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: safeSelectedText,
-                              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black,
-                                fontFamily: 'SF Pro Display',
-                              ),
-                              items: dropdownItems,
-                              onChanged: (value) {
-                                if (value != null && value != safeSelectedText) {
-                                  _onDropdownChanged(value);
-                                }
-                              },
-                            ),
-                          ),
-      
-                        // Close button (left aligned)
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: IconButton(
-                            icon: const Icon(Icons.close, size: 20),
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-      
-                ],
-      
-                // Chat screen
-                Expanded(
-                  child:
-                  _currentSession == null
-                      ? const Center(child: CircularProgressIndicator())
-                      : ChatScreen(
-                    key: ValueKey(_currentSession?.id),
-                    session: _currentSession!,
-                    chatService: widget.chatService,
-                    onAskVitty: _onAskVitty,
-                    isThreadMode: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ],
         ),
       ),
     );
   }
+
+  // ✅ ENHANCED: Show history items in dropdown
+  Widget _buildExpandableHeader() {
+    final displayText = _selectedText != null && _selectedText!.length > 30
+        ? '${_selectedText!.substring(0, 27)}...'
+        : _selectedText ?? 'asking';
+
+    return Column(
+      children: [
+        // Header bar
+        Material(
+          color: Colors.white,
+          child: InkWell(
+            onTap: _toggleDropdown,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey, width: 0.5),
+                ),
+              ),
+              child: Row(
+                children: [
+                  // Close button
+                  GestureDetector(
+                    onTap: widget.onClose,
+                    child: const Icon(
+                      Icons.arrow_back,
+                      size: 20,
+                      color: Colors.brown,
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  // Title + dropdown icon
+                  Expanded(
+                    child: Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              displayText,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+
+                          // Show history count
+                          if (_history.length > 1)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${_history.length}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+
+                          const SizedBox(width: 4),
+
+                          // Animated dropdown icon
+                          AnimatedRotation(
+                            turns: _isDropdownExpanded ? 0.5 : 0.0,
+                            duration: const Duration(milliseconds: 200),
+                            child: const Icon(
+                              Icons.keyboard_arrow_down,
+                              color: Colors.black,
+                              size: 22,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // ✅ ENHANCED: Show history dropdown with proper list
+        if (_isDropdownExpanded && _history.isNotEmpty)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.3,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              border: const Border(
+                bottom: BorderSide(color: Colors.grey, width: 0.5),
+              ),
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: _history.length,
+              separatorBuilder: (context, index) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final item = _history[index];
+                final isSelected = item.text.trim() == _selectedText?.trim();
+
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _onHistoryItemSelected(item.text),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.blue.withOpacity(0.1) : null,
+                      ),
+                      child: Row(
+                        children: [
+                          // Selection indicator
+                          Container(
+                            width: 4,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: isSelected ? Colors.blue : Colors.transparent,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+
+                          const SizedBox(width: 12),
+
+                          // Text content
+                          Expanded(
+                            child: Text(
+                              item.text,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: isSelected ? Colors.blue : Colors.black87,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                                fontFamily: "DM Sans",
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+
+                          // Time indicator
+                          Text(
+                            _formatTime(item.createdAt),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ✅ NEW: Helper method to format time
+  String _formatTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 1) {
+      return 'now';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes}m';
+    } else if (difference.inDays < 1) {
+      return '${difference.inHours}h';
+    } else {
+      return '${difference.inDays}d';
+    }
+  }
+
+  Widget _buildContent() {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Creating new session...'),
+          ],
+        ),
+      );
+    }
+
+    if (_currentSession == null) {
+      return const Center(
+        child: Text('Failed to create session'),
+      );
+    }
+
+    return ChatScreen(
+      key: ValueKey(_currentSession!.id),
+      session: _currentSession!,
+      chatService: widget.chatService,
+      onAskVitty: _onAskVitty,
+      isThreadMode: true,
+    );
+  }
 }
-
-
 
 
 
@@ -1138,6 +1336,574 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
 
 
 
+
+
+
+
+class AnimatedYinYangLogo extends StatefulWidget {
+  final double size;
+  final Color lightColor;
+  final Color darkColor;
+
+  const AnimatedYinYangLogo({
+    Key? key,
+    this.size = 200.0,
+    this.lightColor = Colors.white,
+    this.darkColor = Colors.black,
+  }) : super(key: key);
+
+  @override
+  State<AnimatedYinYangLogo> createState() => _AnimatedYinYangLogoState();
+}
+
+class _AnimatedYinYangLogoState extends State<AnimatedYinYangLogo>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 20),
+      vsync: this,
+    )..repeat(); // Infinite rotation
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (_, child) {
+        return Transform.rotate(
+          angle: _controller.value * 2 * math.pi,
+          child: child,
+        );
+      },
+      child: CustomPaint(
+        size: Size(widget.size, widget.size),
+        painter: YinYangPainter(
+          lightColor: widget.lightColor,
+          darkColor: widget.darkColor,
+        ),
+      ),
+    );
+  }
+}
+
+
+
+
+
+
+
+
+class YinYangLogo extends StatelessWidget {
+  final double size;
+  final Color lightColor;
+  final Color darkColor;
+
+  const YinYangLogo({
+    Key? key,
+    this.size = 200.0,
+    this.lightColor = Colors.white,
+    this.darkColor = Colors.black,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size(size, size),
+      painter: YinYangPainter(
+        lightColor: lightColor,
+        darkColor: darkColor,
+      ),
+    );
+  }
+}
+
+class YinYangPainter extends CustomPainter {
+  final Color lightColor;
+  final Color darkColor;
+
+  YinYangPainter({
+    required this.lightColor,
+    required this.darkColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    // Static positions (no animation)
+    final outerCenter = center;
+    final darkCenter = center;
+    final upperSmallCenter = Offset(center.dx, center.dy - radius / 2);
+    final lowerSmallCenter = Offset(center.dx, center.dy + radius / 2);
+
+    // Create paints with boundary blur only
+    final lightPaint = Paint()
+      ..color = lightColor
+      ..style = PaintingStyle.fill;
+
+    final darkPaint = Paint()
+      ..color = darkColor
+      ..style = PaintingStyle.fill;
+
+    // Simple boundary blur - just soft edges, no multiple layers
+    final boundaryBlurRadius = radius * 0.10;
+    final lightBlurPaint = Paint()
+      ..color = lightColor
+      ..style = PaintingStyle.fill
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, boundaryBlurRadius);
+
+    final darkBlurPaint = Paint()
+      ..color = darkColor
+      ..style = PaintingStyle.fill
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, boundaryBlurRadius);
+
+    // Draw outer circle background - clean with just boundary blur (WHITE ELEMENT)
+    canvas.drawCircle(outerCenter, radius + boundaryBlurRadius, lightBlurPaint);
+    canvas.drawCircle(outerCenter, radius, lightPaint);
+
+    // Draw the main dark semicircle - clean with just boundary blur (BLACK ELEMENT)
+    final darkSemiCirclePath = Path();
+    darkSemiCirclePath.addArc(
+      Rect.fromCenter(center: darkCenter, width: size.width + boundaryBlurRadius * 2, height: size.height + boundaryBlurRadius * 2),
+      math.pi / 2,
+      math.pi,
+    );
+    darkSemiCirclePath.close();
+    canvas.drawPath(darkSemiCirclePath, darkBlurPaint);
+
+    final darkSemiCircleMainPath = Path();
+    darkSemiCircleMainPath.addArc(
+      Rect.fromCenter(center: darkCenter, width: size.width, height: size.height),
+      math.pi / 2,
+      math.pi,
+    );
+    darkSemiCircleMainPath.close();
+    canvas.drawPath(darkSemiCircleMainPath, darkPaint);
+
+    // Draw upper small circle - clean with just boundary blur (BLACK ELEMENT)
+    canvas.drawCircle(upperSmallCenter, radius / 2 + boundaryBlurRadius, darkBlurPaint);
+    canvas.drawCircle(upperSmallCenter, radius / 2, darkPaint);
+
+    // Draw lower small circle - clean with just boundary blur (WHITE ELEMENT)
+    canvas.drawCircle(lowerSmallCenter, radius / 2 + boundaryBlurRadius, lightBlurPaint);
+    canvas.drawCircle(lowerSmallCenter, radius / 2, lightPaint);
+
+    // // Draw small dots - no blur, clean and simple
+    // final upperDotCenter = upperSmallCenter;
+    // canvas.drawCircle(upperDotCenter, radius / 6, lightPaint);
+    //
+    // final lowerDotCenter = lowerSmallCenter;
+    // canvas.drawCircle(lowerDotCenter, radius / 6, darkPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false; // No animation, no need to repaint
+  }
+}
+
+// Example usage in your app
+class YinYangDemo extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp( // Added MaterialApp wrapper
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text('Yin Yang Logo'),
+          backgroundColor: Colors.grey[200],
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Animated yin yang - this should be moving!
+              // Container(
+              //   decoration: BoxDecoration(
+              //     color: Colors.grey[100],
+              //     borderRadius: BorderRadius.circular(20),
+              //   ),
+              //   padding: EdgeInsets.all(20),
+              //   child: AnimatedYinYangLogo(),
+              // ),
+              // SizedBox(height: 40),
+              //
+              // Text(
+              //   'The yin yang above should be animating!',
+              //   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              // ),
+              // SizedBox(height: 20),
+
+              // Custom colored animated yin yang
+              // Container(
+              //   decoration: BoxDecoration(
+              //     color: Colors.blue[50],
+              //     borderRadius: BorderRadius.circular(15),
+              //   ),
+              //   padding: EdgeInsets.all(15),
+              //   child: AnimatedYinYangLogo(
+              //     size: 150,
+              //     lightColor: Colors.cyan[100]!,
+              //     darkColor: Colors.indigo[900]!,
+              //   ),
+              // ),
+              // SizedBox(height: 40),
+
+              // Small animated yin yang
+              AnimatedYinYangLogo(
+                size: 200,
+                lightColor: Color(0xFFFDBD45),
+                darkColor: Color(0xffC9611A),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+
+
+
+
+
+
+
+class YinYangInnerSpinSphere extends StatefulWidget {
+  final double size;
+  final Color lightColor; // white side
+  final Color darkColor;  // black side
+  final Duration yinYangPeriod; // time for one full inner rotation
+  final bool animate;     // turn on/off inner motion
+
+  const YinYangInnerSpinSphere({
+    super.key,
+    this.size = 220,
+    this.lightColor = const Color(0xFFFFFFFF),
+    this.darkColor  = const Color(0xFF111114),
+    this.yinYangPeriod = const Duration(seconds: 8),
+    this.animate = true,
+  });
+
+  @override
+  State<YinYangInnerSpinSphere> createState() => _YinYangInnerSpinSphereState();
+}
+
+class _YinYangInnerSpinSphereState extends State<YinYangInnerSpinSphere>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+  AnimationController(vsync: this, duration: widget.yinYangPeriod)
+    ..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = widget.size;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (_, __) {
+          final angle = widget.animate ? _c.value * 2 * math.pi : 0.0;
+          return CustomPaint(
+            painter: _YYSphereFixedLightPainter(
+              lightColor: widget.lightColor,
+              darkColor: widget.darkColor,
+              innerAngle: angle, // rotate ONLY the yin-yang
+            ),
+            size: Size.square(size),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _YYSphereFixedLightPainter extends CustomPainter {
+  final Color lightColor;
+  final Color darkColor;
+  final double innerAngle; // radians, rotation of yin-yang only
+
+  _YYSphereFixedLightPainter({
+    required this.lightColor,
+    required this.darkColor,
+    required this.innerAngle,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+    final r = size.width / 2;
+    final bigRect = Rect.fromCircle(center: c, radius: r);
+
+    // 1) Draw the *fixed* 3D sphere lighting first (no rotation here)
+    _paintSphereLighting(canvas, c, r, bigRect);
+
+    // 2) Clip to the sphere and draw the Yin-Yang rotated INSIDE
+    final circleClip = Path()..addOval(bigRect);
+    canvas.save();
+    canvas.clipPath(circleClip);
+
+    // Translate to center, rotate only the pattern, translate back
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    canvas.rotate(innerAngle);
+    canvas.translate(-c.dx, -c.dy);
+
+    _paintFlatYinYang(canvas, c, r, lightColor, darkColor);
+
+    canvas.restore(); // end inner rotation
+    canvas.restore(); // end circle clip
+
+    // 3) Optional thin rim (kept fixed)
+    final rimPaint = Paint()
+      ..shader = SweepGradient(
+        startAngle: 0,
+        endAngle: math.pi * 2,
+        colors: [
+          Colors.white.withOpacity(0.45),
+          Colors.white.withOpacity(0.08),
+          Colors.black.withOpacity(0.25),
+          Colors.white.withOpacity(0.45),
+        ],
+        stops: const [0.05, 0.35, 0.70, 0.95],
+      ).createShader(bigRect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawCircle(c, r, rimPaint);
+  }
+
+  void _paintFlatYinYang(Canvas canvas, Offset c, double r, Color light, Color dark) {
+    // Classic Yin-Yang construction (no shading here)
+    final baseDark = Paint()..color = dark;
+    canvas.drawCircle(c, r, baseDark);
+
+    final bigRect = Rect.fromCircle(center: c, radius: r);
+    final upperPaint = Paint()..color = light;
+    canvas.drawArc(bigRect, -math.pi / 2, math.pi, true, upperPaint);
+
+    final r2 = r / 2;
+    final topCenter = Offset(c.dx, c.dy - r2);
+    final bottomCenter = Offset(c.dx, c.dy + r2);
+
+    // Top lobe dark on light
+    canvas.drawCircle(topCenter, r2, Paint()..color = dark);
+    // Bottom lobe light on dark
+    canvas.drawCircle(bottomCenter, r2, Paint()..color = light);
+
+    // Small dots
+    final dotR = r / 8;
+    canvas.drawCircle(topCenter, dotR, Paint()..color = light);
+    canvas.drawCircle(bottomCenter, dotR, Paint()..color = dark);
+  }
+
+  void _paintSphereLighting(Canvas canvas, Offset c, double r, Rect bigRect) {
+    // Draw a neutral base to sell curvature
+    final base = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.08, -0.10),
+        radius: 1.02,
+        colors: [
+          Colors.white.withOpacity(0.06),
+          Colors.black.withOpacity(0.12),
+        ],
+      ).createShader(bigRect);
+    canvas.drawCircle(c, r, base);
+
+    // Save layer so blend modes stay inside the circle
+    canvas.saveLayer(bigRect.inflate(2), Paint());
+
+    // Specular highlight (fixed top-left)
+    final highlight = Paint()
+      ..blendMode = BlendMode.softLight
+      ..shader = RadialGradient(
+        center: const Alignment(-0.35, -0.35),
+        radius: 0.8,
+        colors: [Colors.white.withOpacity(0.55), Colors.transparent],
+        stops: const [0.0, 1.0],
+      ).createShader(bigRect);
+    canvas.drawCircle(c, r * 1.05, highlight);
+
+    // Rim shadow (fixed bottom-right)
+    final shadow = Paint()
+      ..blendMode = BlendMode.multiply
+      ..shader = RadialGradient(
+        center: const Alignment(0.45, 0.45),
+        radius: 1.25,
+        colors: [Colors.transparent, Colors.black.withOpacity(0.35)],
+        stops: const [0.35, 1.0],
+      ).createShader(bigRect);
+    canvas.drawRect(bigRect.inflate(3), shadow);
+
+    // Vignette
+    final vignette = Paint()
+      ..blendMode = BlendMode.multiply
+      ..shader = RadialGradient(
+        center: Alignment.center,
+        radius: 1.05,
+        colors: [Colors.transparent, Colors.black.withOpacity(0.18)],
+        stops: const [0.65, 1.0],
+      ).createShader(bigRect);
+    canvas.drawRect(bigRect.inflate(3), vignette);
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _YYSphereFixedLightPainter old) =>
+      old.lightColor != lightColor ||
+          old.darkColor != darkColor ||
+          old.innerAngle != innerAngle;
+}
+
+
+
+
+
+
+
+
+class OrangeShadedOrb extends StatelessWidget {
+  final double size;
+
+  const OrangeShadedOrb({
+    Key? key,
+    required this.size,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size(size, size),
+      painter: OrangeYinYangPainter(),
+    );
+  }
+}
+
+class OrangeYinYangPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    // Subtle outer glow to simulate lighting
+    final glowShader = RadialGradient(
+      center: const Alignment(-0.4, -0.4),
+      radius: 1.0,
+      colors: [
+        Colors.orange.withOpacity(0.2),
+        Colors.transparent,
+      ],
+    ).createShader(Rect.fromCircle(center: center, radius: radius * 1.4));
+    canvas.drawCircle(center, radius * 1.4, Paint()..shader = glowShader);
+
+    // Main orb gradient
+    final shader = RadialGradient(
+      center: const Alignment(-0.3, -0.3),
+      radius: 0.8,
+      colors: [
+        Colors.orange.shade300,
+        Colors.brown.shade900,
+      ],
+      stops: [0.1, 1.0],
+    ).createShader(Rect.fromCircle(center: center, radius: radius));
+    final paint = Paint()..shader = shader;
+    canvas.drawCircle(center, radius, paint);
+
+    // --- YinYangPainter logic below ---
+    final lightColor = Colors.orange.shade100;
+    final darkColor = Colors.deepOrange.shade900;
+
+    final outerCenter = center;
+    final darkCenter = center;
+    final upperSmallCenter = Offset(center.dx, center.dy - radius / 2);
+    final lowerSmallCenter = Offset(center.dx, center.dy + radius / 2);
+
+    final lightPaint = Paint()
+      ..color = lightColor
+      ..style = PaintingStyle.fill;
+
+    final darkPaint = Paint()
+      ..color = darkColor
+      ..style = PaintingStyle.fill;
+
+    final boundaryBlurRadius = radius * 0.08;
+    final lightBlurPaint = Paint()
+      ..color = lightColor
+      ..style = PaintingStyle.fill
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, boundaryBlurRadius);
+
+    final darkBlurPaint = Paint()
+      ..color = darkColor
+      ..style = PaintingStyle.fill
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, boundaryBlurRadius);
+
+    // Outer circle blurred white
+    canvas.drawCircle(outerCenter, radius + boundaryBlurRadius, lightBlurPaint);
+    canvas.drawCircle(outerCenter, radius, lightPaint);
+
+    // Main dark semicircle with blur
+    final darkSemiCirclePath = Path();
+    darkSemiCirclePath.addArc(
+      Rect.fromCenter(
+        center: darkCenter,
+        width: size.width + boundaryBlurRadius * 2,
+        height: size.height + boundaryBlurRadius * 2,
+      ),
+      math.pi / 2,
+      math.pi,
+    );
+    darkSemiCirclePath.close();
+    canvas.drawPath(darkSemiCirclePath, darkBlurPaint);
+
+    final darkSemiCircleMainPath = Path();
+    darkSemiCircleMainPath.addArc(
+      Rect.fromCenter(center: darkCenter, width: size.width, height: size.height),
+      math.pi / 2,
+      math.pi,
+    );
+    darkSemiCircleMainPath.close();
+    canvas.drawPath(darkSemiCircleMainPath, darkPaint);
+
+    // Upper small circle - dark with blur
+    canvas.drawCircle(upperSmallCenter, radius / 2 + boundaryBlurRadius, darkBlurPaint);
+    canvas.drawCircle(upperSmallCenter, radius / 2, darkPaint);
+
+    // Lower small circle - light with blur
+    canvas.drawCircle(lowerSmallCenter, radius / 2 + boundaryBlurRadius, lightBlurPaint);
+    canvas.drawCircle(lowerSmallCenter, radius / 2, lightPaint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
+
+
+
+
+
+
+
+
 /// Demo that positions an animated orb above a prompt line.
 class AnimatedOrbDemo extends StatelessWidget {
   const AnimatedOrbDemo({super.key});
@@ -1151,7 +1917,7 @@ class AnimatedOrbDemo extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // The orb itself (you can adjust size here).
-            const AnimatedYinYangOrb(size: 100.0),
+            const AnimatedOrb(size: 100.0),
             const SizedBox(height: 24),
             // A simple label suggesting user interaction.
           ],
@@ -1461,87 +2227,87 @@ class _AnimatedYinYangOrbState extends State<AnimatedYinYangOrb>
 
 
 
-class YinYangPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-
-    // Outer circle bounds
-    final outerCircleRect = Rect.fromCircle(center: center, radius: radius);
-
-    // Left gradient
-    final leftGradient = RadialGradient(
-      center: Alignment(-0.3, -0.3),
-      radius: 1.2,
-      colors: [
-        const Color(0xFFC06622),
-        const Color(0xFFC06622),
-       // const Color(0xFF3B0764),
-      ],
-      stops: [0.0, 0.6],
-    );
-
-    // Right gradient
-    final rightGradient = RadialGradient(
-      center: Alignment(0.3, 0.3),
-      radius: 1.2,
-      colors: [
-        const Color(0xFF6A3F36),
-        const Color(0xFF6A3F36),
-        //const Color(0xFF831843),
-      ],
-      stops: [0.0, 0.5,],
-    );
-
-    final leftPaint = Paint()
-      ..shader = leftGradient.createShader(outerCircleRect);
-    final rightPaint = Paint()
-      ..shader = rightGradient.createShader(outerCircleRect);
-
-    // Draw entire circle in left gradient
-    canvas.drawCircle(center, radius, leftPaint);
-
-    // Draw right half-circle in right gradient to overlap
-    final path = Path()
-      ..moveTo(center.dx, center.dy - radius)
-      ..arcTo(
-        Rect.fromCircle(center: center, radius: radius),
-        -math.pi / 2,
-        math.pi,
-        false,
-      )
-      ..arcTo(
-        Rect.fromCircle(center: Offset(center.dx, center.dy + radius / 2), radius: radius / 2),
-        math.pi / 2,
-        -math.pi,
-        false,
-      )
-      ..arcTo(
-        Rect.fromCircle(center: Offset(center.dx, center.dy - radius / 2), radius: radius / 2),
-        math.pi / 2,
-        math.pi,
-        false,
-      )
-      ..close();
-
-    canvas.drawPath(path, rightPaint);
-
-    // Small circles (dots)
-    final smallRadius = radius / 6;
-    final upperDotCenter = Offset(center.dx, center.dy - radius / 2);
-    final lowerDotCenter = Offset(center.dx, center.dy + radius / 2);
-
-    // Top small circle (right gradient)
-    canvas.drawCircle(upperDotCenter, smallRadius, rightPaint);
-
-    // Bottom small circle (left gradient)
-    canvas.drawCircle(lowerDotCenter, smallRadius, leftPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
+// class YinYangPainter extends CustomPainter {
+//   @override
+//   void paint(Canvas canvas, Size size) {
+//     final center = Offset(size.width / 2, size.height / 2);
+//     final radius = size.width / 2;
+//
+//     // Outer circle bounds
+//     final outerCircleRect = Rect.fromCircle(center: center, radius: radius);
+//
+//     // Left gradient
+//     final leftGradient = RadialGradient(
+//       center: Alignment(-0.3, -0.3),
+//       radius: 1.2,
+//       colors: [
+//         const Color(0xFFC06622),
+//         const Color(0xFFC06622),
+//        // const Color(0xFF3B0764),
+//       ],
+//       stops: [0.0, 0.6],
+//     );
+//
+//     // Right gradient
+//     final rightGradient = RadialGradient(
+//       center: Alignment(0.3, 0.3),
+//       radius: 1.2,
+//       colors: [
+//         const Color(0xFF6A3F36),
+//         const Color(0xFF6A3F36),
+//         //const Color(0xFF831843),
+//       ],
+//       stops: [0.0, 0.5,],
+//     );
+//
+//     final leftPaint = Paint()
+//       ..shader = leftGradient.createShader(outerCircleRect);
+//     final rightPaint = Paint()
+//       ..shader = rightGradient.createShader(outerCircleRect);
+//
+//     // Draw entire circle in left gradient
+//     canvas.drawCircle(center, radius, leftPaint);
+//
+//     // Draw right half-circle in right gradient to overlap
+//     final path = Path()
+//       ..moveTo(center.dx, center.dy - radius)
+//       ..arcTo(
+//         Rect.fromCircle(center: center, radius: radius),
+//         -math.pi / 2,
+//         math.pi,
+//         false,
+//       )
+//       ..arcTo(
+//         Rect.fromCircle(center: Offset(center.dx, center.dy + radius / 2), radius: radius / 2),
+//         math.pi / 2,
+//         -math.pi,
+//         false,
+//       )
+//       ..arcTo(
+//         Rect.fromCircle(center: Offset(center.dx, center.dy - radius / 2), radius: radius / 2),
+//         math.pi / 2,
+//         math.pi,
+//         false,
+//       )
+//       ..close();
+//
+//     canvas.drawPath(path, rightPaint);
+//
+//     // Small circles (dots)
+//     final smallRadius = radius / 6;
+//     final upperDotCenter = Offset(center.dx, center.dy - radius / 2);
+//     final lowerDotCenter = Offset(center.dx, center.dy + radius / 2);
+//
+//     // Top small circle (right gradient)
+//     canvas.drawCircle(upperDotCenter, smallRadius, rightPaint);
+//
+//     // Bottom small circle (left gradient)
+//     canvas.drawCircle(lowerDotCenter, smallRadius, leftPaint);
+//   }
+//
+//   @override
+//   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+// }
 
 
 class AnimatedYinYangPainter extends CustomPainter {
@@ -1803,7 +2569,7 @@ class _AnimatedOrbState extends State<AnimatedOrb>
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 center: const Alignment(-0.4, -0.4),
-                radius: 0.8,
+                radius: 0.6,
                 colors: [
                  // const Color(0xFFB8C0FF), // glassy purple-blue
                  // const Color(0xFF8E9DFF),
@@ -1811,7 +2577,7 @@ class _AnimatedOrbState extends State<AnimatedOrb>
                   const Color(0xFFCCD5FF),
                   const Color(0xFFB5C7FF),
                 ],
-                stops: const [  0.5, 0.8, 1.0],
+                stops: const [  0.5, 0.0, 0.0],
               ),
             ),
           ),
@@ -1832,12 +2598,12 @@ class _AnimatedOrbState extends State<AnimatedOrb>
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     center: highlightCenter1,
-                    radius: 0.4,
+                    radius: 0.6,
                     colors: [
-                      const Color(0xFFC06622).withOpacity(0.6),
+                      const Color(0xFFFDBD45),
                       Colors.transparent,
                     ],
-                    stops: const [0.0, 4.0],
+                    stops: const [0.1, 1.9],
                   ),
                 ),
               );
@@ -1863,10 +2629,10 @@ class _AnimatedOrbState extends State<AnimatedOrb>
                     center: highlightCenter2,
                     radius: 0.4,
                     colors: [
-                      const Color(0xFF6A3F36).withOpacity(0.8), // vibrant purple
+                      const Color(0xFFC9611A), // vibrant purple
                       Colors.transparent,
                     ],
-                    stops: const [0.0, 4.0],
+                    stops: const [0.1, 1.9],
                   ),
                 ),
               );
@@ -2067,6 +2833,389 @@ class _VPCMiddlewareDemoPageState extends State<VPCMiddlewareDemoPage> {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class AssetTestPage extends StatefulWidget {
+  final String assetId;
+  const AssetTestPage({super.key, required this.assetId});
+
+  @override
+  State<AssetTestPage> createState() => _AssetTestPageState();
+}
+
+class _AssetTestPageState extends State<AssetTestPage> {
+  late final AssetService _svc;
+  StreamSubscription<AssetViewState>? _sub;
+  AssetViewState _state = AssetViewState.loading('ALL');
+
+  @override
+  void initState() {
+    super.initState();
+    _svc = GetIt.I<AssetService>();
+    _sub = _svc.state.listen((s) {
+      if (!mounted) return;
+      setState(() => _state = s);
+    });
+
+    // First fetch (only overview/summary/news + tiles; notes/watchlist excluded)
+    _svc.init(
+      assetId: widget.assetId,
+      sections: {
+        Section.overview,
+        Section.summary,
+        Section.news,
+        Section.marketDepth,
+        Section.shareholding,
+        Section.fundamentals,
+        Section.financials,
+      },
+      initialPeriod: 'ALL',
+    );
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  void _retry() => _svc.refresh();
+  void _changePeriod(String p) => _svc.setPeriod(p);
+
+  @override
+  Widget build(BuildContext context) {
+    final s = _state;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Asset Test • ${widget.assetId}'),
+        actions: [
+          IconButton(onPressed: _retry, icon: const Icon(Icons.refresh)),
+        ],
+      ),
+      body: Builder(
+        builder: (_) {
+          if (s.loading && s.data == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (s.error != null && s.data == null) {
+            return _ErrorView(message: s.error!.message, onRetry: _retry);
+          }
+          final data = s.data!;
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _HeaderCard(data: data),
+              const SizedBox(height: 12),
+              _PeriodChips(active: s.activePeriod, onChange: _changePeriod),
+              const SizedBox(height: 12),
+              _QuickStatsCard(data: data),
+              const SizedBox(height: 12),
+              _FundamentalsCard(data: data),
+              const SizedBox(height: 12),
+              _MarketDepthCard(data: data),
+              const SizedBox(height: 12),
+              _ChartInfo(points: s.currentChart),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ----- Widgets -----
+
+class _ErrorView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorView({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(message, textAlign: TextAlign.center),
+        const SizedBox(height: 12),
+        ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+      ]),
+    );
+  }
+}
+
+class _HeaderCard extends StatelessWidget {
+  final AssetData data;
+  const _HeaderCard({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final b = data.basicInfo;
+    final p = data.priceData;
+    final symbol = b.symbol;
+    final name = b.name;
+    final ex = b.exchange;
+    final curr = data.additionalData?.currencySymbol ?? "₹";
+    final price = p.currentPrice.toStringAsFixed(2);
+    final chAmt = p.changeAmount;
+    final chPct = p.changePercent;
+    final sign = chAmt >= 0 ? '+' : '';
+    final color = chAmt >= 0 ? Colors.green : Colors.red;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(children: [
+          CircleAvatar(radius: 20, child: Text(symbol.isNotEmpty ? symbol[0] : '?')),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              Text('$ex • $symbol', style: Theme.of(context).textTheme.bodySmall),
+            ]),
+          ),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text('$curr $price', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text('$sign${chAmt.toStringAsFixed(2)}  ($sign${chPct.toStringAsFixed(2)}%)',
+                style: TextStyle(color: color)),
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
+class _PeriodChips extends StatelessWidget {
+  final String active;
+  final void Function(String) onChange;
+  const _PeriodChips({required this.active, required this.onChange});
+
+  @override
+  Widget build(BuildContext context) {
+    const periods = ['1D','1W','1M','1Y','5Y','ALL'];
+    return Wrap(
+      spacing: 8,
+      children: periods.map((p) {
+        final sel = p == active;
+        return ChoiceChip(
+          label: Text(p),
+          selected: sel,
+          onSelected: (_) => onChange(p),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _QuickStatsCard extends StatelessWidget {
+  final AssetData data;
+  const _QuickStatsCard({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final perf = data.performanceData;
+    final rows = <_KVP>[
+      _KVP('Open', perf.openPrice.toStringAsFixed(2)),
+      _KVP('Prev Close', perf.prevClose.toStringAsFixed(2)),
+      _KVP('Day High', perf.todayHigh.toStringAsFixed(2)),
+      _KVP('Day Low', perf.todayLow.toStringAsFixed(2)),
+      _KVP('52W High', perf.week52High.toStringAsFixed(2)),
+      _KVP('52W Low', perf.week52Low.toStringAsFixed(2)),
+      _KVP('Volume', perf.volume),
+    ];
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Quick Stats', style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 24,
+            runSpacing: 8,
+            children: rows.map((kv) {
+              return SizedBox(
+                width: 140,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [Text(kv.k), Text(kv.v, style: const TextStyle(fontWeight: FontWeight.w600))],
+                ),
+              );
+            }).toList(),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _FundamentalsCard extends StatelessWidget {
+  final AssetData data;
+  const _FundamentalsCard({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final fm = data.performanceData.financialMetrics;
+    final insights = data.fundamentals.insights;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Fundamentals', style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 24,
+            runSpacing: 8,
+            children: [
+              _miniKV('Mkt Cap', fm.marketCap),
+              _miniKV('PE', fm.peRatio),
+              _miniKV('PB', fm.pbRatio),
+              _miniKV('EPS', fm.eps),
+              _miniKV('ROE', fm.roe),
+              _miniKV('Div Yld', fm.divYield),
+              _miniKV('D/E', fm.debtToEquity),
+            ],
+          ),
+          if (insights.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text('Insights', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: insights.take(3).map((i) => Text('• ${i.title}: ${i.description}')).toList(),
+            ),
+          ]
+        ]),
+      ),
+    );
+  }
+
+  Widget _miniKV(String k, String v) {
+    return SizedBox(
+      width: 180,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(k),
+          Text(v, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+class _MarketDepthCard extends StatelessWidget {
+  final AssetData data;
+  const _MarketDepthCard({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final md = data.performanceData.marketDepth;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Market Depth', style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: _depthTile('Buy %', md.buyPercentage.toStringAsFixed(2))),
+              const SizedBox(width: 12),
+              Expanded(child: _depthTile('Sell %', md.sellPercentage.toStringAsFixed(2))),
+            ],
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _depthTile(String title, String value) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black12.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: const TextStyle(fontSize: 12)),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      ]),
+    );
+  }
+}
+
+class _ChartInfo extends StatelessWidget {
+  final List<ChartPoint> points;
+  const _ChartInfo({required this.points});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Chart (debug)', style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Text('Points loaded: ${points.length}'),
+          if (points.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text('First: ${points.first.timestamp.toIso8601String()} → ${points.first.price}'),
+            Text('Last:  ${points.last.timestamp.toIso8601String()} → ${points.last.price}'),
+          ]
+        ]),
+      ),
+    );
+  }
+}
+
+class _KVP {
+  final String k; final String v;
+  _KVP(this.k, this.v);
+}
+
+
+
+
+
 
 
 

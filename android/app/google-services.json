@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "130321581049-888o27nf39mg19gslbeie3ajkndhuvkb.apps.googleusercontent.com",
+          "client_id": "130321581049-uqlpess0bcov4dab3kuhsv1v00q6kb4s.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.vitty.ai",
-            "certificate_hash": "101cf180b7cda524c20396a427daab3ac4dcee17"
+            "certificate_hash": "05d7612698ebe7ec9b5b35c51f72b4d61668efc6"
           }
         },
         {

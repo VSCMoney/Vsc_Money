@@ -1,3 +1,665 @@
+// import 'dart:async';
+// import 'dart:convert';
+// import 'dart:io';
+// import 'package:flutter/foundation.dart';
+// import 'package:flutter/services.dart';
+// import 'package:record/record.dart';
+// import 'package:path_provider/path_provider.dart';
+// import 'package:http/http.dart' as http;
+// import 'package:http_parser/http_parser.dart';
+// import 'package:rxdart/rxdart.dart';
+//
+// class AudioService {
+//   static AudioService? _instance;
+//   static AudioService get instance => _instance ??= AudioService._();
+//   AudioService._();
+//
+//   // Audio recorder
+//   final AudioRecorder _audioRecorder = AudioRecorder();
+//
+//   double _rmsThreshold = 0.015;
+//   int _speechFrameCount = 0;
+//   int _silenceFrameCount = 0;
+//   int _minSpeechFrames = 2;
+//   int _minSilenceFrames = 8;
+//   bool _isSpeechActive = false;
+//
+//   // ✅ ADD: RMS smoothing parameters
+//   double _lastSignificantRms = 0.0;
+//   DateTime _lastRmsUpdate = DateTime.now();
+//   static const int _rmsUpdateIntervalMs = 50;
+//   final List<double> _rmsBuffer = [];
+//   static const int _rmsBufferSize = 5;
+//
+//   // Platform channels
+//   static const _androidMethodChannel = MethodChannel('native_vad');
+//   static const _androidEventChannel = EventChannel('native_vad/events');
+//   static const _iosMethodChannel = MethodChannel('yamnet_channel');
+//   static const _iosEventChannel = EventChannel('yamnet_event_channel');
+//
+//   // Streams for reactive state management
+//   final BehaviorSubject<bool> _isListeningSubject = BehaviorSubject<bool>.seeded(false);
+//   final BehaviorSubject<bool> _isTranscribingSubject = BehaviorSubject<bool>.seeded(false);
+//   final BehaviorSubject<bool> _isSpeakingSubject = BehaviorSubject<bool>.seeded(false);
+//   final BehaviorSubject<double> _currentRmsSubject = BehaviorSubject<double>.seeded(0.0);
+//   final BehaviorSubject<double> _displayedRmsSubject = BehaviorSubject<double>.seeded(0.0);
+//   final BehaviorSubject<String> _transcriptSubject = BehaviorSubject<String>.seeded('');
+//   final BehaviorSubject<String> _recordingDurationSubject = BehaviorSubject<String>.seeded('00:00');
+//   final BehaviorSubject<String> _errorSubject = BehaviorSubject<String>.seeded('');
+//
+//   // Public streams
+//   Stream<bool> get isListening$ => _isListeningSubject.stream;
+//   Stream<bool> get isTranscribing$ => _isTranscribingSubject.stream;
+//   Stream<bool> get isSpeaking$ => _isSpeakingSubject.stream;
+//   Stream<double> get currentRms$ => _currentRmsSubject.stream;
+//   Stream<double> get displayedRms$ => _displayedRmsSubject.stream;
+//   Stream<String> get transcript$ => _transcriptSubject.stream;
+//   Stream<String> get recordingDuration$ => _recordingDurationSubject.stream;
+//   Stream<String> get error$ => _errorSubject.stream;
+//
+//   // Getters for current values
+//   bool get isListening => _isListeningSubject.value;
+//   bool get isTranscribing => _isTranscribingSubject.value;
+//   bool get isSpeaking => _isSpeakingSubject.value;
+//   double get currentRms => _currentRmsSubject.value;
+//   double get displayedRms => _displayedRmsSubject.value;
+//   String get transcript => _transcriptSubject.value;
+//   String get recordingDuration => _recordingDurationSubject.value;
+//
+//   // Private variables
+//   StreamSubscription? _vadSubscription;
+//   Timer? _rmsTimer;
+//   Timer? _durationTimer;
+//   Stopwatch _speechTimer = Stopwatch();
+//   String _recordingPath = '';
+//   String _recognizedBackupText = '';
+//
+//   // Configuration
+//  //static const String _baseUrl = 'http://127.0.0.1:8000';
+//   //static const String _baseUrl = 'http://192.168.1.2:8000';
+//    static const String _baseUrl = "https://fastapi-app-130321581049.asia-south1.run.app";
+//
+//   /// Initialize the audio service
+//   Future<void> initialize() async {
+//     _startRmsSmoothing();
+//   }
+//
+//   /// Start recording with VAD
+//   Future<bool> startRecording({String? existingText}) async {
+//     try {
+//       if (!await _audioRecorder.hasPermission()) {
+//         _errorSubject.add('Microphone permission not granted');
+//         return false;
+//       }
+//
+//       _recognizedBackupText = existingText ?? '';
+//
+//       final dir = await getTemporaryDirectory();
+//       _recordingPath = '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.wav';
+//
+//       // ✅ UPDATED: Better recording config
+//       final recordConfig = RecordConfig(
+//         encoder: AudioEncoder.wav,
+//         bitRate: 64000,        // Reduced from 128000
+//         sampleRate: 16000,     // Reduced from 44100
+//         numChannels: 1,
+//       );
+//
+//       await _audioRecorder.start(recordConfig, path: _recordingPath);
+//
+//       // ✅ NEW: Reset VAD state
+//       _resetVadState();
+//
+//       await _startNativeVad();
+//       _startDurationTimer();
+//
+//       _isListeningSubject.add(true);
+//       _isTranscribingSubject.add(false);
+//       _recordingDurationSubject.add('00:00');
+//
+//       debugPrint('🎤 Recording started with optimized settings: $_recordingPath');
+//       return true;
+//     } catch (e) {
+//       debugPrint('❌ Error starting recording: $e');
+//       _errorSubject.add('Failed to start recording: $e');
+//       return false;
+//     }
+//   }
+//
+//   void _resetVadState() {
+//     _speechFrameCount = 0;
+//     _silenceFrameCount = 0;
+//     _isSpeechActive = false;
+//     _lastSignificantRms = 0.0;
+//     _rmsBuffer.clear();
+//   }
+//
+//
+//
+//   Future<void> _startNativeVad() async {
+//     try {
+//       await _vadSubscription?.cancel();
+//
+//       final EventChannel eventChannel = Platform.isIOS ? _iosEventChannel : _androidEventChannel;
+//       final MethodChannel methodChannel = Platform.isIOS ? _iosMethodChannel : _androidMethodChannel;
+//
+//       _vadSubscription = eventChannel.receiveBroadcastStream().listen((event) {
+//         final rawIsSpeech = event['isSpeech'] ?? event['state'] == 'speech_detected' || false;
+//         final rawRms = (event['rms'] ?? event['rms_db'] ?? 0.0).toDouble();
+//
+//         // ✅ NEW: Platform-specific processing
+//         if (Platform.isAndroid) {
+//           _processAndroidVadEvent(rawIsSpeech, rawRms);
+//         } else {
+//           _processIosVadEvent(rawIsSpeech, rawRms);
+//         }
+//       });
+//
+//       await methodChannel.invokeMethod('start');
+//     } catch (e) {
+//       debugPrint('❌ startNativeVad error: $e');
+//       _errorSubject.add('Failed to start voice detection: $e');
+//     }
+//   }
+//
+// // ✅ 5. ADD: Android-specific VAD processing
+//   void _processAndroidVadEvent(bool rawIsSpeech, double rawRms) {
+//     final now = DateTime.now();
+//
+//     // Apply RMS threshold filtering
+//     final effectiveRms = rawRms > _rmsThreshold ? rawRms : 0.0;
+//
+//     // Add to moving average buffer
+//     _rmsBuffer.add(effectiveRms);
+//     if (_rmsBuffer.length > _rmsBufferSize) {
+//       _rmsBuffer.removeAt(0);
+//     }
+//
+//     // Calculate moving average
+//     final avgRms = _rmsBuffer.reduce((a, b) => a + b) / _rmsBuffer.length;
+//
+//     // Rate limiting
+//     final timeSinceLastUpdate = now.difference(_lastRmsUpdate).inMilliseconds;
+//     if (timeSinceLastUpdate < _rmsUpdateIntervalMs) {
+//       return;
+//     }
+//
+//     // Significant change detection
+//     final rmsDifference = (avgRms - _lastSignificantRms).abs();
+//     if (rmsDifference < 0.005 && avgRms < 0.02) {
+//       return;
+//     }
+//
+//     // Update RMS
+//     _currentRmsSubject.add(avgRms);
+//     _lastSignificantRms = avgRms;
+//     _lastRmsUpdate = now;
+//
+//     // Speech detection with frame counting
+//     final shouldBeSpeech = rawIsSpeech && avgRms > _rmsThreshold;
+//
+//     if (shouldBeSpeech) {
+//       _speechFrameCount++;
+//       _silenceFrameCount = 0;
+//
+//       if (_speechFrameCount >= _minSpeechFrames && !_isSpeechActive) {
+//         _isSpeechActive = true;
+//         _isSpeakingSubject.add(true);
+//         debugPrint('🎙️ ANDROID SPEECH START => frames=$_speechFrameCount | avgRms=${avgRms.toStringAsFixed(3)}');
+//       }
+//     } else {
+//       _silenceFrameCount++;
+//       _speechFrameCount = 0;
+//
+//       if (_silenceFrameCount >= _minSilenceFrames && _isSpeechActive) {
+//         _isSpeechActive = false;
+//         _isSpeakingSubject.add(false);
+//         debugPrint('🔇 ANDROID SPEECH END => silence_frames=$_silenceFrameCount');
+//       }
+//     }
+//   }
+//
+// // ✅ 6. ADD: iOS-specific VAD processing
+//   void _processIosVadEvent(bool rawIsSpeech, double rawRms) {
+//     final now = DateTime.now();
+//     final timeSinceLastUpdate = now.difference(_lastRmsUpdate).inMilliseconds;
+//
+//     if (timeSinceLastUpdate >= _rmsUpdateIntervalMs) {
+//       final effectiveRms = rawRms > _rmsThreshold ? rawRms : 0.0;
+//       _currentRmsSubject.add(effectiveRms);
+//       _isSpeakingSubject.add(rawIsSpeech && effectiveRms > _rmsThreshold);
+//       _lastRmsUpdate = now;
+//
+//       debugPrint('🎙️ iOS VAD => isSpeech=$rawIsSpeech | rms=${effectiveRms.toStringAsFixed(3)}');
+//     }
+//   }
+//
+//   /// Stop recording and transcribe
+//   Future<void> stopRecordingAndTranscribe() async {
+//     try {
+//       _isTranscribingSubject.add(true);
+//
+//       // Stop timers
+//       _stopDurationTimer();
+//
+//       // Stop recording
+//       final path = await _audioRecorder.stop();
+//       if (path != null) _recordingPath = path;
+//
+//       // Stop VAD
+//       await _stopNativeVad();
+//
+//       // Transcribe audio
+//       await _transcribeAudio();
+//
+//     } catch (e) {
+//       debugPrint('❌ Error stopping recording: $e');
+//       _errorSubject.add('Failed to stop recording: $e');
+//     } finally {
+//       _isListeningSubject.add(false);
+//       _isTranscribingSubject.add(false);
+//     }
+//   }
+//
+//   /// Cancel recording without transcription
+//   Future<void> cancelRecording() async {
+//     try {
+//       // Stop timers
+//       _stopDurationTimer();
+//
+//       // Stop recording
+//       await _audioRecorder.stop();
+//
+//       // Stop VAD
+//       await _stopNativeVad();
+//
+//       // Restore backup text if any
+//       if (_recognizedBackupText.isNotEmpty) {
+//         _transcriptSubject.add(_recognizedBackupText);
+//       }
+//
+//     } catch (e) {
+//       debugPrint('❌ Error canceling recording: $e');
+//       _errorSubject.add('Failed to cancel recording: $e');
+//     } finally {
+//       _isListeningSubject.add(false);
+//       _isTranscribingSubject.add(false);
+//       _recognizedBackupText = '';
+//     }
+//   }
+//
+//   /// Update transcript manually (for external speech recognition)
+//   void updateTranscript(String text) {
+//     _transcriptSubject.add(text);
+//   }
+//
+//   /// Clear transcript
+//   void clearTranscript() {
+//     _transcriptSubject.add('');
+//   }
+//
+//   /// Clear error
+//   void clearError() {
+//     _errorSubject.add('');
+//   }
+//
+//   // Private methods
+//
+//   // Future<void> _startNativeVad() async {
+//   //   try {
+//   //     await _vadSubscription?.cancel();
+//   //
+//   //     final EventChannel eventChannel = Platform.isIOS ? _iosEventChannel : _androidEventChannel;
+//   //     final MethodChannel methodChannel = Platform.isIOS ? _iosMethodChannel : _androidMethodChannel;
+//   //
+//   //     _vadSubscription = eventChannel.receiveBroadcastStream().listen((event) {
+//   //       final isSpeech = event['isSpeech'] ?? event['state'] == 'speech_detected' || false;
+//   //       final rms = (event['rms'] ?? event['rms_db'] ?? 0.0).toDouble();
+//   //
+//   //       debugPrint('🎙️ VAD => isSpeech=$isSpeech | rms=${rms.toStringAsFixed(2)}');
+//   //
+//   //       _isSpeakingSubject.add(isSpeech);
+//   //       _currentRmsSubject.add(rms);
+//   //     });
+//   //
+//   //     await methodChannel.invokeMethod('start');
+//   //   } catch (e) {
+//   //     debugPrint('❌ startNativeVad error: $e');
+//   //     _errorSubject.add('Failed to start voice detection: $e');
+//   //   }
+//   // }
+//
+//   Future<void> _stopNativeVad() async {
+//     try {
+//       final MethodChannel methodChannel = Platform.isIOS ? _iosMethodChannel : _androidMethodChannel;
+//       await methodChannel.invokeMethod('stop');
+//       await _vadSubscription?.cancel();
+//       _vadSubscription = null;
+//
+//       // ✅ NEW: Reset VAD state
+//       _resetVadState();
+//       _isSpeakingSubject.add(false);
+//       _currentRmsSubject.add(0.0);
+//       _displayedRmsSubject.add(0.0);
+//     } catch (e) {
+//       debugPrint('❌ stopNativeVad error: $e');
+//     }
+//   }
+//
+// // ✅ 8. UPDATE: _startRmsSmoothing function
+//   void _startRmsSmoothing() {
+//     _rmsTimer?.cancel();
+//
+//     // Platform-specific smoothing
+//     final smoothingFactor = Platform.isAndroid ? 0.25 : 0.2;
+//     final updateIntervalMs = Platform.isAndroid ? 50 : 33;
+//
+//     _rmsTimer = Timer.periodic(Duration(milliseconds: updateIntervalMs), (timer) {
+//       final currentRms = _currentRmsSubject.value;
+//       final displayedRms = _displayedRmsSubject.value;
+//       final difference = (currentRms - displayedRms).abs();
+//
+//       if (difference > 0.003) {
+//         double newDisplayedRms = displayedRms + (currentRms - displayedRms) * smoothingFactor;
+//
+//         // Snap to zero if very close
+//         if (newDisplayedRms < 0.008) {
+//           newDisplayedRms = 0.0;
+//         }
+//
+//         _displayedRmsSubject.add(newDisplayedRms);
+//       }
+//     });
+//   }
+//
+//   void _stopRmsSmoothing() {
+//     _rmsTimer?.cancel();
+//     _rmsTimer = null;
+//   }
+//
+//   void _startDurationTimer() {
+//     _speechTimer.reset();
+//     _speechTimer.start();
+//
+//     _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+//       _recordingDurationSubject.add(_formatDuration(_speechTimer.elapsed));
+//     });
+//   }
+//
+//   void _stopDurationTimer() {
+//     _durationTimer?.cancel();
+//     _speechTimer.stop();
+//   }
+//
+//   String _formatDuration(Duration d) {
+//     final minutes = d.inMinutes;
+//     final seconds = d.inSeconds % 60;
+//
+//     if (minutes < 10) {
+//       return "${minutes}:${seconds.toString().padLeft(2, '0')}";
+//     } else {
+//       return "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
+//     }
+//   }
+//
+//
+//
+//    String _openAIApiKey = "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";
+//
+//   MediaType _guessMediaTypeForPath(String path) {
+//     final lower = path.toLowerCase();
+//     if (lower.endsWith('.m4a')) return MediaType('audio', 'm4a');
+//     if (lower.endsWith('.mp3')) return MediaType('audio', 'mpeg');
+//     if (lower.endsWith('.wav')) return MediaType('audio', 'wav');
+//     if (lower.endsWith('.aac')) return MediaType('audio', 'aac');
+//     return MediaType('application', 'octet-stream');
+//   }
+//
+//   Future<void> _transcribeAudio() async {
+//     debugPrint("🎤 Starting transcription (frontend → OpenAI)");
+//
+//     if (_openAIApiKey.isEmpty) {
+//       _errorSubject.add('OPENAI_API_KEY missing (use --dart-define).');
+//       return;
+//     }
+//     if (_recordingPath.isEmpty) {
+//       _errorSubject.add('No recording found');
+//       return;
+//     }
+//
+//     final file = File(_recordingPath);
+//     if (!file.existsSync()) {
+//       _errorSubject.add('Recording file not found');
+//       return;
+//     }
+//
+//     final fileSize = await file.length();
+//     debugPrint("📁 File size: $fileSize bytes");
+//
+//     try {
+//       final uri = Uri.parse('https://api.openai.com/v1/audio/transcriptions');
+//       final req = http.MultipartRequest('POST', uri)
+//         ..headers['Authorization'] = 'Bearer $_openAIApiKey'
+//       // Let MultipartRequest set its own Content-Type with boundary
+//         ..fields['model'] = 'whisper-1'
+//         ..fields['response_format'] = 'json'
+//         ..fields['temperature'] = '0'
+//         ..fields['language'] = 'en'; // optional, helps latency
+//
+//       final contentType = _guessMediaTypeForPath(file.path);
+//
+//       req.files.add(await http.MultipartFile.fromPath(
+//         'file',
+//         file.path,
+//         contentType: contentType,
+//         filename: file.uri.pathSegments.last,
+//       ));
+//
+//       // Give Whisper some time — mobile uplinks can be slow
+//       final streamed = await req.send().timeout(const Duration(seconds: 90));
+//       final body = await streamed.stream.bytesToString();
+//
+//       debugPrint('✅ OpenAI status: ${streamed.statusCode}');
+//       debugPrint('📩 OpenAI body: $body');
+//
+//       if (streamed.statusCode == 200) {
+//         final jsonResp = jsonDecode(body) as Map<String, dynamic>;
+//         final transcript = (jsonResp['text'] ?? '').toString();
+//
+//         if (transcript.trim().isEmpty) {
+//           _errorSubject.add('No speech detected.');
+//           return;
+//         }
+//
+//         final existingText = _recognizedBackupText.trim();
+//         final newText = existingText.isEmpty ? transcript : '$existingText $transcript';
+//         _transcriptSubject.add(newText);
+//         _recognizedBackupText = '';
+//       } else if (streamed.statusCode == 413) {
+//         _errorSubject.add('Audio too large. Try a shorter recording.');
+//       } else if (streamed.statusCode == 429) {
+//         _errorSubject.add('Rate limited by OpenAI. Try again in a moment.');
+//       } else {
+//         // Try to surface OpenAI error message if present
+//         try {
+//           final err = jsonDecode(body);
+//           _errorSubject.add('OpenAI error: ${err['error']?['message'] ?? body}');
+//         } catch (_) {
+//           _errorSubject.add('Transcription failed (${streamed.statusCode}).');
+//         }
+//       }
+//     } on SocketException {
+//       _errorSubject.add('Network error. Check your internet connection.');
+//     } on TimeoutException {
+//       _errorSubject.add('Upload/processing timed out. Try a shorter clip.');
+//     } catch (e) {
+//       debugPrint('🔥 Exception during transcription: $e');
+//       _errorSubject.add('Transcription error: $e');
+//     }
+//   }
+//
+//
+//   // Future<void> _transcribeAudio() async {
+//   //   debugPrint("🎤 Starting transcription process");
+//   //
+//   //   if (_recordingPath.isEmpty) {
+//   //     debugPrint("❌ Recording path is empty");
+//   //     _errorSubject.add('No recording found');
+//   //     return;
+//   //   }
+//   //
+//   //   final file = File(_recordingPath);
+//   //   if (!file.existsSync()) {
+//   //     debugPrint("❌ File not found at: $_recordingPath");
+//   //     _errorSubject.add('Recording file not found');
+//   //     return;
+//   //   }
+//   //
+//   //   debugPrint("📁 File size: ${file.lengthSync()} bytes");
+//   //
+//   //   try {
+//   //     debugPrint("⏳ Sending file to transcription API");
+//   //
+//   //     var request = http.MultipartRequest(
+//   //       'POST',
+//   //       Uri.parse('$_baseUrl/speech/transcribe'),
+//   //     );
+//   //
+//   //     var multipartFile = await http.MultipartFile.fromPath(
+//   //       'file',
+//   //       file.path,
+//   //       contentType: MediaType('audio', 'wav'),
+//   //     );
+//   //
+//   //     debugPrint('📤 Uploading file: ${multipartFile.filename}, size: ${multipartFile.length}');
+//   //     request.files.add(multipartFile);
+//   //
+//   //     var response = await request.send();
+//   //     debugPrint('✅ Response status: ${response.statusCode}');
+//   //
+//   //     final responseBody = await response.stream.bytesToString();
+//   //     debugPrint('📩 Response body: $responseBody');
+//   //
+//   //     if (response.statusCode == 200) {
+//   //       final jsonResponse = jsonDecode(responseBody);
+//   //       final transcript = jsonResponse['transcript'] ?? '';
+//   //       debugPrint('📄 Transcript received: $transcript');
+//   //
+//   //       if (transcript.isNotEmpty &&
+//   //           transcript != 'No speech detected. Please speak clearly and try again.') {
+//   //
+//   //         // Combine with existing text if any
+//   //         final existingText = _recognizedBackupText.trim();
+//   //         final newText = existingText.isEmpty ? transcript : '$existingText $transcript';
+//   //
+//   //         _transcriptSubject.add(newText);
+//   //         _recognizedBackupText = '';
+//   //
+//   //       } else {
+//   //         // Keep backup text if transcription failed
+//   //         if (_recognizedBackupText.isNotEmpty) {
+//   //           _transcriptSubject.add(_recognizedBackupText);
+//   //         } else {
+//   //           _errorSubject.add('Could not transcribe audio. Please try again.');
+//   //         }
+//   //       }
+//   //     } else {
+//   //       debugPrint('❌ Transcription failed with status: ${response.statusCode}');
+//   //       _errorSubject.add('Transcription failed. Please try again.');
+//   //     }
+//   //   } catch (e) {
+//   //     debugPrint('🔥 Exception during transcription: $e');
+//   //     _errorSubject.add('Transcription error: $e');
+//   //   }
+//   // }
+//
+//   /// Check if microphone permission is granted
+//   Future<bool> hasPermission() async {
+//     return await _audioRecorder.hasPermission();
+//   }
+//
+//   /// Request microphone permission
+//   Future<bool> requestPermission() async {
+//     return await _audioRecorder.hasPermission();
+//   }
+//
+//   /// Get current recording file path
+//   String get recordingPath => _recordingPath;
+//
+//   /// Check if currently recording
+//   bool get hasActiveRecording => _recordingPath.isNotEmpty && isListening;
+//
+//   /// Set custom transcription URL
+//   void setTranscriptionUrl(String url) {
+//     // You can make _baseUrl non-const and allow customization
+//   }
+//
+//   /// Pause recording (if supported by your audio recorder)
+//   Future<void> pauseRecording() async {
+//     try {
+//       await _audioRecorder.pause();
+//       _stopDurationTimer();
+//     } catch (e) {
+//       debugPrint('❌ Error pausing recording: $e');
+//     }
+//   }
+//
+//   /// Resume recording (if supported by your audio recorder)
+//   Future<void> resumeRecording() async {
+//     try {
+//       await _audioRecorder.resume();
+//       _startDurationTimer();
+//     } catch (e) {
+//       debugPrint('❌ Error resuming recording: $e');
+//     }
+//   }
+//
+//   /// Get recording amplitude for waveform visualization
+//   Stream<double> getAmplitudeStream() {
+//     // If your audio recorder supports amplitude monitoring
+//     // return _audioRecorder.amplitudeStream;
+//     return _currentRmsSubject.stream;
+//   }
+//
+//   /// Clean up old recording files
+//   Future<void> cleanupOldRecordings() async {
+//     try {
+//       final dir = await getTemporaryDirectory();
+//       final files = dir.listSync().where((file) =>
+//       file.path.contains('audio_') && file.path.endsWith('.wav'));
+//
+//       for (var file in files) {
+//         try {
+//           await file.delete();
+//         } catch (e) {
+//           debugPrint('Could not delete file: ${file.path}');
+//         }
+//       }
+//     } catch (e) {
+//       debugPrint('Error cleaning up recordings: $e');
+//     }
+//   }
+//
+//   /// Dispose all resources
+//   void dispose() {
+//     _vadSubscription?.cancel();
+//     _rmsTimer?.cancel();
+//     _durationTimer?.cancel();
+//     _audioRecorder.dispose();
+//
+//     _isListeningSubject.close();
+//     _isTranscribingSubject.close();
+//     _isSpeakingSubject.close();
+//     _currentRmsSubject.close();
+//     _displayedRmsSubject.close();
+//     _transcriptSubject.close();
+//     _recordingDurationSubject.close();
+//     _errorSubject.close();
+//   }
+// }
+
+
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -16,6 +678,21 @@ class AudioService {
 
   // Audio recorder
   final AudioRecorder _audioRecorder = AudioRecorder();
+
+  // ✅ REMOVED: All threshold-related variables
+  // double _rmsThreshold = 0.015;
+  int _speechFrameCount = 0;
+  int _silenceFrameCount = 0;
+  int _minSpeechFrames = 2;
+  int _minSilenceFrames = 8;
+  bool _isSpeechActive = false;
+
+  // ✅ SIMPLIFIED: RMS smoothing parameters - pure native values
+  double _lastRawRms = 0.0;
+  DateTime _lastRmsUpdate = DateTime.now();
+  static const int _rmsUpdateIntervalMs = 16; // ~60fps for smooth waveforms
+  final List<double> _rmsBuffer = [];
+  static const int _rmsBufferSize = 3; // Smaller buffer for more responsive waveforms
 
   // Platform channels
   static const _androidMethodChannel = MethodChannel('native_vad');
@@ -61,9 +738,7 @@ class AudioService {
   String _recognizedBackupText = '';
 
   // Configuration
-  //static const String _baseUrl = 'http://127.0.0.1:8000';
-  static const String _baseUrl = 'http://192.168.1.2:8000';
-  // static const String _baseUrl = "https://fastapi-chatbot-717280964807.asia-south1.run.app";
+  static const String _baseUrl = "https://fastapi-app-130321581049.asia-south1.run.app";
 
   /// Initialize the audio service
   Future<void> initialize() async {
@@ -78,40 +753,144 @@ class AudioService {
         return false;
       }
 
-      // Store existing text as backup
       _recognizedBackupText = existingText ?? '';
 
-      // Setup recording path
       final dir = await getTemporaryDirectory();
       _recordingPath = '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.wav';
 
       final recordConfig = RecordConfig(
         encoder: AudioEncoder.wav,
-        bitRate: 128000,
-        sampleRate: 44100,
+        bitRate: 64000,
+        sampleRate: 16000,
         numChannels: 1,
       );
 
-      // Start recording
       await _audioRecorder.start(recordConfig, path: _recordingPath);
 
-      // Start VAD
-      await _startNativeVad();
+      // ✅ UPDATED: Reset VAD state without threshold
+      _resetVadState();
 
-      // Start duration timer
+      await _startNativeVad();
       _startDurationTimer();
 
-      // Update state
       _isListeningSubject.add(true);
       _isTranscribingSubject.add(false);
       _recordingDurationSubject.add('00:00');
 
-      debugPrint('🎤 Recording started at: $_recordingPath');
+      debugPrint('🎤 Recording started: $_recordingPath');
       return true;
     } catch (e) {
       debugPrint('❌ Error starting recording: $e');
       _errorSubject.add('Failed to start recording: $e');
       return false;
+    }
+  }
+
+  // ✅ UPDATED: Reset VAD state without threshold references
+  void _resetVadState() {
+    _speechFrameCount = 0;
+    _silenceFrameCount = 0;
+    _isSpeechActive = false;
+    _lastRawRms = 0.0;
+    _rmsBuffer.clear();
+  }
+
+  Future<void> _startNativeVad() async {
+    try {
+      await _vadSubscription?.cancel();
+
+      final EventChannel eventChannel = Platform.isIOS ? _iosEventChannel : _androidEventChannel;
+      final MethodChannel methodChannel = Platform.isIOS ? _iosMethodChannel : _androidMethodChannel;
+
+      _vadSubscription = eventChannel.receiveBroadcastStream().listen((event) {
+        final rawIsSpeech = event['isSpeech'] ?? event['state'] == 'speech_detected' || false;
+        final rawRms = (event['rms'] ?? event['rms_db'] ?? 0.0).toDouble();
+
+        // ✅ UPDATED: Platform-specific processing without thresholds
+        if (Platform.isAndroid) {
+          _processAndroidVadEvent(rawIsSpeech, rawRms);
+        } else {
+          _processIosVadEvent(rawIsSpeech, rawRms);
+        }
+      });
+
+      await methodChannel.invokeMethod('start');
+    } catch (e) {
+      debugPrint('❌ startNativeVad error: $e');
+      _errorSubject.add('Failed to start voice detection: $e');
+    }
+  }
+
+  // ✅ COMPLETELY UPDATED: Android-specific VAD processing - NO THRESHOLD
+  void _processAndroidVadEvent(bool rawIsSpeech, double rawRms) {
+    final now = DateTime.now();
+
+    // ✅ REMOVED: No threshold filtering - use pure RMS values
+    // Take the raw RMS directly from native Android
+    final pureRms = rawRms.abs(); // Only ensure positive values
+
+    // Add to moving average buffer for smoothing
+    _rmsBuffer.add(pureRms);
+    if (_rmsBuffer.length > _rmsBufferSize) {
+      _rmsBuffer.removeAt(0);
+    }
+
+    // Calculate moving average for smoother waveforms
+    final avgRms = _rmsBuffer.isNotEmpty
+        ? _rmsBuffer.reduce((a, b) => a + b) / _rmsBuffer.length
+        : pureRms;
+
+    // Rate limiting for smooth 60fps updates
+    final timeSinceLastUpdate = now.difference(_lastRmsUpdate).inMilliseconds;
+    if (timeSinceLastUpdate < _rmsUpdateIntervalMs) {
+      return;
+    }
+
+    // ✅ UPDATED: Always update RMS - no threshold checking
+    _currentRmsSubject.add(avgRms);
+    _lastRawRms = avgRms;
+    _lastRmsUpdate = now;
+
+    // ✅ UPDATED: Speech detection based purely on native VAD decision
+    // Let the native Android VAD determine speech, we just handle frame counting
+    if (rawIsSpeech) {
+      _speechFrameCount++;
+      _silenceFrameCount = 0;
+
+      if (_speechFrameCount >= _minSpeechFrames && !_isSpeechActive) {
+        _isSpeechActive = true;
+        _isSpeakingSubject.add(true);
+        debugPrint('🎙️ ANDROID SPEECH START => frames=$_speechFrameCount | rms=${avgRms.toStringAsFixed(3)}');
+      }
+    } else {
+      _silenceFrameCount++;
+      _speechFrameCount = 0;
+
+      if (_silenceFrameCount >= _minSilenceFrames && _isSpeechActive) {
+        _isSpeechActive = false;
+        _isSpeakingSubject.add(false);
+        debugPrint('🔇 ANDROID SPEECH END => silence_frames=$_silenceFrameCount');
+      }
+    }
+  }
+
+  // ✅ COMPLETELY UPDATED: iOS-specific VAD processing - NO THRESHOLD
+  void _processIosVadEvent(bool rawIsSpeech, double rawRms) {
+    final now = DateTime.now();
+    final timeSinceLastUpdate = now.difference(_lastRmsUpdate).inMilliseconds;
+
+    if (timeSinceLastUpdate >= _rmsUpdateIntervalMs) {
+      // ✅ REMOVED: No threshold filtering - use pure RMS values
+      final pureRms = rawRms.abs(); // Only ensure positive values
+
+      // ✅ UPDATED: Always update with pure native RMS
+      _currentRmsSubject.add(pureRms);
+
+      // ✅ UPDATED: Speech detection based purely on native iOS VAD decision
+      _isSpeakingSubject.add(rawIsSpeech);
+      _lastRmsUpdate = now;
+
+      debugPrint('🎙️ iOS VAD => isSpeech=$rawIsSpeech | pureRms=${pureRms.toStringAsFixed(3)}');
     }
   }
 
@@ -186,30 +965,6 @@ class AudioService {
 
   // Private methods
 
-  Future<void> _startNativeVad() async {
-    try {
-      await _vadSubscription?.cancel();
-
-      final EventChannel eventChannel = Platform.isIOS ? _iosEventChannel : _androidEventChannel;
-      final MethodChannel methodChannel = Platform.isIOS ? _iosMethodChannel : _androidMethodChannel;
-
-      _vadSubscription = eventChannel.receiveBroadcastStream().listen((event) {
-        final isSpeech = event['isSpeech'] ?? event['state'] == 'speech_detected' || false;
-        final rms = (event['rms'] ?? event['rms_db'] ?? 0.0).toDouble();
-
-        debugPrint('🎙️ VAD => isSpeech=$isSpeech | rms=${rms.toStringAsFixed(2)}');
-
-        _isSpeakingSubject.add(isSpeech);
-        _currentRmsSubject.add(rms);
-      });
-
-      await methodChannel.invokeMethod('start');
-    } catch (e) {
-      debugPrint('❌ startNativeVad error: $e');
-      _errorSubject.add('Failed to start voice detection: $e');
-    }
-  }
-
   Future<void> _stopNativeVad() async {
     try {
       final MethodChannel methodChannel = Platform.isIOS ? _iosMethodChannel : _androidMethodChannel;
@@ -217,6 +972,8 @@ class AudioService {
       await _vadSubscription?.cancel();
       _vadSubscription = null;
 
+      // ✅ UPDATED: Reset VAD state
+      _resetVadState();
       _isSpeakingSubject.add(false);
       _currentRmsSubject.add(0.0);
       _displayedRmsSubject.add(0.0);
@@ -225,15 +982,28 @@ class AudioService {
     }
   }
 
+  // ✅ UPDATED: Enhanced RMS smoothing for better waveform visualization
   void _startRmsSmoothing() {
     _rmsTimer?.cancel();
-    const smoothingFactor = 0.2;
 
-    _rmsTimer = Timer.periodic(Duration(milliseconds: 16), (timer) {
-      double difference = (_currentRmsSubject.value - _displayedRmsSubject.value).abs();
-      if (difference > 0.001) {
-        double newDisplayedRms = _displayedRmsSubject.value +
-            (_currentRmsSubject.value - _displayedRmsSubject.value) * smoothingFactor;
+    // ✅ UPDATED: More responsive smoothing for pure native RMS
+    final smoothingFactor = Platform.isAndroid ? 0.4 : 0.3; // More responsive
+    const updateIntervalMs = 16; // 60fps for smooth waveforms
+
+    _rmsTimer = Timer.periodic(Duration(milliseconds: updateIntervalMs), (timer) {
+      final currentRms = _currentRmsSubject.value;
+      final displayedRms = _displayedRmsSubject.value;
+      final difference = (currentRms - displayedRms).abs();
+
+      // ✅ UPDATED: Much lower threshold for more sensitive waveforms
+      if (difference > 0.001) { // More sensitive to small changes
+        double newDisplayedRms = displayedRms + (currentRms - displayedRms) * smoothingFactor;
+
+        // ✅ UPDATED: Very low snap threshold to preserve small RMS values
+        if (newDisplayedRms < 0.002) {
+          newDisplayedRms = 0.0;
+        }
+
         _displayedRmsSubject.add(newDisplayedRms);
       }
     });
@@ -269,79 +1039,121 @@ class AudioService {
     }
   }
 
-  Future<void> _transcribeAudio() async {
-    debugPrint("🎤 Starting transcription process");
+  String _openAIApiKey = "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";
 
+  MediaType _guessMediaTypeForPath(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.m4a')) return MediaType('audio', 'm4a');
+    if (lower.endsWith('.mp3')) return MediaType('audio', 'mpeg');
+    if (lower.endsWith('.wav')) return MediaType('audio', 'wav');
+    if (lower.endsWith('.aac')) return MediaType('audio', 'aac');
+    return MediaType('application', 'octet-stream');
+  }
+
+  Future<void> _transcribeAudio() async {
+    debugPrint("🎤 Starting transcription (frontend → OpenAI)");
+
+    if (_openAIApiKey.isEmpty) {
+      _errorSubject.add('OPENAI_API_KEY missing (use --dart-define).');
+      return;
+    }
     if (_recordingPath.isEmpty) {
-      debugPrint("❌ Recording path is empty");
       _errorSubject.add('No recording found');
       return;
     }
 
     final file = File(_recordingPath);
     if (!file.existsSync()) {
-      debugPrint("❌ File not found at: $_recordingPath");
       _errorSubject.add('Recording file not found');
       return;
     }
 
-    debugPrint("📁 File size: ${file.lengthSync()} bytes");
+    final fileSize = await file.length();
+    debugPrint("📁 File size: $fileSize bytes");
 
     try {
-      debugPrint("⏳ Sending file to transcription API");
+      final uri = Uri.parse('https://api.openai.com/v1/audio/transcriptions');
+      final req = http.MultipartRequest('POST', uri)
+        ..headers['Authorization'] = 'Bearer $_openAIApiKey'
+        ..fields['model'] = 'whisper-1'
+        ..fields['response_format'] = 'json'
+        ..fields['temperature'] = '0'
+        ..fields['language'] = 'en';
 
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$_baseUrl/audio/transcribe'),
-      );
+      final contentType = _guessMediaTypeForPath(file.path);
 
-      var multipartFile = await http.MultipartFile.fromPath(
+      req.files.add(await http.MultipartFile.fromPath(
         'file',
         file.path,
-        contentType: MediaType('audio', 'wav'),
-      );
+        contentType: contentType,
+        filename: file.uri.pathSegments.last,
+      ));
 
-      debugPrint('📤 Uploading file: ${multipartFile.filename}, size: ${multipartFile.length}');
-      request.files.add(multipartFile);
+      final streamed = await req.send().timeout(const Duration(seconds: 90));
+      final body = await streamed.stream.bytesToString();
 
-      var response = await request.send();
-      debugPrint('✅ Response status: ${response.statusCode}');
+      debugPrint('✅ OpenAI status: ${streamed.statusCode}');
+      debugPrint('📩 OpenAI body: $body');
 
-      final responseBody = await response.stream.bytesToString();
-      debugPrint('📩 Response body: $responseBody');
+      if (streamed.statusCode == 200) {
+        final jsonResp = jsonDecode(body) as Map<String, dynamic>;
+        final transcript = (jsonResp['text'] ?? '').toString();
 
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(responseBody);
-        final transcript = jsonResponse['transcript'] ?? '';
-        debugPrint('📄 Transcript received: $transcript');
-
-        if (transcript.isNotEmpty &&
-            transcript != 'No speech detected. Please speak clearly and try again.') {
-
-          // Combine with existing text if any
-          final existingText = _recognizedBackupText.trim();
-          final newText = existingText.isEmpty ? transcript : '$existingText $transcript';
-
-          _transcriptSubject.add(newText);
-          _recognizedBackupText = '';
-
-        } else {
-          // Keep backup text if transcription failed
-          if (_recognizedBackupText.isNotEmpty) {
-            _transcriptSubject.add(_recognizedBackupText);
-          } else {
-            _errorSubject.add('Could not transcribe audio. Please try again.');
-          }
+        if (transcript.trim().isEmpty) {
+          _errorSubject.add('No speech detected.');
+          return;
         }
+
+        final existingText = _recognizedBackupText.trim();
+        final newText = existingText.isEmpty ? transcript : '$existingText $transcript';
+        _transcriptSubject.add(newText);
+        _recognizedBackupText = '';
+      } else if (streamed.statusCode == 413) {
+        _errorSubject.add('Audio too large. Try a shorter recording.');
+      } else if (streamed.statusCode == 429) {
+        _errorSubject.add('Rate limited by OpenAI. Try again in a moment.');
       } else {
-        debugPrint('❌ Transcription failed with status: ${response.statusCode}');
-        _errorSubject.add('Transcription failed. Please try again.');
+        try {
+          final err = jsonDecode(body);
+          _errorSubject.add('OpenAI error: ${err['error']?['message'] ?? body}');
+        } catch (_) {
+          _errorSubject.add('Transcription failed (${streamed.statusCode}).');
+        }
       }
+    } on SocketException {
+      _errorSubject.add('Network error. Check your internet connection.');
+    } on TimeoutException {
+      _errorSubject.add('Upload/processing timed out. Try a shorter clip.');
     } catch (e) {
       debugPrint('🔥 Exception during transcription: $e');
       _errorSubject.add('Transcription error: $e');
     }
   }
+
+  // ✅ ADDITIONAL: Helper methods for waveform visualization
+
+  /// Get pure RMS stream for waveform visualization
+  /// This provides the raw, unfiltered RMS values from native platforms
+  Stream<double> getPureRmsStream() {
+    return _currentRmsSubject.stream.distinct(); // Only emit when values change
+  }
+
+  /// Get smoothed RMS stream for UI elements that need stable values
+  Stream<double> getSmoothedRmsStream() {
+    return _displayedRmsSubject.stream.distinct();
+  }
+
+  /// Get current RMS value synchronously for immediate UI updates
+  double getCurrentRms() {
+    return _currentRmsSubject.value;
+  }
+
+  /// Get smoothed RMS value synchronously
+  double getSmoothedRms() {
+    return _displayedRmsSubject.value;
+  }
+
+  // Existing utility methods...
 
   /// Check if microphone permission is granted
   Future<bool> hasPermission() async {
@@ -358,11 +1170,6 @@ class AudioService {
 
   /// Check if currently recording
   bool get hasActiveRecording => _recordingPath.isNotEmpty && isListening;
-
-  /// Set custom transcription URL
-  void setTranscriptionUrl(String url) {
-    // You can make _baseUrl non-const and allow customization
-  }
 
   /// Pause recording (if supported by your audio recorder)
   Future<void> pauseRecording() async {
@@ -385,10 +1192,9 @@ class AudioService {
   }
 
   /// Get recording amplitude for waveform visualization
+  /// ✅ UPDATED: Returns pure native RMS stream
   Stream<double> getAmplitudeStream() {
-    // If your audio recorder supports amplitude monitoring
-    // return _audioRecorder.amplitudeStream;
-    return _currentRmsSubject.stream;
+    return getPureRmsStream();
   }
 
   /// Clean up old recording files

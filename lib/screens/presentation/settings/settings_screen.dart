@@ -22,6 +22,22 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
 
   final AuthService _authService = locator<AuthService>();
+
+
+
+  Future<void> _closeSheet() async {
+    // 1) Ask the wrapper to close (what you passed in from HomeScreen)
+    try {
+      widget.onTap();
+    } catch (_) {}
+
+    // 2) Fallback: if this sheet was presented via a route/modal, pop it
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).maybePop();
+    }
+  }
+
   void _confirmLogout(BuildContext context) {
     showDialog(
       context: context,
@@ -99,7 +115,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Image.asset("assets/images/cancel.png",height: 30,),
+                GestureDetector(
+                  onTap: _closeSheet,
+                    child: Image.asset("assets/images/cancel.png",height: 30,)),
 
 
                 Text(

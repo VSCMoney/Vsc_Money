@@ -1,4 +1,6 @@
 // lib/controllers/session_manager.dart
+import 'dart:async';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vscmoney/services/locator.dart';
 import 'dart:convert';
@@ -11,7 +13,7 @@ class SessionManager {
   static String? _token;
   static String? _refreshToken;
   static String? _uid;
-
+  static Completer<bool>? _refreshCompleter; // serialize concurrent refresh
   static String? get token => _token;
   static set token(String? value) => _token = value; // ✅ Added setter
   static String? get refreshToken => _refreshToken;
@@ -78,22 +80,72 @@ class SessionManager {
     _uid = null;
   }
 
+
+  // static Future<bool> tryRefreshToken() async {
+  //   if (_refreshToken == null) return false;
+  //
+  //   // If a refresh is already running, just await it
+  //   if (_refreshCompleter != null) return _refreshCompleter!.future;
+  //
+  //   final c = Completer<bool>();
+  //   _refreshCompleter = c;
+  //   print('🔄 Refresh Called');
+  //
+  //   try {
+  //     final res = await EndPointService().postRawNoRefresh(
+  //       endpoint: "/auth/refresh_token", // ensure correct path (see B below)
+  //       body: {
+  //         "refresh_token": _refreshToken,
+  //         "uid": _uid ?? '',
+  //       },
+  //       attachAuthHeader: false, // refresh should not require access token
+  //     );
+  //
+  //     if (res.statusCode != 200) {
+  //       print("❌ Refresh API returned ${res.statusCode}: ${res.body}");
+  //       c.complete(false);
+  //       return false;
+  //     }
+  //
+  //     final Map<String, dynamic> responseBody = jsonDecode(res.body);
+  //     final newToken = responseBody['access_token'];
+  //
+  //     if (newToken != null) {
+  //       final newUid = _extractUidFromToken(newToken);
+  //       await saveTokens(newToken, _refreshToken!, uid: newUid);
+  //       c.complete(true);
+  //       return true;
+  //     }
+  //
+  //     c.complete(false);
+  //     return false;
+  //   } catch (e) {
+  //     print("❌ Refresh token failed: $e");
+  //     c.completeError(e);
+  //     return false;
+  //   } finally {
+  //     _refreshCompleter = null;
+  //   }
+  // }
+
   // ✅ Non-blocking refresh method
   static Future<bool> tryRefreshToken() async {
     if (_refreshToken == null) return false;
-    print('Refresh Called');
+    print('🔄 Refresh Called');
 
     try {
-      final res = await EndPointService().postRaw(
-        endpoint: "/api/v1/auth/refresh_token",
+      // Use a method that doesn't trigger automatic token refresh
+      final res = await EndPointService().postRawNoRefresh(  // ← Key change
+        endpoint: "/auth/refresh_token",
         body: {
           "refresh_token": _refreshToken,
           "uid": _uid ?? '',
         },
+        attachAuthHeader: false, // Don't send access token for refresh requests
       );
 
       if (res.statusCode != 200) {
-        print("❌ Refresh API returned ${res.statusCode}");
+        print("❌ Refresh API returned ${res.statusCode}: ${res.body}");
         return false;
       }
 
@@ -103,15 +155,35 @@ class SessionManager {
       if (newToken != null) {
         final newUid = _extractUidFromToken(newToken);
         await saveTokens(newToken, _refreshToken!, uid: newUid);
+        print("✅ Token refreshed successfully");
         return true;
       }
 
+      print("❌ No access_token in response");
       return false;
     } catch (e) {
       print("❌ Refresh token failed: $e");
       return false;
     }
   }
+
+  // static bool isTokenExpired(String token) {
+  //   try {
+  //     final parts = token.split('.');
+  //     if (parts.length != 3) return true;
+  //     final payload = json.decode(
+  //       utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+  //     );
+  //     final expiry = payload['exp'];
+  //     final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  //     const skew = 60; // seconds
+  //     return currentTime >= (expiry - skew);
+  //   } catch (e) {
+  //     print("Token decode error: $e");
+  //     return true;
+  //   }
+  // }
+
 
   static bool isTokenExpired(String token) {
     try {

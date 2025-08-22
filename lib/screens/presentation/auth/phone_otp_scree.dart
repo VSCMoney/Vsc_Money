@@ -16,14 +16,14 @@ import '../../../services/theme_service.dart';
 import '../../widgets/auth_button.dart';
 import 'otp_screen.dart';
 
-class PhoneOtpScreen extends StatefulWidget {
-  const PhoneOtpScreen({super.key});
+class SignInPage extends StatefulWidget {
+  const SignInPage({super.key});
 
   @override
-  State<PhoneOtpScreen> createState() => _PhoneOtpScreenState();
+  State<SignInPage> createState() => _SignInPageState();
 }
 
-class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
+class _SignInPageState extends State<SignInPage> {
   final _phoneController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final AuthService _authService = locator<AuthService>();

@@ -7,14 +7,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
-import 'package:http_parser/http_parser.dart';
-import 'package:lottie/lottie.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
-import 'package:record/record.dart';
-import 'package:vscmoney/constants/colors.dart';
-import 'package:vscmoney/main.dart';
-
 import '../../../constants/add_short_cut_card.dart';
 import '../../../constants/bottomsheet.dart';
 import '../../../constants/widgets.dart';
@@ -28,7 +20,7 @@ import '../../../services/locator.dart';
 import '../../../services/theme_service.dart';
 import '../../../services/voice_service.dart';
 import '../../../testpage.dart';
-import '../stock_detail_screen.dart';
+import '../../asset_page/assets_page.dart';
 import 'package:http/http.dart' as http;
 
 import '../../widgets/chat_input_widget.dart';
@@ -41,15 +33,14 @@ import '../../widgets/message_row_widget.dart';
 import '../../widgets/suggestions_widget.dart';
 
 
-
-
 class ChatScreen extends StatefulWidget {
-  final ChatSession session;
+  final ChatSession? session;
   final ChatService chatService;
   final void Function(int)? onNavigateToTab;
-  final void Function(String)? onFirstMessageComplete;
-  final void Function(String, String)? onStockTap; // Updated signature
-  final void Function(String)? onAskVitty;
+  final void Function(bool)? onFirstMessageComplete;
+  final GlobalKey<ChatGPTBottomSheetWrapperState>? sheetKey;
+  final Function(String)? onAskVitty;
+  final void Function(String)? onStockTap;
   final bool isThreadMode;
 
   const ChatScreen({
@@ -59,8 +50,9 @@ class ChatScreen extends StatefulWidget {
     this.onNavigateToTab,
     this.onFirstMessageComplete,
     this.onAskVitty,
-    this.onStockTap,
     this.isThreadMode = false,
+    this.sheetKey,
+    this.onStockTap
   }) : super(key: key);
 
   @override
@@ -81,8 +73,12 @@ class _ChatScreenState extends State<ChatScreen>
   bool _showExpandedInput = false;
   double _keyboardInset = 0;
   double _chatHeight = 0;
-  double _latestUserMessageHeight = 0;
+  final Map<String, double> _messageHeights = {};
+  double _latestUserMessageHeight = 52;
   bool _showScrollToBottomButton = false;
+
+  // ✅ NEW: Track user message heights by index for stability
+  final Map<int, double> _userMessageHeights = {};
 
   // Subscriptions to ChatService streams
   late StreamSubscription _messagesSubscription;
@@ -100,8 +96,14 @@ class _ChatScreenState extends State<ChatScreen>
     // Setup subscriptions to ChatService streams
     _setupSubscriptions();
 
-    // Load messages using ChatService
-    widget.chatService.loadMessages(widget.session.id);
+    final session = widget.chatService.currentSession;
+    if (session != null && session.id.isNotEmpty) {
+      print('🔍 ChatScreen: Loading messages for session: ${session.id}');
+      widget.chatService.loadMessages(session.id);
+    } else {
+      print('🔍 ChatScreen: No current session, waiting for service to initialize');
+      // Messages will be loaded by ChatService.initializeForDashboard
+    }
 
     WidgetsBinding.instance.addObserver(this);
 
@@ -131,16 +133,10 @@ class _ChatScreenState extends State<ChatScreen>
 
     _firstMessageCompleteSubscription = widget.chatService.firstMessageCompleteStream.listen((isComplete) {
       if (isComplete) {
-        final firstUserMessage = widget.chatService.messages.firstWhere(
-              (m) => m['role'] == 'user',
-          orElse: () => {},
-        );
-        final title = (firstUserMessage['content'] as String?) ?? "New Chat";
-
-        widget.onFirstMessageComplete?.call(title); // ✅ send text
+        print("📲 ChatScreen: First message completed, notifying parent");
+        widget.onFirstMessageComplete?.call(isComplete);
       }
-
-  });
+    });
   }
 
   void _setupScrollListener() {
@@ -188,16 +184,15 @@ class _ChatScreenState extends State<ChatScreen>
     final messageText = _controller.text.trim();
     _controller.clear();
 
-    // Update session title if first message
+    // Title ko local widget.session par set karna optional hai; null ho to skip
     final isFirstMessage = !widget.chatService.messages.any((m) => m['role'] == 'user');
-    if (isFirstMessage) {
-      widget.session.title = messageText;
+    if (isFirstMessage && widget.session != null) {
+      widget.session!.title = messageText;
     }
 
-    // Use ChatService to send message
-    await widget.chatService.sendMessage(widget.session.id, messageText);
+    // ✅ Null id allowed — ChatService create karega aur apni state update karega
+    await widget.chatService.sendMessage(widget.session?.id, messageText);
 
-    // Scroll to latest using helper
     ChatScrollHelper.scrollToLatestLikeChatPage(
       scrollController: _scrollController,
       chatHeight: _chatHeight,
@@ -205,40 +200,72 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   void _stopResponse() {
-    widget.chatService.stopResponse(widget.session.id);
+    final sid = widget.chatService.currentSession?.id;
+    if (sid != null && sid.isNotEmpty) {
+      widget.chatService.stopResponse(sid);
+    }
   }
 
-  void _onMessageHeightMeasured(double height) {
-    if (mounted && _latestUserMessageHeight != height) {
-      setState(() {
-        _latestUserMessageHeight = height;
-      });
-      print("📏 Updated latest user message height: $height");
+  void _onStockTap(String assetId) {
+    print("🔍 Stock tapped in ChatScreen: $assetId");
+    widget.onStockTap?.call(assetId);
+  }
+
+  void _onUserMessageHeightMeasured(String messageKey, double height) {
+    if (mounted && height > 0) {
+      _messageHeights[messageKey] = height;
+
+      // Update latest user message height
+      final messages = widget.chatService.messages;
+      double latestHeight = 52; // default
+
+      // Find the most recent user message height
+      for (int i = messages.length - 1; i >= 0; i--) {
+        final msg = messages[i];
+        if (msg['role'] == 'user') {
+          final key = msg['key']?.toString() ?? 'msg_$i';
+          if (_messageHeights.containsKey(key)) {
+            latestHeight = _messageHeights[key]!;
+            break;
+          }
+        }
+      }
+
+      if (_latestUserMessageHeight != latestHeight) {
+        setState(() {
+          _latestUserMessageHeight = latestHeight;
+        });
+        print("📏 Updated latest user message height: $latestHeight");
+      }
     }
   }
 
   void _onAskVittyFromSelection(String selectedText) {
     print("🤖 Ask Vitty from selection: $selectedText");
-    // Use the callback to open the ask vitty sheet in the parent
     widget.onAskVitty?.call(selectedText);
   }
 
-  void _onStockTap(String stockSymbol) {
-    print("🔍 Stock tapped in ChatScreen: $stockSymbol");
-    // Use the callback to open the stock detail sheet in the parent
-    // Extract stock name from symbol if needed, or pass both
-    widget.onStockTap?.call(stockSymbol, stockSymbol); // stockSymbol, stockName
-  }
-
-  Widget _buildMessageRow(Map<String, Object> msg) {
+  // ✅ UPDATED: Pass message index for proper height tracking
+  Widget _buildMessageRow(Map<String, Object> msg, int index) {
     final bool isLatest = msg == widget.chatService.messages.last;
+    final bool isBot = msg['role'] == 'bot';
+    final bool isUser = msg['role'] == 'user';
+    final messageKey = msg['key']?.toString() ??
+        'msg_${widget.chatService.messages.indexOf(msg)}';
+
 
     return MessageRowWidget(
       message: msg,
       isLatest: isLatest,
       onAskVitty: _onAskVittyFromSelection,
       onStockTap: _onStockTap,
-      onHeightMeasured: () => _onMessageHeightMeasured(_latestUserMessageHeight),
+      onBotRenderComplete: (isLatest && isBot)
+          ? () => widget.chatService.markUiRenderCompleteForLatest()
+          : null,
+      // ✅ FIXED: Pass proper height measurement callback with index
+      onHeightMeasuredWithValue: isUser
+          ? (double height) => _onUserMessageHeightMeasured(messageKey, height)
+          : null,
     );
   }
 
@@ -262,6 +289,13 @@ class _ChatScreenState extends State<ChatScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     final isListening = _audioService.isListening;
+    final noUserMsgYet = !widget.chatService.messages.any((m) => m['role'] == 'user');
+    final blankStart = widget.chatService.currentSession == null &&
+        widget.chatService.messages.isEmpty;
+
+    final shouldShowSuggestions = _controller.text.isEmpty &&
+        !widget.chatService.isTyping &&
+        (blankStart || (widget.chatService.hasLoadedMessages && noUserMsgYet));
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -287,7 +321,7 @@ class _ChatScreenState extends State<ChatScreen>
                           ),
                         ),
 
-                        // Direct access to messages without StreamBuilder
+                        // ✅ UPDATED: Pass message index to build method
                         ListView.builder(
                           controller: _scrollController,
                           reverse: false,
@@ -295,6 +329,7 @@ class _ChatScreenState extends State<ChatScreen>
                           itemCount: widget.chatService.messages.length + 1,
                           itemBuilder: (context, index) {
                             if (index == widget.chatService.messages.length) {
+                              // ✅ IMPROVED: More stable scroll adjustment
                               final adjustment = ChatUIHelper.calculateScrollAdjustment(
                                 chatHeight: _chatHeight,
                                 latestUserMessageHeight: _latestUserMessageHeight,
@@ -306,7 +341,8 @@ class _ChatScreenState extends State<ChatScreen>
                             return GestureDetector(
                               behavior: HitTestBehavior.opaque,
                               onTap: () => FocusScope.of(context).unfocus(),
-                              child: _buildMessageRow(msg),
+                              // ✅ FIXED: Pass index to message row builder
+                              child: _buildMessageRow(msg, index),
                             );
                           },
                         ),
@@ -334,9 +370,8 @@ class _ChatScreenState extends State<ChatScreen>
                     ),
                   );
                 },
-                child: (widget.chatService.hasLoadedMessages &&
-                    !widget.chatService.messages.any((m) => m['role'] == 'user') &&
-                    _controller.text.isEmpty)
+                child:
+                shouldShowSuggestions
                     ? SuggestionsWidget(
                   key: const ValueKey('suggestions'),
                   controller: _controller,
@@ -374,13 +409,15 @@ class _ChatScreenState extends State<ChatScreen>
   }
 }
 
+//
 // class ChatScreen extends StatefulWidget {
-//   final ChatSession session;
+//   final ChatSession? session;
 //   final ChatService chatService;
 //   final void Function(int)? onNavigateToTab;
 //   final void Function(bool)? onFirstMessageComplete;
 //   final GlobalKey<ChatGPTBottomSheetWrapperState>? sheetKey;
 //   final Function(String)? onAskVitty;
+//   final void Function(String)? onStockTap;
 //   final bool isThreadMode;
 //
 //   const ChatScreen({
@@ -392,6 +429,7 @@ class _ChatScreenState extends State<ChatScreen>
 //     this.onAskVitty,
 //     this.isThreadMode = false,
 //     this.sheetKey,
+//     this.onStockTap
 //   }) : super(key: key);
 //
 //   @override
@@ -404,6 +442,7 @@ class _ChatScreenState extends State<ChatScreen>
 //   final FocusNode _focusNode = FocusNode();
 //   ScrollController _scrollController = ScrollController();
 //   final _textFieldKey = GlobalKey();
+//
 //
 //   // Services
 //   final AudioService _audioService = AudioService.instance;
@@ -421,6 +460,7 @@ class _ChatScreenState extends State<ChatScreen>
 //   late StreamSubscription _hasLoadedMessagesSubscription;
 //   late StreamSubscription _firstMessageCompleteSubscription;
 //
+//
 //   @override
 //   void initState() {
 //     super.initState();
@@ -431,8 +471,23 @@ class _ChatScreenState extends State<ChatScreen>
 //     // Setup subscriptions to ChatService streams
 //     _setupSubscriptions();
 //
+//     final session = widget.chatService.currentSession;
+//     if (session != null && session.id.isNotEmpty) {
+//       print('🔍 ChatScreen: Loading messages for session: ${session.id}');
+//       widget.chatService.loadMessages(session.id);
+//     } else {
+//       print('🔍 ChatScreen: No current session, waiting for service to initialize');
+//       // Messages will be loaded by ChatService.initializeForDashboard
+//     }
+//
 //     // Load messages using ChatService
-//     widget.chatService.loadMessages(widget.session.id);
+//    // widget.chatService.loadMessages(widget.session!.id);
+//
+//     // final sid = widget.session?.id;
+//     // if (sid != null && sid.isNotEmpty) {
+//     //   widget.chatService.loadMessages(sid);
+//     // }
+//
 //
 //     WidgetsBinding.instance.addObserver(this);
 //
@@ -462,10 +517,10 @@ class _ChatScreenState extends State<ChatScreen>
 //
 //     _firstMessageCompleteSubscription = widget.chatService.firstMessageCompleteStream.listen((isComplete) {
 //       if (isComplete) {
-//         widget.onFirstMessageComplete?.call(true);
+//         print("📲 ChatScreen: First message completed, notifying parent");
+//         widget.onFirstMessageComplete?.call(isComplete);  // ✅ This should trigger the callback
 //       }
-//     });
-//   }
+//     });  }
 //
 //   void _setupScrollListener() {
 //     _scrollController.addListener(() {
@@ -505,6 +560,33 @@ class _ChatScreenState extends State<ChatScreen>
 //     }
 //   }
 //
+//   // Future<void> _sendMessage() async {
+//   //   if (_controller.text.trim().isEmpty) return;
+//   //
+//   //   FocusScope.of(context).unfocus();
+//   //   final messageText = _controller.text.trim();
+//   //   _controller.clear();
+//   //
+//   //   // Update session title if first message
+//   //   final isFirstMessage = !widget.chatService.messages.any((m) => m['role'] == 'user');
+//   //   if (isFirstMessage) {
+//   //     widget.session?.title = messageText;
+//   //   }
+//   //
+//   //   // Use ChatService to send message
+//   //   await widget.chatService.sendMessage(widget.session!.id, messageText);
+//   //
+//   //   // Scroll to latest
+//   //   ChatScrollHelper.scrollToLatestLikeChatPage(
+//   //     scrollController: _scrollController,
+//   //     chatHeight: _chatHeight,
+//   //   );
+//   // }
+//   // void _stopResponse() {
+//   //   widget.chatService.stopResponse(widget.session!.id);
+//   // }
+//
+//
 //   Future<void> _sendMessage() async {
 //     if (_controller.text.trim().isEmpty) return;
 //
@@ -512,16 +594,15 @@ class _ChatScreenState extends State<ChatScreen>
 //     final messageText = _controller.text.trim();
 //     _controller.clear();
 //
-//     // Update session title if first message
+//     // Title ko local widget.session par set karna optional hai; null ho to skip
 //     final isFirstMessage = !widget.chatService.messages.any((m) => m['role'] == 'user');
-//     if (isFirstMessage) {
-//       widget.session.title = messageText;
+//     if (isFirstMessage && widget.session != null) {
+//       widget.session!.title = messageText;
 //     }
 //
-//     // Use ChatService to send message
-//     await widget.chatService.sendMessage(widget.session.id, messageText);
+//     // ✅ Null id allowed — ChatService create karega aur apni state update karega
+//     await widget.chatService.sendMessage(widget.session?.id, messageText);
 //
-//     // Scroll to latest using helper
 //     ChatScrollHelper.scrollToLatestLikeChatPage(
 //       scrollController: _scrollController,
 //       chatHeight: _chatHeight,
@@ -529,7 +610,20 @@ class _ChatScreenState extends State<ChatScreen>
 //   }
 //
 //   void _stopResponse() {
-//     widget.chatService.stopResponse(widget.session.id);
+//     final sid = widget.chatService.currentSession?.id;
+//     if (sid != null && sid.isNotEmpty) {
+//       widget.chatService.stopResponse(sid);
+//     }
+//   }
+//
+//
+//
+//   void _onStockTap(String assetId) {
+//     print("🔍 Stock tapped in ChatScreen: $assetId");
+//
+//     // ✅ The KeyValueTableWidget already sends _id when available
+//     // Just pass it through to the bottom sheet
+//     widget.onStockTap?.call(assetId);
 //   }
 //
 //   void _onMessageHeightMeasured(double height) {
@@ -542,73 +636,27 @@ class _ChatScreenState extends State<ChatScreen>
 //   }
 //
 //   void _onAskVittyFromSelection(String selectedText) {
-//     ChatNavigationHelper.handleAskVittyFromSelection(
-//       context: context,
-//       selectedText: selectedText,
-//       isThreadMode: widget.isThreadMode,
-//       chatService: widget.chatService,
-//       onAskVitty: widget.onAskVitty,
-//     );
+//     print("🤖 Ask Vitty from selection: $selectedText");
+//     // Use the callback to open the ask vitty sheet in the parent
+//     widget.onAskVitty?.call(selectedText);
 //   }
 //
-//   void _onStockTap(String stockSymbol) {
-//     print("🔍 Stock tapped in ChatScreen: $stockSymbol");
 //
-//     showModalBottomSheet(
-//       context: context,
-//       isScrollControlled: true,
-//       backgroundColor: Colors.transparent,
-//       useSafeArea: true,
-//       builder: (context) => StockDetailPage(
-//
-//         stockSymbol: "",
-//         stockName: stockSymbol,
-//       )
-//     );
-//   }
-//
-//   Widget _buildStockInfoCard(String label, String value) {
-//     return Container(
-//       padding: const EdgeInsets.all(16),
-//       decoration: BoxDecoration(
-//         color: Colors.grey[50],
-//         borderRadius: BorderRadius.circular(12),
-//         border: Border.all(color: Colors.grey[200]!),
-//       ),
-//       child: Row(
-//         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//         children: [
-//           Text(
-//             label,
-//             style: TextStyle(
-//               fontSize: 16,
-//               color: Colors.grey[600],
-//               fontWeight: FontWeight.w500,
-//             ),
-//           ),
-//           Text(
-//             value,
-//             style: const TextStyle(
-//               fontSize: 16,
-//               fontWeight: FontWeight.w600,
-//               color: Colors.black,
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
 //
 //
 //
 //   Widget _buildMessageRow(Map<String, Object> msg) {
 //     final bool isLatest = msg == widget.chatService.messages.last;
+//     final bool isBot = msg['role'] == 'bot';
 //
 //     return MessageRowWidget(
 //       message: msg,
 //       isLatest: isLatest,
 //       onAskVitty: _onAskVittyFromSelection,
-//       onStockTap: _onStockTap, // ENSURE THIS IS PASSED
+//       onStockTap: _onStockTap,
+//       onBotRenderComplete: (isLatest && isBot)
+//           ? () => widget.chatService.markUiRenderCompleteForLatest()
+//           : null,
 //       onHeightMeasured: () => _onMessageHeightMeasured(_latestUserMessageHeight),
 //     );
 //   }
@@ -633,121 +681,119 @@ class _ChatScreenState extends State<ChatScreen>
 //   Widget build(BuildContext context) {
 //     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 //     final isListening = _audioService.isListening;
+//     final noUserMsgYet = !widget.chatService.messages.any((m) => m['role'] == 'user');
+//     final blankStart = widget.chatService.currentSession == null &&
+//         widget.chatService.messages.isEmpty;
 //
-//     return ChatGPTBottomSheetWrapper(
-//       bottomSheet: Container(
-//         decoration: const BoxDecoration(
-//           borderRadius: BorderRadius.vertical(top: Radius.circular(23)),
-//         ),
-//         height: 840,
-//       ),
-//       child: Scaffold(
-//         resizeToAvoidBottomInset: true,
-//         backgroundColor: theme.background,
-//         body: Stack(
-//           children: [
-//             Column(
-//               children: [
-//                 Expanded(
-//                   child: LayoutBuilder(
-//                     builder: (context, constraints) {
-//                       _chatHeight = constraints.maxHeight;
+//     final shouldShowSuggestions = _controller.text.isEmpty &&
+//         !widget.chatService.isTyping &&
+//         (blankStart || (widget.chatService.hasLoadedMessages && noUserMsgYet));
 //
-//                       return Stack(
-//                         children: [
-//                           GestureDetector(
-//                             behavior: HitTestBehavior.translucent,
-//                             onTap: () => FocusScope.of(context).unfocus(),
-//                             child: Container(
-//                               height: double.infinity,
-//                               width: double.infinity,
-//                               color: Colors.transparent,
-//                             ),
+//     return Scaffold(
+//       resizeToAvoidBottomInset: true,
+//       backgroundColor: theme.background,
+//       body: Stack(
+//         children: [
+//           Column(
+//             children: [
+//               Expanded(
+//                 child: LayoutBuilder(
+//                   builder: (context, constraints) {
+//                     _chatHeight = constraints.maxHeight;
+//
+//                     return Stack(
+//                       children: [
+//                         GestureDetector(
+//                           behavior: HitTestBehavior.translucent,
+//                           onTap: () => FocusScope.of(context).unfocus(),
+//                           child: Container(
+//                             height: double.infinity,
+//                             width: double.infinity,
+//                             color: Colors.transparent,
 //                           ),
+//                         ),
 //
-//                           // Direct access to messages without StreamBuilder
-//                           ListView.builder(
-//                             controller: _scrollController,
-//                             reverse: false,
-//                             padding: const EdgeInsets.all(20),
-//                             itemCount: widget.chatService.messages.length + 1,
-//                             itemBuilder: (context, index) {
-//                               if (index == widget.chatService.messages.length) {
-//                                 final adjustment = ChatUIHelper.calculateScrollAdjustment(
-//                                   chatHeight: _chatHeight,
-//                                   latestUserMessageHeight: _latestUserMessageHeight,
-//                                 );
-//                                 return SizedBox(height: adjustment);
-//                               }
-//
-//                               final msg = widget.chatService.messages[index];
-//                               return GestureDetector(
-//                                 behavior: HitTestBehavior.opaque,
-//                                 onTap: () => FocusScope.of(context).unfocus(),
-//                                 child: _buildMessageRow(msg),
+//                         // Direct access to messages without StreamBuilder
+//                         ListView.builder(
+//                           controller: _scrollController,
+//                           reverse: false,
+//                           padding: const EdgeInsets.all(20),
+//                           itemCount: widget.chatService.messages.length + 1,
+//                           itemBuilder: (context, index) {
+//                             if (index == widget.chatService.messages.length) {
+//                               final adjustment = ChatUIHelper.calculateScrollAdjustment(
+//                                 chatHeight: _chatHeight,
+//                                 latestUserMessageHeight: _latestUserMessageHeight,
 //                               );
-//                             },
-//                           ),
-//                         ],
-//                       );
-//                     },
-//                   ),
-//                 ),
-//
-//                 isListening
-//                     ? SizedBox.shrink()
-//                     : AnimatedSwitcher(
-//                   duration: const Duration(milliseconds: 350),
-//                   switchInCurve: Curves.easeOutCubic,
-//                   switchOutCurve: Curves.easeInCubic,
-//                   transitionBuilder: (Widget child, Animation<double> animation) {
-//                     return FadeTransition(
-//                       opacity: animation,
-//                       child: SlideTransition(
-//                         position: Tween<Offset>(
-//                           begin: const Offset(0.0, 0.15),
-//                           end: Offset.zero,
-//                         ).animate(animation),
-//                         child: child,
-//                       ),
+//                               return SizedBox(height: adjustment);
+//                             }
+//                            // print("Latest user message height: $_latestUserMessageHeight");
+//                             final msg = widget.chatService.messages[index];
+//                             return GestureDetector(
+//                               behavior: HitTestBehavior.opaque,
+//                               onTap: () => FocusScope.of(context).unfocus(),
+//                               child: _buildMessageRow(msg),
+//                             );
+//                           },
+//                         ),
+//                       ],
 //                     );
 //                   },
-//                   child: (widget.chatService.hasLoadedMessages &&
-//                       !widget.chatService.messages.any((m) => m['role'] == 'user') &&
-//                       _controller.text.isEmpty)
-//                       ? SuggestionsWidget(
-//                     key: const ValueKey('suggestions'),
-//                     controller: _controller,
-//                     onAskVitty: _onAskVittyFromSelection,
-//                     onSuggestionSelected: () {
-//                       if (mounted) setState(() {});
-//                     },
-//                   )
-//                       : const SizedBox.shrink(
-//                     key: ValueKey('emptySuggestions'),
-//                   ),
 //                 ),
+//               ),
 //
-//                 const SizedBox(height: 5),
-//
-//                 // Input widget with direct isTyping access
-//                 ChatInputWidget(
+//               isListening
+//                   ? SizedBox.shrink()
+//                   : AnimatedSwitcher(
+//                 duration: const Duration(milliseconds: 350),
+//                 switchInCurve: Curves.easeOutCubic,
+//                 switchOutCurve: Curves.easeInCubic,
+//                 transitionBuilder: (Widget child, Animation<double> animation) {
+//                   return FadeTransition(
+//                     opacity: animation,
+//                     child: SlideTransition(
+//                       position: Tween<Offset>(
+//                         begin: const Offset(0.0, 0.15),
+//                         end: Offset.zero,
+//                       ).animate(animation),
+//                       child: child,
+//                     ),
+//                   );
+//                 },
+//                 child:
+//                 shouldShowSuggestions
+//                     ? SuggestionsWidget(
+//                   key: const ValueKey('suggestions'),
 //                   controller: _controller,
-//                   focusNode: _focusNode,
-//                   textFieldKey: _textFieldKey,
-//                   isTyping: widget.chatService.isTyping,
-//                   keyboardInset: _keyboardInset,
-//                   onSendMessage: _sendMessage,
-//                   onStopResponse: _stopResponse,
-//                   onTextChanged: () {
+//                   onAskVitty: _onAskVittyFromSelection,
+//                   onSuggestionSelected: () {
 //                     if (mounted) setState(() {});
 //                   },
-//                   audioService: _audioService,
+//                 )
+//                     : const SizedBox.shrink(
+//                   key: ValueKey('emptySuggestions'),
 //                 ),
-//               ],
-//             ),
-//           ],
-//         ),
+//               ),
+//
+//               const SizedBox(height: 5),
+//
+//               // Input widget with direct isTyping access
+//               ChatInputWidget(
+//                 controller: _controller,
+//                 focusNode: _focusNode,
+//                 textFieldKey: _textFieldKey,
+//                 isTyping: widget.chatService.isTyping,
+//                 keyboardInset: _keyboardInset,
+//                 onSendMessage: _sendMessage,
+//                 onStopResponse: _stopResponse,
+//                 onTextChanged: () {
+//                   if (mounted) setState(() {});
+//                 },
+//                 audioService: _audioService,
+//               ),
+//             ],
+//           ),
+//         ],
 //       ),
 //     );
 //   }

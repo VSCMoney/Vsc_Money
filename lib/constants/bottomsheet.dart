@@ -1,9 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
+import 'package:go_router/go_router.dart';
 import '../screens/presentation/settings/settings_screen.dart';
-import '../screens/presentation/stock_detail_screen.dart';
+import '../screens/asset_page/assets_page.dart';
 import '../services/chat_service.dart';
 import '../services/theme_service.dart';
 import '../testpage.dart';
@@ -238,19 +238,16 @@ class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
 
 
 class BottomSheetManager {
-
   static Widget buildSettingsSheet({required VoidCallback onTap}) {
     return SettingsScreen(onTap: onTap);
   }
 
   static Widget buildStockDetailSheet({
-    required String stockSymbol,
-    required String stockName,
+   required assetId,
     required VoidCallback onTap,
   }) {
-    return StockDetailPage(
-      stockSymbol: stockSymbol,
-      stockName: stockName,
+    return AssetPage(
+     assetId: assetId,
       onClose: onTap,
     );
   }
@@ -261,45 +258,62 @@ class BottomSheetManager {
     required Function(String) onAskVitty,
     required ChatService chatService,
   }) {
-    // Create a unique key for each instance
-    final uniqueKey = ValueKey('vitty_thread_${selectedText.hashCode}_${DateTime.now().millisecondsSinceEpoch}');
-
+    // ✅ FIXED: Use consistent key based on content only
     return VittyThreadSheet(
-      key: uniqueKey,
+      key: ValueKey('vitty_thread_${selectedText.trim().hashCode}'),
       chatService: chatService,
       initialText: selectedText,
       onClose: onTap,
     );
   }
 
-  // Add more sheet builders as needed
+  // ✅ NEW: Better sheet wrapper with proper constraints
   static Widget buildCustomSheet({
     required Widget content,
+    required BuildContext context, // ✅ FIXED: Add context parameter
     double? height,
     VoidCallback? onTap,
   }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (onTap != null) ...[
-          // Header with close button
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const SizedBox(), // Empty space for alignment
-              IconButton(
-                onPressed: onTap,
-                icon: const Icon(Icons.close),
+    return Container(
+      height: height ?? MediaQuery.of(context).size.height * 0.85, // ✅ FIXED: Use passed context
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (onTap != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const SizedBox(width: 48), // Balance space
+                  const Text(
+                    'Sheet',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: onTap,
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          Expanded(child: content),
         ],
-        // Custom content
-        Flexible(child: content),
-      ],
+      ),
     );
   }
+
 }
 
 

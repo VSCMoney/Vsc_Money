@@ -6,7 +6,6 @@ import '../../../services/auth_service.dart';
 import '../../../services/locator.dart';
 import '../../../services/theme_service.dart';
 
-
 class DrawerFooter extends StatefulWidget {
   final VoidCallback onTap;
 
@@ -27,10 +26,14 @@ class _DrawerFooterState extends State<DrawerFooter> {
   @override
   void initState() {
     super.initState();
-    _initializeUserData();
-    _subscribeToAuthChanges();
-    print("piyush");
-    print(_authService.currentState.user);
+
+    _initializeUserData();      // set from current snapshot
+    _subscribeToAuthChanges();  // react to future updates
+
+    // If user is null but we’re logged in, kick off a background fetch once.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _authService.ensureProfileLoaded(); // implemented below
+    });
   }
 
   @override
@@ -41,32 +44,34 @@ class _DrawerFooterState extends State<DrawerFooter> {
 
   void _initializeUserData() {
     final user = _authService.currentState.user;
-    if (user != null) {
-      _fullName = "${user.firstName ?? ''} ${user.lastName ?? ''}".trim();
-      if (_fullName.isEmpty) _fullName = "User";
-    }
+    setState(() {
+      _fullName = _displayName(user?.firstName, user?.lastName);
+    });
   }
 
   void _subscribeToAuthChanges() {
     _subscription = _authService.authStateStream.listen((state) {
-      final user = state.user;
-      if (user != null && mounted) {
-        setState(() {
-          _fullName = "${user.firstName ?? ''} ${user.lastName ?? ''}".trim();
-          if (_fullName.isEmpty) _fullName = "User";
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _fullName = _displayName(state.user?.firstName, state.user?.lastName);
+      });
     });
+  }
+
+  String _displayName(String? first, String? last) {
+    final f = (first ?? '').trim();
+    final l = (last ?? '').trim();
+    final full = [f, l].where((s) => s.isNotEmpty).join(' ').trim();
+    return full.isEmpty ? 'User' : full;
   }
 
   String get _userInitials {
     if (_fullName.isEmpty || _fullName == "User") return 'U';
-
-    final nameParts = _fullName.trim().split(' ');
-    if (nameParts.length >= 2) {
-      return '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase();
+    final parts = _fullName.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
     }
-    return _fullName[0].toUpperCase();
+    return parts[0][0].toUpperCase();
   }
 
   @override
@@ -77,7 +82,6 @@ class _DrawerFooterState extends State<DrawerFooter> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          // User Avatar
           CircleAvatar(
             radius: 20,
             backgroundColor: const Color(0XFFC4765E),
@@ -90,10 +94,7 @@ class _DrawerFooterState extends State<DrawerFooter> {
               ),
             ),
           ),
-
           const SizedBox(width: 12),
-
-          // User Name
           Expanded(
             child: Text(
               _fullName,
@@ -106,14 +107,8 @@ class _DrawerFooterState extends State<DrawerFooter> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-
-          // Settings Button
           IconButton(
-            icon: Icon(
-              Icons.more_horiz,
-              color: theme.icon,
-              size: 24,
-            ),
+            icon: Icon(Icons.more_horiz, color: theme.icon, size: 24),
             onPressed: widget.onTap,
             tooltip: 'Settings',
           ),

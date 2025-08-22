@@ -1,4 +1,3 @@
-// Enhanced AuthService with onboarding state management
 import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -75,7 +74,8 @@ class AuthService {
   void _clearState() => _setState(const AuthState());
 
 
-
+  static const String _onboardingCompletedKey = 'onboarding_completed_v1';
+  static const String _appInstalledKey = 'app_installed_timestamp';
 
 
 
@@ -97,6 +97,10 @@ class AuthService {
   bool get isBiometricEnabled => _biometricEnabled;
 
 
+  Future<bool> isOnboardingCompleted() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_onboardingCompletedKey) ?? false;
+  }
 
 
   Future<bool> toggleBiometric(bool enabled, BuildContext context) async {
@@ -226,7 +230,11 @@ class AuthService {
   // Mark onboarding as completed
   Future<void> markOnboardingCompleted() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_onboardingKey, true);
+    await prefs.setBool(_onboardingCompletedKey, true);
+    // Also record when app was first used
+    if (!prefs.containsKey(_appInstalledKey)) {
+      await prefs.setInt(_appInstalledKey, DateTime.now().millisecondsSinceEpoch);
+    }
     _setState(currentState.copyWith(hasSeenOnboarding: true));
   }
 
@@ -235,7 +243,17 @@ class AuthService {
     _setLoading();
 
     try {
-      // First check if user is already authenticated
+      // First, check if onboarding is completed
+      final onboardingCompleted = await isOnboardingCompleted();
+
+      if (!onboardingCompleted) {
+        // First time user - show onboarding
+        debugPrint('🎯 First time user - showing onboarding');
+        onFlow(AuthFlow.onboarding);
+        return;
+      }
+
+      // Onboarding completed - check authentication status
       final firebaseUser = _firebaseAuth.currentUser;
 
       if (firebaseUser != null) {
@@ -247,92 +265,101 @@ class AuthService {
         }
       }
 
-      // User is not authenticated, check if they need onboarding
-      final isFirst = await isFirstLaunch();
-      final seenOnboarding = await hasSeenOnboarding();
-
-      if (isFirst || !seenOnboarding) {
-        // Show onboarding for first-time unauthenticated users
-        onFlow(AuthFlow.onboarding);
-      } else {
-        // Returning user without authentication, go to login
-        onFlow(AuthFlow.login);
-      }
+      // User completed onboarding but not authenticated
+      debugPrint('🔑 Returning user - showing login');
+      onFlow(AuthFlow.login);
 
     } catch (e) {
       debugPrint('❌ Error determining initial flow: $e');
       _setError('Failed to determine app flow: $e');
 
-      // For error cases, check if they've seen onboarding
-      final seenOnboarding = await hasSeenOnboarding();
-      onFlow(seenOnboarding ? AuthFlow.login : AuthFlow.onboarding);
+      // Error fallback: check onboarding status again
+      final onboardingCompleted = await isOnboardingCompleted();
+      onFlow(onboardingCompleted ? AuthFlow.login : AuthFlow.onboarding);
+
     } finally {
       _setState(currentState.copyWith(status: AuthStatus.idle));
     }
   }
 
+
+
   // Complete onboarding and proceed to auth
   Future<void> completeOnboarding(Function(AuthFlow) onFlow) async {
     try {
+      // Mark as completed first (important!)
       await markOnboardingCompleted();
-      await markFirstLaunchCompleted();
 
-      // After onboarding, check if user is already authenticated
-      await handleSessionCheck(onFlow);
+      debugPrint('✅ Onboarding completed successfully');
+
+      // Check if user is already authenticated (rare case)
+      final firebaseUser = _firebaseAuth.currentUser;
+      if (firebaseUser != null) {
+        await handleSessionCheck(onFlow);
+      } else {
+        // Proceed to authentication
+        onFlow(AuthFlow.login);
+      }
 
     } catch (e) {
       debugPrint('❌ Error completing onboarding: $e');
-      onFlow(AuthFlow.login); // Fallback to login
+      // Even on error, don't show onboarding again
+      onFlow(AuthFlow.login);
     }
   }
 
+  
   // Your existing auth methods remain the same...
+
   Future<void> handleGoogleSignIn(Function(AuthFlow) onFlow) async {
     _setLoading();
     try {
-      // Step 1: Google native sign-in
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      final googleUser = await GoogleSignIn().signIn();
       if (googleUser == null) {
         _setState(currentState.copyWith(status: AuthStatus.idle));
-        return; // user cancelled
+        return;
       }
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
 
-      // Step 2: Sign-in to Firebase
-      final AuthCredential credential = GoogleAuthProvider.credential(
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
-      final UserCredential userCredential = await _firebaseAuth.signInWithCredential(credential);
+      final userCred = await _firebaseAuth.signInWithCredential(credential);
+      final firebaseUser = userCred.user!;
+      final uid = firebaseUser.uid;
 
-      // Step 3: Get ID token from Firebase user
-      final idToken = await userCredential.user?.getIdToken();
-      if (idToken == null) throw "Failed to get Firebase ID token";
+      final displayName = googleUser.displayName ?? '';
+      final parts = displayName.trim().split(RegExp(r'\s+'));
+      final firstName = parts.isNotEmpty ? parts.first : '';
+      final lastName  = parts.length > 1 ? parts.sublist(1).join(' ') : '';
 
-      // Step 4: Call your backend for custom JWT session
-      final res = await _api.post(
-        endpoint: "/api/v1/auth/verify_google_user",
-        body: {"id_token": idToken},
-      );
+      final payload = {
+        "uid": uid,
+        if (firstName.isNotEmpty) "first_name": firstName,
+        if (lastName.isNotEmpty)  "last_name": lastName,
+        if (googleUser.email.isNotEmpty) "email": googleUser.email,
+      };
 
-      // Step 5: Save tokens, extract UID if needed
-      final accessToken = res["token"];
-      final refreshToken = res["refresh_token"];
-      String? uid = SessionManager.uid;
-      uid ??= extractUidFromToken(accessToken);
+      try {
+        final res = await _api.post(endpoint: "/auth/verify_google_user", body: payload);
+        await _handleSuccessfulAuth(res, onFlow);
+      } catch (e) {
+        // Check if it's the refresh token mismatch error
+        if (_isRefreshTokenMismatchError(e)) {
+          print("Refresh token mismatch detected. Forcing logout and retrying...");
 
-      await SessionManager.saveTokens(accessToken, refreshToken, uid: uid);
+          // Force logout all sessions for this user
+          await _forceLogoutUser(uid);
 
-      // Step 6: Fetch user profile, continue flow
-      await fetchUserProfile();
-      final user = currentState.user;
-      if ((user?.firstName?.isEmpty ?? true) || (user?.lastName?.isEmpty ?? true)) {
-        onFlow(AuthFlow.nameEntry);
-      } else {
-        onFlow(AuthFlow.home);
+          // Retry the verification with the same payload
+          final res = await _api.post(endpoint: "/auth/verify_google_user", body: payload);
+          await _handleSuccessfulAuth(res, onFlow);
+        } else {
+          rethrow;
+        }
       }
     } catch (e) {
-      print("❌ Google Sign-in error: $e");
       _setError("Google Sign-in failed: $e");
       onFlow(AuthFlow.login);
     } finally {
@@ -340,7 +367,98 @@ class AuthService {
     }
   }
 
-  // Rest of your existing methods...
+  bool _isRefreshTokenMismatchError(dynamic error) {
+    final errorString = error.toString().toLowerCase();
+    return errorString.contains('422') &&
+        (errorString.contains('refresh token') ||
+            errorString.contains('does not match') ||
+            errorString.contains('try logging out first'));
+  }
+
+  Future<void> _forceLogoutUser(String uid) async {
+    try {
+      // Call your server's force logout endpoint
+      await _api.post(
+          endpoint: "/auth/logout",
+          body: {"uid": uid}
+      );
+    } catch (e) {
+      print("Failed to force logout user: $e");
+      // Don't throw - this is a recovery attempt
+    }
+  }
+
+  Future<void> _handleSuccessfulAuth(Map<String, dynamic> res, Function(AuthFlow) onFlow) async {
+    final accessToken = res["token"] as String;
+    final refreshToken = res["refresh_token"] as String;
+    final uidFromToken = SessionManager.uid ?? extractUidFromToken(accessToken);
+    await SessionManager.saveTokens(accessToken, refreshToken, uid: uidFromToken);
+
+    final needsProfile = res["needs_profile"] == true;
+    if (needsProfile) {
+      onFlow(AuthFlow.nameEntry);
+    } else {
+      await fetchUserProfile();
+      onFlow(AuthFlow.home);
+    }
+  }
+
+  // Future<void> handleGoogleSignIn(Function(AuthFlow) onFlow) async {
+  //   _setLoading();
+  //   try {
+  //     // Step 1: Google native sign-in
+  //     final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+  //     if (googleUser == null) {
+  //       _setState(currentState.copyWith(status: AuthStatus.idle));
+  //       return; // user cancelled
+  //     }
+  //     final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+  //
+  //     // Step 2: Sign-in to Firebase
+  //     final AuthCredential credential = GoogleAuthProvider.credential(
+  //       accessToken: googleAuth.accessToken,
+  //       idToken: googleAuth.idToken,
+  //     );
+  //     final UserCredential userCredential = await _firebaseAuth.signInWithCredential(credential);
+  //
+  //     // Step 3: Get ID token from Firebase user
+  //     final idToken = await userCredential.user?.getIdToken();
+  //     if (idToken == null) throw "Failed to get Firebase ID token";
+  //
+  //     // Step 4: Call your backend for custom JWT session
+  //     final res = await _api.post(
+  //       endpoint: "/api/v1/auth/verify_google_user",
+  //       body: {"id_token": idToken},
+  //     );
+  //
+  //     // Step 5: Save tokens, extract UID if needed
+  //     final accessToken = res["token"];
+  //     final refreshToken = res["refresh_token"];
+  //     String? uid = SessionManager.uid;
+  //     uid ??= extractUidFromToken(accessToken);
+  //
+  //     await SessionManager.saveTokens(accessToken, refreshToken, uid: uid);
+  //
+  //     // Step 6: Fetch user profile, continue flow
+  //     await fetchUserProfile();
+  //     final user = currentState.user;
+  //     if ((user?.firstName?.isEmpty ?? true) || (user?.lastName?.isEmpty ?? true)) {
+  //       onFlow(AuthFlow.nameEntry);
+  //     } else {
+  //       onFlow(AuthFlow.home);
+  //     }
+  //   } catch (e) {
+  //     print("❌ Google Sign-in error: $e");
+  //     _setError("Google Sign-in failed: $e");
+  //     onFlow(AuthFlow.login);
+  //   } finally {
+  //     _setState(currentState.copyWith(status: AuthStatus.idle));
+  //   }
+  // }
+
+
+
+
   Future<void> verifyBackendToken(
       String idToken,
       Function(String route) onSuccess,
@@ -348,7 +466,7 @@ class AuthService {
       ) async {
     _setLoading();
     try {
-      final res = await _api.post(endpoint: "/api/v1/auth/verify_user", body: {"id_token": idToken});
+      final res = await _api.post(endpoint: "/auth/verify_user", body: {"id_token": idToken});
       await SessionManager.saveTokens(res['token'], res['refresh_token'], uid: res['uid']);
       await fetchUserProfile();
       final user = currentState.user;
@@ -390,13 +508,24 @@ class AuthService {
   }
 
   // Continue with your existing methods...
+
   Future<void> completeUserProfile(String first, String last) async {
     _setLoading();
     try {
-      await _api.post(endpoint: "/api/v1/auth/update_profile", body: {
-        "first_name": first,
-        "last_name": last,
-      });
+      // await _api.post(
+      //   endpoint: "/auth/update_profile",
+      //   body: {
+      //     "first_name": first,
+      //     "last_name": last,
+      //   },
+      //   extraHeaders: {"X-Refresh-Token": SessionManager.refreshToken ?? ''},
+      // );
+      await _api.post(
+        endpoint: "/auth/update_profile", // your connector that calls /auth/verify_google_user again WITH names
+        body: {"first_name": first, "last_name": last},
+        extraHeaders: {"X-Refresh-Token": SessionManager.refreshToken ?? ''}, // if you use this
+      );
+
       await fetchUserProfile();
     } catch (e) {
       _setError(e.toString());
@@ -404,6 +533,21 @@ class AuthService {
       _setState(currentState.copyWith(status: AuthStatus.idle));
     }
   }
+
+  // Future<void> completeUserProfile(String first, String last) async {
+  //   _setLoading();
+  //   try {
+  //     await _api.post(endpoint: "/api/v1/auth/update_profile", body: {
+  //       "first_name": first,
+  //       "last_name": last,
+  //     });
+  //     await fetchUserProfile();
+  //   } catch (e) {
+  //     _setError(e.toString());
+  //   } finally {
+  //     _setState(currentState.copyWith(status: AuthStatus.idle));
+  //   }
+  // }
 
   Future<void> completeUserProfileAndNavigate(Function(AuthFlow) onFlow) async {
     final user = currentState.user;
@@ -416,10 +560,54 @@ class AuthService {
     }
   }
 
-  Future<void> fetchUserProfile() async {
+  // Future<void> fetchUserProfile() async {
+  //   try {
+  //     final res = await _api.get(endpoint: "/api/v1/auth/get_profile");
+  //     _setUser(UserModel.fromJson(res));
+  //   } catch (e) {
+  //     final msg = e.toString();
+  //     if (msg.contains("404") || msg.contains("User not found")) {
+  //       logout();
+  //     } else {
+  //       _setError(msg);
+  //     }
+  //   }
+  // }
+
+
+  Future<bool> fetchUserProfile({bool silent = false}) async {
+    if (!silent) _setLoading();
     try {
-      final res = await _api.get(endpoint: "/api/v1/auth/get_profile");
-      _setUser(UserModel.fromJson(res));
+      var res;
+      if(_api.isDebug){
+         res = {
+         };
+      }else{
+         res = await _api.get(
+          endpoint: "/auth/get_profile",
+          extraHeaders: {"X-Refresh-Token": SessionManager.refreshToken ?? ''},
+        );
+      }
+
+      if (res is Map && res["needs_profile"] == true) {
+        // don’t clear user here; let UI keep fallbacks (email/displayName)
+        return true;
+      }
+
+      // 🔧 Normalize snake_case → camelCase so UserModel.fromJson can read it
+      final normalized = Map<String, dynamic>.from(res as Map);
+      if (normalized.containsKey('first_name') && !normalized.containsKey('firstName')) {
+        normalized['firstName'] = normalized['first_name'];
+      }
+      if (normalized.containsKey('last_name') && !normalized.containsKey('lastName')) {
+        normalized['lastName'] = normalized['last_name'];
+      }
+      if (normalized.containsKey('_id') && !normalized.containsKey('uid')) {
+        normalized['uid'] = normalized['_id'];
+      }
+
+      _setUser(UserModel.fromJson(normalized));
+      return false;
     } catch (e) {
       final msg = e.toString();
       if (msg.contains("404") || msg.contains("User not found")) {
@@ -427,8 +615,10 @@ class AuthService {
       } else {
         _setError(msg);
       }
+      return true;
     }
   }
+
 
   String? extractUidFromToken(String token) {
     try {
@@ -446,7 +636,7 @@ class AuthService {
 
   Future<void> refreshAccessToken() async {
     try {
-      final res = await _api.post(endpoint: "/api/v1/auth/refresh_token", body: {
+      final res = await _api.post(endpoint: "/auth/refresh_token", body: {
         "refresh_token": SessionManager.refreshToken,
         "uid": SessionManager.uid,
       });
@@ -479,6 +669,37 @@ class AuthService {
     }
   }
 
+  // Future<void> autoLogin(Function(AuthFlow) onResult) async {
+  //   await SessionManager.loadTokens();
+  //   final token = SessionManager.token;
+  //   if (token == null || isTokenExpired(token)) {
+  //     final refreshed = await SessionManager.tryRefreshToken();
+  //     if (refreshed) {
+  //          await fetchUserProfile();
+  //          completeUserProfileAndNavigate(onResult);
+  //       final needsProfile = await fetchUserProfile();
+  //      if (needsProfile) {
+  //        onResult(AuthFlow.nameEntry);
+  //        } else {
+  //          completeUserProfileAndNavigate(onResult);
+  //        }
+  //   } else {
+  //   logout();
+  //   onResult(AuthFlow.login);
+  //   }
+  //   } else {
+  //      await fetchUserProfile();
+  //      completeUserProfileAndNavigate(onResult);
+  //      final needsProfile = await fetchUserProfile();
+  //      if (needsProfile) {
+  //        onResult(AuthFlow.nameEntry);
+  //      } else {
+  //        completeUserProfileAndNavigate(onResult);
+  //      }
+  //   }
+  // }
+
+
   bool isTokenExpired(String token) {
     try {
       final parts = token.split('.');
@@ -493,11 +714,30 @@ class AuthService {
     }
   }
 
+  // Future<void> logout() async {
+  //   await FirebaseAuth.instance.signOut();
+  //   await SessionManager.clearToken();
+  //   _clearState();
+  // }
+
   Future<void> logout() async {
+    try {
+      // Optional: Tell backend to invalidate refresh token
+      final uid = SessionManager.uid;
+      if (uid != null) {
+        await _api.post(endpoint: "/auth/logout", body: {
+          "uid": uid,
+        });
+      }
+    } catch (e) {
+      debugPrint("⚠️ Logout API failed: $e");
+    }
+
     await FirebaseAuth.instance.signOut();
     await SessionManager.clearToken();
     _clearState();
   }
+
 
   // OTP methods remain the same...
   Future<void> sendOtp({
@@ -552,6 +792,22 @@ class AuthService {
       }
     });
   }
+
+  // inside AuthService
+
+  Future<void> ensureProfileLoaded() async {
+    // Already have a user? nothing to do.
+    if (currentState.user != null) return;
+
+    // If we have a valid token (your SessionManager or state can tell),
+    // fetch in background. Wrap in try so UI doesn’t break if it fails.
+    try {
+      await fetchUserProfile(silent: true); // call your existing method
+    } catch (_) {
+      // ignore here; stream will emit on failure if you want
+    }
+  }
+
 
   int get otpCountdown => _otpCountdown;
 }

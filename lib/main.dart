@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,16 +8,8 @@ import 'package:flutter/services.dart';
 
 // External packages
 import 'package:firebase_app_check/firebase_app_check.dart';
-import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuth;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:get_it/get_it.dart';
-import 'package:gif/gif.dart';
-import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
-import 'package:lottie/lottie.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vscmoney/controllers/session_manager.dart';
 
@@ -33,6 +23,8 @@ import 'services/theme_service.dart';
 final sl = GetIt.instance;
 
 void main() async {
+  print('🔍 MAIN: Starting app - ${DateTime.now()}');
+
   // Suppress keyboard event assertions during development
   if (kDebugMode) {
     FlutterError.onError = (FlutterErrorDetails details) {
@@ -46,17 +38,45 @@ void main() async {
   }
 
   runZonedGuarded(() async {
+    print('🔍 MAIN: About to call AppInitializer.initialize()');
     await AppInitializer.initialize();
+    print('🔍 MAIN: AppInitializer.initialize() completed');
     runApp(const MyApp());
+    print('🔍 MAIN: runApp() called');
   }, (error, stack) {
     debugPrint('🔴 Global error caught: $error');
     debugPrint('Stack trace: $stack');
   });
 }
 
+
 /// Handles all app initialization logic
 class AppInitializer {
+  static int _initializeCallCount = 0;
+  static bool _isInitializing = false;
+  static bool _isInitialized = false;
+
   static Future<void> initialize() async {
+    _initializeCallCount++;
+    print('🔍 INIT: AppInitializer.initialize() called - Count: $_initializeCallCount');
+    print('🔍 INIT: Stack trace: ${StackTrace.current}');
+
+    // ✅ Prevent multiple simultaneous initializations
+    if (_isInitializing) {
+      print('⚠️ INIT: Already initializing, waiting...');
+      while (_isInitializing) {
+        await Future.delayed(Duration(milliseconds: 100));
+      }
+      return;
+    }
+
+    if (_isInitialized) {
+      print('✅ INIT: Already initialized, skipping');
+      return;
+    }
+
+    _isInitializing = true;
+
     try {
       debugPrint('🚀 Starting app initialization...');
 
@@ -74,70 +94,108 @@ class AppInitializer {
         WidgetsBinding.instance.allowFirstFrame();
       });
 
+      _isInitialized = true;
       debugPrint('✅ App initialization completed successfully');
     } catch (error, stackTrace) {
       debugPrint('❌ App initialization failed: $error');
       debugPrint('Stack trace: $stackTrace');
       rethrow;
+    } finally {
+      _isInitializing = false;
     }
   }
 
   static Future<void> _setupDependencies() async {
     debugPrint('🔧 Setting up dependencies...');
-
-    // Register core services
-   // sl.registerLazySingleton<EndPointService>(() => EndPointService());
-
-    // Setup locator with all services
     setupLocator();
-
     debugPrint('✅ Dependencies setup completed');
   }
 
   static Future<void> _initializeFirebase() async {
+    print('🔍 FIREBASE: _initializeFirebase() called');
+    print('🔍 FIREBASE: Firebase.apps.length = ${Firebase.apps.length}');
+
+    if (Firebase.apps.isNotEmpty) {
+      print('🔍 FIREBASE: Existing apps:');
+      for (var app in Firebase.apps) {
+        print('  - App name: ${app.name}, options: ${app.options}');
+      }
+    }
+
     debugPrint('🔥 Initializing Firebase...');
 
     try {
-      // Initialize Firebase if not already done
+      FirebaseApp? app;
+
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp(
+        print('🔍 FIREBASE: No existing apps, creating new one');
+        app = await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform,
         );
+        debugPrint('✅ Firebase app created successfully: ${app.name}');
+      } else {
+        print('🔍 FIREBASE: Using existing app');
+        app = Firebase.app();
+        debugPrint('✅ Using existing Firebase app: ${app.name}');
       }
 
-      // Setup App Check for security
-      await FirebaseAppCheck.instance.activate(
-        androidProvider: AndroidProvider.playIntegrity,
-        appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
-      );
+      // Setup App Check
+      try {
+        await FirebaseAppCheck.instance.activate(
+          androidProvider: AndroidProvider.playIntegrity,
+          appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
+        );
+        debugPrint('✅ Firebase App Check activated');
+      } catch (appCheckError) {
+        debugPrint('⚠️ Firebase App Check failed: $appCheckError');
+      }
 
       debugPrint('✅ Firebase initialization completed');
     } catch (error) {
       debugPrint('❌ Firebase initialization failed: $error');
-      // Don't rethrow - app can work without Firebase in some cases
+
+      if (error.toString().contains('duplicate-app')) {
+        debugPrint('🔥 Handling duplicate app error...');
+        print('🔍 FIREBASE: Current apps after error:');
+        for (var app in Firebase.apps) {
+          print('  - App: ${app.name}');
+        }
+        return;
+      }
+
+      debugPrint('⚠️ Continuing without Firebase...');
     }
   }
 
   static Future<void> _loadUserPreferences() async {
     debugPrint('📱 Loading user preferences...');
 
-
     try {
-
       await SessionManager.loadTokens();
-
-      // Load theme preferences
       await locator<ThemeService>().loadThemeFromPrefs();
 
-      // Load other preferences
       final prefs = await SharedPreferences.getInstance();
       final isBiometricEnabled = prefs.getBool('biometric_enabled') ?? false;
 
       debugPrint('✅ User preferences loaded (biometric: $isBiometricEnabled)');
     } catch (error) {
       debugPrint('❌ Failed to load user preferences: $error');
-      // Continue execution with default preferences
     }
+  }
+
+  // ✅ Debug methods
+  static void printDebugInfo() {
+    print('🔍 DEBUG INFO:');
+    print('  - Initialize call count: $_initializeCallCount');
+    print('  - Is initializing: $_isInitializing');
+    print('  - Is initialized: $_isInitialized');
+    print('  - Firebase apps count: ${Firebase.apps.length}');
+  }
+
+  static void reset() {
+    _initializeCallCount = 0;
+    _isInitializing = false;
+    _isInitialized = false;
   }
 }
 
@@ -246,22 +304,13 @@ class AppWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
-
-    return SafeArea(
-      top: false,
-      bottom: false, // you can set to true if you want to cut off below gesture bar
-      child: Padding(
-        padding: EdgeInsets.only(bottom: bottomPadding),
-        child: GestureDetector(
-          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-          child: child ?? const SizedBox.shrink(),
-        ),
-      ),
+    return GestureDetector(
+      // Dismiss keyboard when tapping outside
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: child ?? const SizedBox.shrink(),
     );
   }
 }
-
 
 /// Error handling wrapper widget
 class AppErrorBoundary extends StatefulWidget {

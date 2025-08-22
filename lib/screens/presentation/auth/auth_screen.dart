@@ -218,12 +218,12 @@ class _AuthScreenState extends State<AuthScreen> {
     final fullPhone =  "+91$phone"; // Assuming India
     print("This is phone number $phone");
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OtpVerification(phoneNumber: fullPhone),
-      ),
-    );
+    // Navigator.push(
+    //   context,
+    //   MaterialPageRoute(
+    //     builder: (_) => OtpVerification(phoneNumber: fullPhone),
+    //   ),
+    // );
   }
 
   @override

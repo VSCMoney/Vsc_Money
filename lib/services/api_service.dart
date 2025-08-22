@@ -1,15 +1,16 @@
+// lib/network/end_point_service.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 import 'package:rxdart/rxdart.dart';
+
 import '../controllers/session_manager.dart';
-import 'locator.dart';
-import 'theme_service.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+
 enum NetworkStatus { connected, noInternet, slow }
 
 class EndPointService {
@@ -20,13 +21,18 @@ class EndPointService {
   }
 
   final Connectivity _connectivity = Connectivity();
-  final BehaviorSubject<NetworkStatus> _networkStatus = BehaviorSubject.seeded(NetworkStatus.connected);
+  final BehaviorSubject<NetworkStatus> _networkStatus =
+  BehaviorSubject.seeded(NetworkStatus.connected);
   Timer? _speedCheckTimer;
   Stream<NetworkStatus> get networkStatusStream => _networkStatus.stream;
   NetworkStatus get currentNetworkStatus => _networkStatus.value;
 
-  //final String _baseUrl = 'http://127.0.0.1:8000';
-  final String _baseUrl = 'http://192.168.1.2:8000';
+  bool isDebug = false;
+
+  // Base URL
+ // final String _baseUrl = 'https://fastapi-app-130321581049.asia-south1.run.app';
+ final String _baseUrl = "http://localhost:8000";
+  // final String _baseUrl = 'http://127.0.0.1:8000';
 
   String? _lastEndpoint;
   Map<String, dynamic>? _lastBody;
@@ -35,7 +41,8 @@ class EndPointService {
   void _initNetworkMonitoring() {
     _checkConnectivity();
     _connectivity.onConnectivityChanged.listen((_) => _checkConnectivity());
-    _speedCheckTimer = Timer.periodic(const Duration(seconds: 10), (_) => _checkNetworkSpeed());
+    _speedCheckTimer =
+        Timer.periodic(const Duration(seconds: 10), (_) => _checkNetworkSpeed());
   }
 
   Future<void> _checkConnectivity() async {
@@ -55,12 +62,14 @@ class EndPointService {
     if (_networkStatus.value == NetworkStatus.noInternet) return;
 
     try {
-      final stopwatch = Stopwatch()..start();
-      final response = await http.get(Uri.parse('https://www.google.com')).timeout(const Duration(seconds: 5));
-      stopwatch.stop();
+      final sw = Stopwatch()..start();
+      final response = await http
+          .get(Uri.parse('https://www.google.com'))
+          .timeout(const Duration(seconds: 5));
+      sw.stop();
 
       if (response.statusCode == 200) {
-        final speed = stopwatch.elapsedMilliseconds;
+        final speed = sw.elapsedMilliseconds;
         _updateNetworkStatus(speed > 2000 ? NetworkStatus.slow : NetworkStatus.connected);
       } else {
         _updateNetworkStatus(NetworkStatus.noInternet);
@@ -101,73 +110,243 @@ class EndPointService {
 
   Future<void> _checkConnection() async {
     if (currentNetworkStatus == NetworkStatus.noInternet) {
-      throw SocketException("No internet connection");
+      throw const SocketException("No internet connection");
     }
   }
 
-  Future<http.StreamedResponse> postStream({required String endpoint, required Map<String, dynamic> body}) async {
-    await _checkConnection();
-    await SessionManager.checkTokenValidityAndRefresh();
-    _storeLastRequest(endpoint, body, 'POST');
+  // ==========================
+  // HTTP HELPERS (with logging)
+  // ==========================
 
-    final uri = Uri.parse("$_baseUrl$endpoint");
-    final request = http.Request('POST', uri);
-    request.headers.addAll({
-      'Content-Type': 'application/json',
-      if (SessionManager.token != null) 'Authorization': 'Bearer ${SessionManager.token}'
-    });
-    request.body = jsonEncode(body);
-    return await request.send();
-  }
-
-  Future<dynamic> post({required String endpoint, Map<String, dynamic>? body}) async {
-    await _checkConnection();
-    await SessionManager.checkTokenValidityAndRefresh();
-    _storeLastRequest(endpoint, body, 'POST');
-
-    final uri = Uri.parse("$_baseUrl$endpoint");
-    final res = await http.post(
-      uri,
-      headers: {
-        "Content-Type": "application/json",
-        if (SessionManager.token != null) "Authorization": "Bearer ${SessionManager.token}"
-      },
-      body: jsonEncode(body),
-    );
-    return _handleResponse(res);
-  }
-
-  Future<dynamic> get({required String endpoint}) async {
+// GET with optional query params; logs full request & response
+  Future<dynamic> get({
+    required String endpoint,
+    Map<String, String>? extraHeaders,
+    Map<String, dynamic>? query, // 👈 added
+  }) async {
     await _checkConnection();
     await SessionManager.checkTokenValidityAndRefresh();
     _storeLastRequest(endpoint, null, 'GET');
 
-    final uri = Uri.parse("$_baseUrl$endpoint");
-    final res = await http.get(
-      uri,
-      headers: {
-        "Content-Type": "application/json",
-        if (SessionManager.token != null) "Authorization": "Bearer ${SessionManager.token}"
-      },
+    final uri = Uri.parse("$_baseUrl$endpoint")
+        .replace(queryParameters: query?.map((k, v) => MapEntry(k, v.toString())));
+
+    final headers = <String, String>{
+      "Content-Type": "application/json",
+      if (SessionManager.token != null) "Authorization": "Bearer ${SessionManager.token}",
+      ...?extraHeaders,
+    };
+
+    // Log exactly what you're sending
+    ConsoleHttpLogger.request(
+      method: 'GET',
+      url: uri,
+      headers: headers,
+      body: query != null ? jsonEncode(query) : null,
     );
-    return _handleResponse(res);
+
+    final sw = Stopwatch()..start();
+    final res = await http.get(uri, headers: headers);
+    sw.stop();
+
+    ConsoleHttpLogger.response(
+      method: 'GET',
+      url: uri,
+      statusCode: res.statusCode,
+      duration: sw.elapsed,
+      headers: res.headers,
+      body: res.body,
+    );
+
+    return _handleResponse(res, method: 'GET', url: uri.toString());
   }
 
-  Future<http.Response> postRaw({required String endpoint, Map<String, dynamic>? body}) async {
+// POST (json); logs payload
+  Future<dynamic> post({
+    required String endpoint,
+    Map<String, dynamic>? body,
+    Map<String, String>? extraHeaders,
+  }) async {
     await _checkConnection();
     await SessionManager.checkTokenValidityAndRefresh();
     _storeLastRequest(endpoint, body, 'POST');
 
     final uri = Uri.parse("$_baseUrl$endpoint");
-    return await http.post(
-      uri,
-      headers: {
-        "Content-Type": "application/json",
-        if (SessionManager.token != null) "Authorization": "Bearer ${SessionManager.token}"
-      },
-      body: jsonEncode(body),
+    final headers = <String, String>{
+      "Content-Type": "application/json",
+      if (SessionManager.token != null) "Authorization": "Bearer ${SessionManager.token}",
+      ...?extraHeaders,
+    };
+
+    final bodyStr = jsonEncode(body ?? {});
+
+    ConsoleHttpLogger.request(
+      method: 'POST',
+      url: uri,
+      headers: headers,
+      body: bodyStr.isNotEmpty ? bodyStr : null,
     );
+
+    final sw = Stopwatch()..start();
+    final res = await http.post(uri, headers: headers, body: bodyStr);
+    sw.stop();
+
+    ConsoleHttpLogger.response(
+      method: 'POST',
+      url: uri,
+      statusCode: res.statusCode,
+      duration: sw.elapsed,
+      headers: res.headers,
+      body: res.body,
+    );
+
+    return _handleResponse(res, method: 'POST', url: uri.toString());
   }
+
+// POST raw (json) returning http.Response; logs payload
+  Future<http.Response> postRaw({
+    required String endpoint,
+    Map<String, dynamic>? body,
+  }) async {
+    await _checkConnection();
+    await SessionManager.checkTokenValidityAndRefresh();
+    _storeLastRequest(endpoint, body, 'POST');
+
+    final uri = Uri.parse("$_baseUrl$endpoint");
+    final headers = <String, String>{
+      "Content-Type": "application/json",
+      if (SessionManager.token != null) "Authorization": "Bearer ${SessionManager.token}"
+    };
+
+    final bodyStr = jsonEncode(body ?? {});
+
+    ConsoleHttpLogger.request(method: 'POST', url: uri, headers: headers, body: bodyStr);
+
+    final sw = Stopwatch()..start();
+    final res = await http.post(uri, headers: headers, body: bodyStr);
+    sw.stop();
+
+    ConsoleHttpLogger.response(
+      method: 'POST',
+      url: uri,
+      statusCode: res.statusCode,
+      duration: sw.elapsed,
+      headers: res.headers,
+      body: res.body,
+    );
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw ApiException(
+        statusCode: res.statusCode,
+        method: 'POST',
+        url: uri.toString(),
+        responseBody: res.body,
+        responseHeaders: res.headers,
+        message: 'HTTP ${res.statusCode}',
+      );
+    }
+    return res;
+  }
+
+// POST streaming; logs payload + headers; error body captured if non-2xx
+  Future<http.StreamedResponse> postStream({
+    required String endpoint,
+    required Map<String, dynamic> body,
+  }) async {
+    await _checkConnection();
+    await SessionManager.checkTokenValidityAndRefresh();
+    _storeLastRequest(endpoint, body, 'POST');
+
+    final uri = Uri.parse("$_baseUrl$endpoint");
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      if (SessionManager.token != null) 'Authorization': 'Bearer ${SessionManager.token}',
+      'Accept': 'text/event-stream',
+    };
+    final bodyStr = jsonEncode(body);
+
+    ConsoleHttpLogger.request(method: 'POST', url: uri, headers: headers, body: bodyStr);
+
+    final request = http.Request('POST', uri)
+      ..headers.addAll(headers)
+      ..body = bodyStr;
+
+    final sw = Stopwatch()..start();
+    final streamed = await request.send();
+    sw.stop();
+
+    // We can’t easily print a long stream; we still log headers + status
+    ConsoleHttpLogger.response(
+      method: 'POST',
+      url: uri,
+      statusCode: streamed.statusCode,
+      duration: sw.elapsed,
+      headers: streamed.headers,
+      body: '(streamed response body)',
+    );
+
+    if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
+      final bodyErr = await streamed.stream.bytesToString();
+      throw ApiException(
+        statusCode: streamed.statusCode,
+        method: 'POST',
+        url: uri.toString(),
+        responseBody: bodyErr,
+        responseHeaders: streamed.headers,
+        message: 'HTTP ${streamed.statusCode}',
+      );
+    }
+
+    return streamed;
+  }
+
+// POST without auto refresh; logs payload
+  Future<http.Response> postRawNoRefresh({
+    required String endpoint,
+    required Map<String, dynamic> body,
+    bool attachAuthHeader = false,
+  }) async {
+    final uri = Uri.parse('$_baseUrl$endpoint');
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      if (attachAuthHeader && SessionManager.token != null)
+        'Authorization': 'Bearer ${SessionManager.token}',
+    };
+
+    final bodyStr = jsonEncode(body);
+
+    ConsoleHttpLogger.request(method: 'POST', url: uri, headers: headers, body: bodyStr);
+
+    final sw = Stopwatch()..start();
+    final res = await http.post(uri, headers: headers, body: bodyStr);
+    sw.stop();
+
+    ConsoleHttpLogger.response(
+      method: 'POST',
+      url: uri,
+      statusCode: res.statusCode,
+      duration: sw.elapsed,
+      headers: res.headers,
+      body: res.body,
+      note: 'no auto-refresh',
+    );
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw ApiException(
+        statusCode: res.statusCode,
+        method: 'POST',
+        url: uri.toString(),
+        responseBody: res.body,
+        responseHeaders: res.headers,
+        message: 'HTTP ${res.statusCode}',
+      );
+    }
+    return res;
+  }
+
+  // ==========================
+  // Internals
+  // ==========================
 
   void _storeLastRequest(String endpoint, Map<String, dynamic>? body, String method) {
     _lastEndpoint = endpoint;
@@ -177,7 +356,6 @@ class EndPointService {
 
   Future<void> _retryLastRequest() async {
     if (_lastEndpoint == null) return;
-
     try {
       if (_lastMethod == 'POST') {
         await post(endpoint: _lastEndpoint!, body: _lastBody);
@@ -189,26 +367,35 @@ class EndPointService {
     }
   }
 
-  dynamic _handleResponse(http.Response res) {
-    print("📩 Response [${res.statusCode}] from ${res.request?.url}: ${res.body}");
-
-    switch (res.statusCode) {
-      case 200:
-      case 201:
+  dynamic _handleResponse(http.Response res, {required String method, required String url}) {
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      try {
         return jsonDecode(res.body);
-      case 400:
-        throw Exception("Bad Request");
-      case 401:
-        throw Exception("Unauthorized");
-      case 403:
-        throw Exception("Forbidden");
-      case 404:
-        throw Exception("Not Found");
-      case 500:
-        throw Exception("Server Error");
-      default:
-        throw Exception("Unexpected error [${res.statusCode}]");
+      } catch (_) {
+        return res.body;
+      }
     }
+
+    String msg = 'HTTP ${res.statusCode}';
+    try {
+      final parsed = jsonDecode(res.body);
+      if (parsed is Map && parsed['detail'] != null) {
+        msg = parsed['detail'].toString();
+      } else if (parsed is Map && parsed['message'] != null) {
+        msg = parsed['message'].toString();
+      }
+    } catch (_) {
+      // keep default
+    }
+
+    throw ApiException(
+      statusCode: res.statusCode,
+      method: method,
+      url: url,
+      responseBody: res.body,
+      responseHeaders: res.headers,
+      message: msg,
+    );
   }
 
   void dispose() {
@@ -217,31 +404,150 @@ class EndPointService {
   }
 }
 
-class ApiException implements Exception {
-  final String message;
-  final dynamic details;
+// Simple BehaviorSubject (if you’re not already importing rxdart)
 
-  ApiException(this.message, [this.details]);
+
+
+
+class ApiException implements Exception {
+  final int statusCode;
+  final String method;
+  final String url;
+  final String responseBody;
+  final Map<String, String>? responseHeaders;
+  final String? message;
+
+  ApiException({
+    required this.statusCode,
+    required this.method,
+    required this.url,
+    required this.responseBody,
+    this.responseHeaders,
+    this.message,
+  });
 
   @override
-  String toString() => "$message: \${details ?? ''}";
+  String toString() =>
+      "ApiException($statusCode $method $url) ${message ?? ''}\n$responseBody";
+}
+
+
+class ConsoleHttpLogger {
+  /// Toggle ANSI colors in logs
+  static bool useColors = true;
+
+  /// Limit printed body size
+  static int bodyMax = 1500;
+
+  /// Pretty-print JSON if possible
+  static String _pretty(String body) {
+    try {
+      final obj = json.decode(body);
+      return const JsonEncoder.withIndent('  ').convert(obj);
+    } catch (_) {
+      return body;
+    }
+  }
+
+  static String _truncate(String s) {
+    if (s.length <= bodyMax) return s;
+    return s.substring(0, bodyMax) + ' …(truncated)…';
+  }
+
+  // Colors
+  static String _green(String s) => useColors ? '\x1B[32m$s\x1B[0m' : s;
+  static String _red(String s)   => useColors ? '\x1B[31m$s\x1B[0m' : s;
+  static String _yellow(String s)=> useColors ? '\x1B[33m$s\x1B[0m' : s;
+  static String _cyan(String s)  => useColors ? '\x1B[36m$s\x1B[0m' : s;
+  static String _bold(String s)  => useColors ? '\x1B[1m$s\x1B[0m'  : s;
+
+  static String _statusColor(int code, String text) {
+    if (code >= 200 && code < 300) return _green(text);
+    if (code >= 400 && code < 500) return _yellow(text);
+    return _red(text);
+  }
+
+  static Map<String, String> _redactHeaders(Map<String, String> h) {
+    final out = Map<String, String>.from(h);
+    if (out.containsKey('Authorization')) {
+      out['Authorization'] = 'Bearer ***redacted***';
+    }
+    if (out.containsKey('X-Refresh-Token')) {
+      out['X-Refresh-Token'] = '***redacted***';
+    }
+    return out;
+  }
+
+  static void request({
+    required String method,
+    required Uri url,
+    required Map<String, String> headers,
+    String? body,
+  }) {
+    final h = _redactHeaders(headers);
+    final hasBody = body != null && body.isNotEmpty;
+    final lines = <String>[
+      '┌───────────────────────── REQUEST ─────────────────────────',
+      '│ ${_bold(method)} ${_cyan(url.toString())}',
+      '│ Headers: ${jsonEncode(h)}',
+      if (hasBody) '│ Body:',
+      if (hasBody) ..._pretty(_truncate(body!)).split('\n').map((l) => '│   $l'),
+      '└──────────────────────────────────────────────────────────',
+    ];
+    debugPrint(lines.join('\n'));
+  }
+
+  static void response({
+    required String method,
+    required Uri url,
+    required int statusCode,
+    required Duration duration,
+    required Map<String, String> headers,
+    required String body,
+    String? note,
+  }) {
+    final statusText =
+    _statusColor(statusCode, '$statusCode ${_statusLabel(statusCode)}');
+    final h = _redactHeaders(headers);
+    final lines = <String>[
+      '┌──────────────────────── RESPONSE ─────────────────────────',
+      '│ ${_bold(method)} ${_cyan(url.toString())}  •  ${_bold(duration.inMilliseconds.toString())}ms',
+      '│ Status: $statusText',
+      '│ Headers: ${jsonEncode(h)}',
+      if (note != null) '│ Note: $note',
+      '│ Body:',
+      ..._pretty(_truncate(body)).split('\n').map((l) => '│   $l'),
+      '└──────────────────────────────────────────────────────────',
+    ];
+    final out = (statusCode >= 200 && statusCode < 300)
+        ? _green(lines.join('\n'))
+        : (statusCode >= 400 && statusCode < 500)
+        ? _yellow(lines.join('\n'))
+        : _red(lines.join('\n'));
+    debugPrint(out);
+  }
+
+  static String _statusLabel(int code) {
+    if (code >= 200 && code < 300) return 'OK';
+    if (code == 400) return 'Bad Request';
+    if (code == 401) return 'Unauthorized';
+    if (code == 403) return 'Forbidden';
+    if (code == 404) return 'Not Found';
+    if (code == 409) return 'Conflict';
+    if (code == 422) return 'Unprocessable Entity';
+    if (code >= 500 && code < 600) return 'Server Error';
+    return 'HTTP';
+  }
 }
 
 String handleApiError(dynamic error) {
   if (error is ApiException) {
-    debugPrint("⚠️ API Exception: \${error.message}");
-    return error.message;
+    return "${error.message ?? 'Request failed'} (code ${error.statusCode})";
   } else if (error is SocketException) {
-    debugPrint("📴 No Internet: \$error");
     return "No Internet Connection";
   } else if (error is FormatException) {
-    debugPrint("❌ Invalid Response Format: \$error");
-    return "Invalid data format received";
-  } else if (error is http.ClientException) {
-    debugPrint("🚫 Client Exception: \$error");
-    return "Request failed";
+    return "Invalid response format";
   } else {
-    debugPrint("💥 Unknown Error: \$error");
     return "Something went wrong";
   }
 }

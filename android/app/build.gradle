@@ -7,11 +7,13 @@ plugins {
     id 'dev.flutter.flutter-gradle-plugin'
 }
 
-// 🔐 Load key.properties
+// 🔐 Load key.properties from android/ (NOT app/)
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+} else {
+    println("⚠️ key.properties not found at ${keystorePropertiesFile}. Release signing will fail.")
 }
 
 android {
@@ -19,6 +21,8 @@ android {
     compileSdk 35
     ndkVersion '27.0.12077973'
 
+    // If AGP warns about aaptOptions being obsolete in your setup, you can switch to:
+    // androidResources { noCompress += ["tflite"] }
     aaptOptions {
         noCompress "tflite"
     }
@@ -29,13 +33,14 @@ android {
         targetSdk 35
         versionCode 1
         versionName "1.0"
+
+        // Your CMake/native config
         externalNativeBuild {
             cmake {
                 cppFlags ""
                 abiFilters 'armeabi-v7a', 'arm64-v8a'
             }
         }
-
     }
 
     externalNativeBuild {
@@ -44,7 +49,6 @@ android {
         }
     }
 
-
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -52,6 +56,7 @@ android {
 
     kotlinOptions {
         jvmTarget = '17'
+        freeCompilerArgs += ["-Xlint:-options"] // suppresses "obsolete options" warnings
     }
     kotlin {
         jvmToolchain(17)
@@ -63,7 +68,11 @@ android {
 
     signingConfigs {
         release {
-            storeFile file(keystoreProperties['storeFile'])
+            // ✅ IMPORTANT: use rootProject.file so the path is resolved from /android, not /android/app
+            def storePath = keystoreProperties['storeFile']
+            if (storePath) {
+                storeFile rootProject.file(storePath)
+            }
             storePassword keystoreProperties['storePassword']
             keyAlias keystoreProperties['keyAlias']
             keyPassword keystoreProperties['keyPassword']
@@ -72,12 +81,33 @@ android {
 
     buildTypes {
         release {
+            // If any of the signing fields above are missing, this will fail. That’s expected.
             signingConfig signingConfigs.release
-            shrinkResources false
+
+            // Keep these to reduce size
+            shrinkResources true
             minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
+                    'proguard-rules.pro'
+        }
+
+        debug {
+            // (optional) keep debug friendly
+            minifyEnabled false
+            shrinkResources false
         }
     }
+
+    // (Optional) If you prefer generating split APKs by default via Gradle:
+    // splits {
+    //     abi {
+    //         enable true
+    //         reset()
+    //         include "arm64-v8a", "armeabi-v7a"
+    //         universalApk false
+    //     }
+    // }
 }
 
 flutter {
@@ -93,13 +123,11 @@ dependencies {
 
     // ✅ TensorFlow Lite Task Library (Audio classifier)
     implementation 'org.tensorflow:tensorflow-lite-task-audio:0.4.3'
+
     implementation 'com.google.firebase:firebase-appcheck-playintegrity'
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     implementation platform('com.google.firebase:firebase-bom:33.12.0')
     implementation 'com.google.firebase:firebase-analytics'
+    implementation "com.google.firebase:firebase-auth"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     implementation "androidx.core:core:1.16.0"
-    implementation("com.google.firebase:firebase-auth")
-
 }
-
-

@@ -13,7 +13,7 @@ import 'chat_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
-  final ChatSession? initialSession;
+  final String? initialSession;
   const HomeScreen({super.key, this.initialSession});
 
   @override
@@ -23,22 +23,21 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   late final ChatService _chatService;
-  final GlobalKey<ChatGPTBottomSheetWrapperState> _sheetKey = GlobalKey(debugLabel: 'BottomSheetWrapper');
+  final GlobalKey<ChatGPTBottomSheetWrapperState> _sheetKey =
+  GlobalKey(debugLabel: 'BottomSheetWrapper');
 
   @override
   void initState() {
     super.initState();
-    print("👀 HomeScreen received initial session: ${widget.initialSession?.id}");
+    print("👀 HomeScreen received initial session: ${widget.initialSession}");
     _chatService = ChatService();
     _initializeService();
-
   }
 
   Future<void> _initializeService() async {
-    await _chatService.initializeForDashboard(initialSession: widget.initialSession);
+    await _chatService.initializeForDashboard(initialSessionId: widget.initialSession);
     if (mounted) setState(() {});
   }
-
 
   void _handleFirstMessageComplete(String newTitle) {
     print("📲 DashboardScreen received title: $newTitle");
@@ -48,13 +47,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-
   Future<void> _createNewChat() async {
     try {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (_) => const Center(child: SizedBox.shrink()),
+        builder: (_) => SizedBox.shrink(),
       );
 
       await _chatService.createNewChatSession();
@@ -62,7 +60,6 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       Navigator.of(context).pop();
 
-      // Small delay for smooth transition
       await Future.delayed(const Duration(milliseconds: 300));
 
       if (mounted) {
@@ -103,20 +100,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  String _getAppBarTitle() {
-    switch (_currentIndex) {
-      case 0:
-        return 'Vitty';
-      case 1:
-        return 'Goals';
-      case 2:
-        return 'Assets';
-      default:
-        return '';
-    }
-  }
-
-  // Method to open settings sheet
   void _openSettingsSheet() {
     final settingsSheet = BottomSheetManager.buildSettingsSheet(
       onTap: () => _sheetKey.currentState?.closeSheet(),
@@ -124,29 +107,70 @@ class _HomeScreenState extends State<HomeScreen> {
     _sheetKey.currentState?.openSheet(settingsSheet);
   }
 
-  // Method to open stock detail sheet
-  void _openStockDetailSheet(String stockSymbol, String stockName) {
+  void _openStockDetailSheet(String assetId) {
+    print(assetId);
     final stockSheet = BottomSheetManager.buildStockDetailSheet(
-      stockSymbol: stockSymbol,
-      stockName: stockName,
+      assetId: assetId,
       onTap: () => _sheetKey.currentState?.closeSheet(),
     );
     _sheetKey.currentState?.openSheet(stockSheet);
   }
 
-  // Method to open ask vitty sheet
+
   void _openAskVittySheet(String selectedText) {
-    final askVittySheet = BottomSheetManager.buildAskVittySheet(
-      chatService: _chatService,
-      selectedText: selectedText,
-      onTap: () => _sheetKey.currentState?.closeSheet(),
-      onAskVitty: (String question) {
-        // Handle the ask vitty action
-        print("Ask Vitty: $question");
-        // You can implement your ask vitty logic here
-      },
-    );
-    _sheetKey.currentState?.openSheet(askVittySheet);
+    // Close any existing sheet first
+    _sheetKey.currentState?.closeSheet();
+
+    // Small delay to ensure clean state
+    Future.delayed(const Duration(milliseconds: 100), () async {
+      if (mounted) {
+        try {
+          // ✅ NEW: Create a new session specifically for the ask vitty thread
+          print("🤖 Creating new Ask Vitty session for: $selectedText");
+
+          // Create a dedicated ChatService instance for the thread
+          final threadChatService = ChatService();
+          await threadChatService.createNewChatSession();
+
+          final askVittySheet = BottomSheetManager.buildAskVittySheet(
+            chatService: threadChatService, // ✅ Use new service instance
+            selectedText: selectedText,
+            onTap: () {
+              _sheetKey.currentState?.closeSheet();
+              // ✅ Clean up the thread service when closing
+              threadChatService.dispose();
+            },
+            onAskVitty: (String question) {
+              print("🤖 Ask Vitty follow-up: $question");
+              // The VittyThreadSheet will handle creating new sessions for follow-ups
+            },
+          );
+          _sheetKey.currentState?.openSheet(askVittySheet);
+
+        } catch (e) {
+          print("❌ Error creating Ask Vitty session: $e");
+          // Fallback: show error or use existing service
+          final askVittySheet = BottomSheetManager.buildAskVittySheet(
+            chatService: _chatService, // Fallback to main service
+            selectedText: selectedText,
+            onTap: () => _sheetKey.currentState?.closeSheet(),
+            onAskVitty: (String question) {
+              print("🤖 Ask Vitty (fallback): $question");
+            },
+          );
+          _sheetKey.currentState?.openSheet(askVittySheet);
+        }
+      }
+    });
+  }
+
+  String _getAppBarTitle() {
+    switch (_currentIndex) {
+      case 0: return 'Vitty';
+      case 1: return 'Goals';
+      case 2: return 'Assets';
+      default: return '';
+    }
   }
 
   @override
@@ -197,29 +221,50 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       drawer: _chatService.isInitialized
           ? CustomDrawer(
-        onTap: _openSettingsSheet, // Use the new method
+        onTap: _openSettingsSheet,
         onCreateNewChat: _createNewChat,
         chatService: _chatService,
         onSessionTap: _switchToSession,
       )
           : null,
-      body: _chatService.currentSession != null
+      // body: _chatService.currentSession != null
+      //     ? ChatScreen(
+      //   key: ValueKey(_chatService.currentSession!.id),
+      //   session: _chatService.currentSession!,
+      //   chatService: _chatService,
+      //   onFirstMessageComplete: (bool isComplete) {  // ✅ UNCOMMENT AND FIX THIS
+      //     if (isComplete) {
+      //       print("📲 First message completed, showing new chat button");
+      //       setState(() {}); // ✅ Trigger rebuild to show new chat button
+      //     }
+      //   },
+      //   onStockTap: _openStockDetailSheet,
+      //   onAskVitty: _openAskVittySheet,
+      // )
+      //     : Container(
+      //   color: backgroundColor,
+      //   child: const Center(
+      //     child: CircularProgressIndicator(
+      //       color: Color(0xFFF66A00),
+      //     ),
+      //   ),
+      // ),
+      body: _chatService.isInitialized
           ? ChatScreen(
-        key: ValueKey(_chatService.currentSession!.id),
-        session: _chatService.currentSession!,
+        key: const ValueKey('chat-screen'),     // <- stable
+        session: _chatService.currentSession,   // <- nullable allowed
         chatService: _chatService,
-        onFirstMessageComplete: _handleFirstMessageComplete,
-        onStockTap: _openStockDetailSheet, // Pass the method
-        onAskVitty: _openAskVittySheet, // Pass the method
+        onFirstMessageComplete: (isComplete) { if (isComplete) setState(() {}); },
+        onStockTap: _openStockDetailSheet,
+        onAskVitty: _openAskVittySheet,
       )
           : Container(
         color: backgroundColor,
         child: const Center(
-          child: CircularProgressIndicator(
-            color: Color(0xFFF66A00),
-          ),
+          child: CircularProgressIndicator(color: Color(0xFFF66A00)),
         ),
       ),
+
     );
   }
 

@@ -27,6 +27,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   int _currentPage = 0;
   bool _isLoading = false;
   bool _imagesPreloaded = false;
+  bool _onboardingMarkedComplete = false;
 
   final List<List<Color>> gradientColors = [
     [const Color(0xFF7F00FF), const Color(0xFFE100FF)], // Page 0
@@ -43,7 +44,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   void initState() {
     super.initState();
-    // Don't preload images here - move to didChangeDependencies
+    _markOnboardingAsStarted();
   }
 
   @override
@@ -52,6 +53,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
     if (!_imagesPreloaded) {
       _preloadImages();
       _imagesPreloaded = true;
+    }
+  }
+
+  Future<void> _markOnboardingAsStarted() async {
+    if (!_onboardingMarkedComplete) {
+      await _authService.markOnboardingCompleted();
+      _onboardingMarkedComplete = true;
+      debugPrint('✅ Onboarding marked as completed (early)');
     }
   }
 
@@ -95,7 +104,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
             context.go('/home');
             break;
           case AuthFlow.onboarding:
-          // Should not happen here
+          // Should never happen since we already marked it complete
+            debugPrint('⚠️ Unexpected onboarding flow');
+            context.go('/phone_otp');
             break;
         }
       });
@@ -258,6 +269,7 @@ class AppStartupCoordinator extends StatefulWidget {
 class _AppStartupCoordinatorState extends State<AppStartupCoordinator> {
   final AuthService _authService = locator<AuthService>();
   bool _isLoading = true;
+  String _debugInfo = 'Initializing...';
 
   @override
   void initState() {
@@ -267,31 +279,36 @@ class _AppStartupCoordinatorState extends State<AppStartupCoordinator> {
 
   Future<void> _determineInitialRoute() async {
     try {
+      setState(() => _debugInfo = 'Checking onboarding status...');
+
       await _authService.determineInitialFlow((flow) {
         if (!mounted) return;
 
         setState(() => _isLoading = false);
 
-        switch (flow) {
-          case AuthFlow.onboarding:
-            context.go('/onboarding');
-            break;
-          case AuthFlow.login:
-            context.go('/phone_otp');
-            break;
-          case AuthFlow.nameEntry:
-            context.go('/enter_name');
-            break;
-          case AuthFlow.home:
-            context.go('/home');
-            break;
-        }
+        final route = switch (flow) {
+          AuthFlow.onboarding => '/onboarding',
+          AuthFlow.login => '/phone_otp',
+          AuthFlow.nameEntry => '/enter_name',
+          AuthFlow.home => '/home',
+        };
+
+        debugPrint('🚀 Navigating to: $route (flow: $flow)');
+        context.go(route);
       });
     } catch (e) {
       debugPrint('❌ Error determining initial route: $e');
       if (mounted) {
-        setState(() => _isLoading = false);
-        context.go('/onboarding'); // Fallback
+        setState(() {
+          _isLoading = false;
+          _debugInfo = 'Error occurred, using fallback...';
+        });
+
+        // Safe fallback - check onboarding one more time
+        final onboardingCompleted = await _authService.isOnboardingCompleted();
+        final fallbackRoute = onboardingCompleted ? '/phone_otp' : '/onboarding';
+
+        context.go(fallbackRoute);
       }
     }
   }
@@ -299,17 +316,17 @@ class _AppStartupCoordinatorState extends State<AppStartupCoordinator> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: Colors.black,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(color: Colors.white),
-              SizedBox(height: 16),
+              const CircularProgressIndicator(color: Colors.white),
+              const SizedBox(height: 16),
               Text(
-                'Loading...',
-                style: TextStyle(color: Colors.white),
+                _debugInfo,
+                style: const TextStyle(color: Colors.white),
               ),
             ],
           ),

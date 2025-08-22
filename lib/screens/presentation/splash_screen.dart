@@ -23,7 +23,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late Animation<double> _scaleAnimation;
 
   final authService = locator<AuthService>();
-
   bool _navigated = false;
 
   @override
@@ -31,7 +30,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     super.initState();
 
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 900), // ✅ Exactly 500ms
+      duration: const Duration(milliseconds: 900),
       vsync: this,
     );
 
@@ -44,69 +43,102 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     );
 
     _controller.forward().then((_) {
-      // ✅ Immediate navigation after 500ms animation
-      _instantNavigation();
+      _handleNavigation();
     });
   }
 
-  void _instantNavigation() async {
-    final stopwatch = Stopwatch()..start();
+  void _handleNavigation() async {
+    if (_navigated) return;
 
-    // ✅ Parallel loading of prefs and theme
-    final futures = await Future.wait([
-      SharedPreferences.getInstance(),
-      locator<ThemeService>().loadThemeFromPrefs(),
-    ]);
+    try {
+      // ✅ Load theme and prefs in parallel
+      final futures = await Future.wait([
+        SharedPreferences.getInstance(),
+        locator<ThemeService>().loadThemeFromPrefs(),
+      ]);
 
-    final prefs = futures[0] as SharedPreferences;
-    final isBiometricEnabled = prefs.getBool('biometric_enabled') ?? false;
+      final prefs = futures[0] as SharedPreferences;
 
-    // ✅ Handle biometrics if needed
-    if (isBiometricEnabled) {
-      //final securityService = SecurityService();
-      final success = await authService.authenticate();
-      if (!success) {
-        exit(0);
+      // ✅ Handle biometrics if enabled
+      final isBiometricEnabled = prefs.getBool('biometric_enabled') ?? false;
+      if (isBiometricEnabled) {
+        final success = await authService.authenticate();
+        if (!success) {
+          exit(0);
+          return;
+        }
+      }
+
+      // ✅ Quick token check for immediate home navigation
+      final token = prefs.getString("access_token");
+      final uid = prefs.getString("uid");
+
+      if (token != null && uid != null) {
+        // ✅ User has valid session - go straight to home
+        _navigateToRoute('/home');
+
+        // ✅ Background token validation (non-blocking)
+        _validateTokenInBackground();
         return;
       }
-    }
 
-    // ✅ Quick token check from memory (no validation)
-    final token = prefs.getString("access_token");
-    final uid = prefs.getString("uid");
+      // ✅ No valid session - use proper flow determination
+      await _determineFlowForUnauthenticatedUser();
 
-    if (_navigated) return;
-    _navigated = true;
-
-    if (token != null && uid != null) {
-      // ✅ Token exists - navigate to home immediately
-      context.go('/home');
-
-
-      // ✅ Background token validation (non-blocking)
-      _validateTokenInBackground();
-    } else {
-      // ✅ No token - go to login
-      context.go('/onboarding');
-
-
+    } catch (e) {
+      debugPrint('❌ Error in splash navigation: $e');
+      // ✅ Fallback to proper flow determination
+      await _determineFlowForUnauthenticatedUser();
     }
   }
 
-  // ✅ Background token validation - won't block UI
+  // ✅ Use AuthService logic for unauthenticated users
+  Future<void> _determineFlowForUnauthenticatedUser() async {
+    try {
+      await authService.determineInitialFlow((flow) {
+        if (!mounted || _navigated) return;
+
+        final route = switch (flow) {
+          AuthFlow.onboarding => '/onboarding',
+          AuthFlow.login => '/phone_otp',
+          AuthFlow.nameEntry => '/enter_name',
+          AuthFlow.home => '/home',
+        };
+
+        debugPrint('🚀 Splash navigating to: $route (flow: $flow)');
+        _navigateToRoute(route);
+      });
+    } catch (e) {
+      debugPrint('❌ Error determining flow from splash: $e');
+
+      // ✅ Safe fallback - check onboarding status
+      final onboardingCompleted = await authService.isOnboardingCompleted();
+      final fallbackRoute = onboardingCompleted ? '/phone_otp' : '/onboarding';
+      _navigateToRoute(fallbackRoute);
+    }
+  }
+
+  // ✅ Safe navigation with duplicate check
+  void _navigateToRoute(String route) {
+    if (_navigated) return;
+    _navigated = true;
+
+    if (mounted) {
+      context.go(route);
+    }
+  }
+
+  // ✅ Background token validation - won't block UI (unchanged)
   void _validateTokenInBackground() async {
     try {
       print("🔄 Starting background token validation...");
 
-      // ✅ Load tokens into SessionManager
       await SessionManager.loadTokens();
-
-      // ✅ Check if token is valid
       final token = SessionManager.token;
+
       if (token != null && !authService.isTokenExpired(token)) {
         print("✅ Token is valid - no refresh needed");
 
-        // ✅ Fetch user profile if needed
         try {
           await locator<AuthService>().fetchUserProfile();
           print("✅ User profile loaded in background");
@@ -116,14 +148,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         return;
       }
 
-      // ✅ Token expired - try refresh
       print("🔄 Token expired, attempting refresh...");
       final refreshed = await SessionManager.tryRefreshToken();
 
       if (refreshed) {
         print("✅ Background token refresh successful");
 
-        // ✅ Load user profile with new token
         try {
           await locator<AuthService>().fetchUserProfile();
           print("✅ User profile loaded after refresh");
@@ -132,26 +162,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         }
       } else {
         print("❌ Background token refresh failed");
-
-        // ✅ Silent logout and redirect (only if multiple failures)
         _handleSilentLogout();
       }
     } catch (e) {
       print("❌ Background validation error: $e");
-      // ✅ Continue - don't disrupt user experience
     }
   }
 
-  // ✅ Handle silent logout without disrupting UX
+  // ✅ Handle silent logout without disrupting UX (unchanged)
   void _handleSilentLogout() async {
     try {
-      // ✅ Clear tokens
       await SessionManager.clearToken();
-
-      // ✅ Wait a bit before redirecting (let user see home page first)
       await Future.delayed(Duration(seconds: 2));
 
-      // ✅ Only redirect if user is still on the app
       if (mounted) {
         print("🚪 Redirecting to login due to invalid session");
         context.go('/phone_otp');

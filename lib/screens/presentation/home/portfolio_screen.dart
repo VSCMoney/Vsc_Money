@@ -251,8 +251,16 @@ class _GoalsPageState extends State<GoalsPage> {
     sorted.sort((a, b) => a.targetDate.compareTo(b.targetDate));
     return sorted;
   }
-  final GlobalKey<ChatGPTBottomSheetWrapperState> _sheetKey = GlobalKey();
+  final GlobalKey<ChatGPTBottomSheetWrapperState> _sheetKey =
+  GlobalKey(debugLabel: 'BottomSheetWrapper');
 
+
+  void _openSettingsSheet() {
+    final settingsSheet = BottomSheetManager.buildSettingsSheet(
+      onTap: () => _sheetKey.currentState?.closeSheet(),
+    );
+    _sheetKey.currentState?.openSheet(settingsSheet);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -260,7 +268,6 @@ class _GoalsPageState extends State<GoalsPage> {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return ChatGPTBottomSheetWrapper(
       key:_sheetKey,
-      //bottomSheet: ZomatoStockBottomSheet(),
       child: Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(100),
@@ -279,6 +286,7 @@ class _GoalsPageState extends State<GoalsPage> {
           ),
         ),
         drawer: CustomDrawer(
+          onTap: _openSettingsSheet,
           selectedRoute: "Goals",
         ),
         backgroundColor: theme.background,

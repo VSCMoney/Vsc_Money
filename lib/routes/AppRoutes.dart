@@ -4,6 +4,8 @@ import 'package:vscmoney/screens/presentation/auth/auth_screen.dart';
 import 'package:vscmoney/screens/presentation/auth/phone_otp_scree.dart';
 import 'package:vscmoney/screens/presentation/auth/profile_screen.dart';
 import 'package:vscmoney/screens/presentation/conversations.dart';
+import 'package:vscmoney/screens/presentation/search_stock_screen.dart';
+import 'package:vscmoney/screens/asset_page/assets_page.dart';
 
 import '../models/chat_session.dart';
 import '../screens/presentation/onboarding/onoarding_page.dart';
@@ -37,7 +39,8 @@ class AppRouter {
         name: 'splash',
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
-          child:  SplashScreen(),
+          child: SplashScreen(),
+         // child:  StockDetailPage(stockName: "Zomato", stockSymbol: "Zomato", onClose: (){}),
           transitionsBuilder: dissolveTransition,
         ),
       ),
@@ -60,7 +63,7 @@ class AppRouter {
             key: state.pageKey,
             child: Conversations(
               onSessionTap: onSessionTap,
-              onCreateNewChat: () {}, // optional
+              //onCreateNewChat: () {}, // optional
             ),
             transitionsBuilder: slideLeftTransition,
             fullscreenDialog: true,
@@ -99,29 +102,57 @@ class AppRouter {
           transitionsBuilder: slideLeftTransition,
         ),
       ),
-      GoRoute(
-        path: '/otp',
-        name: 'otp',
-        pageBuilder: (context, state) {
-          final extra = state.extra as Map?;
-          final phone = extra?['phone'] as String?;
-          return CustomTransitionPage(
-            key: state.pageKey,
-            child: OtpVerification(phoneNumber: phone),
-            transitionsBuilder: slideLeftTransition,
-          );
-        },
-      ),
+      // GoRoute(
+      //   path: '/otp',
+      //   name: 'otp',
+      //   pageBuilder: (context, state) {
+      //     final extra = state.extra as Map?;
+      //     final phone = extra?['phone'] as String?;
+      //     return CustomTransitionPage(
+      //       key: state.pageKey,
+      //       child: OtpVerification(phoneNumber: phone),
+      //       transitionsBuilder: slideLeftTransition,
+      //     );
+      //   },
+      // ),
+      // GoRoute(
+      //   path: '/home',
+      //   name: 'home',
+      //   pageBuilder: (context, state) {
+      //     final extra = state.extra as Map<String, dynamic>?;
+      //     // final session = extra?['session'] as ChatSession?;
+      //     final sessionId = state.uri.queryParameters['sessionId'];
+      //
+      //     return CustomTransitionPage(
+      //       key: state.pageKey,
+      //       child: HomeScreen(initialSession: sessionId), // ✅ no chatService or callback
+      //       transitionDuration: const Duration(milliseconds: 300),
+      //       transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      //         return FadeTransition(
+      //           opacity: CurvedAnimation(
+      //             parent: animation,
+      //             curve: Curves.easeOut,
+      //           ),
+      //           child: child,
+      //         );
+      //       },
+      //     );
+      //   },
+      // ),
+
+// 1. Fix your GoRouter configuration
       GoRoute(
         path: '/home',
         name: 'home',
         pageBuilder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          final session = extra?['session'] as ChatSession?;
+          // ✅ FIX: Get sessionId from query parameters
+          final sessionId = state.uri.queryParameters['sessionId'];
+
+          print("🔗 Router: Navigating to home with sessionId: $sessionId");
 
           return CustomTransitionPage(
             key: state.pageKey,
-            child: HomeScreen(initialSession: session), // ✅ no chatService or callback
+            child: HomeScreen(initialSession: sessionId), // ✅ FIXED: Use initialSessionId
             transitionDuration: const Duration(milliseconds: 300),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(
@@ -184,7 +215,7 @@ class AppRouter {
         name: 'phone_otp',
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
-          child: const PhoneOtpScreen(),
+          child: const SignInPage(),
           transitionsBuilder: dissolveTransition,
         ),
       ),

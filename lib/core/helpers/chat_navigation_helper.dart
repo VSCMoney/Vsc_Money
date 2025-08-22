@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../screens/presentation/stock_detail_screen.dart';
+import '../../screens/asset_page/assets_page.dart';
 import '../../services/chat_service.dart';
 import '../../testpage.dart';
 
@@ -36,7 +36,7 @@ class ChatNavigationHelper {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => StockDetailPage(stockSymbol: stockSymbol,onClose: (){},stockName: stockSymbol,),
+        builder: (_) => AssetPage(onClose: (){},assetId: "",),
       ),
     );
   }
