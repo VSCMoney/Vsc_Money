@@ -1307,8 +1307,8 @@ class ChatService{
     await SessionManager.checkTokenValidityAndRefresh();
 
     try {
-     //final url = Uri.parse('https://fastapi-app-130321581049.asia-south1.run.app/chat/respond');
-      final url = Uri.parse('http://localhost:8000/chat/respond');
+     final url = Uri.parse('https://fastapi-app-130321581049.asia-south1.run.app/chat/respond');
+     // final url = Uri.parse('http://localhost:8000/chat/respond');
       final request = http.Request('POST', url);
 
       request.headers.addAll({

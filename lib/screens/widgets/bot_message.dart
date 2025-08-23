@@ -456,7 +456,7 @@ class BotMessageWidget extends StatefulWidget {
     required this.message,
     required this.isComplete,
     this.isLatest = false,
-    this.isHistorical = false,  // ✅ NEW: Add this with default false
+    this.isHistorical = false,
     this.currentStatus,
     this.onAskVitty,
     this.tableData,
@@ -478,7 +478,7 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
   Timer? _timer;
   bool _isTyping = false;
   bool _hasCompletedTyping = false;
-  bool _wasForceStopped = false; // ✅ FIXED: Correct variable name
+  bool _wasForceStopped = false;
 
   String _preFull = '';
   String _postFull = '';
@@ -491,6 +491,15 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
   bool _shouldShowTable = false;
   bool _postDelayApplied = false;
 
+  // ✅ CRITICAL: Track state to prevent reinitialization
+  bool _hasInitialized = false;
+  String _lastProcessedMessage = '';
+  String _lastStopTs = '';
+
+  // ✅ CRITICAL: Global static map to track streaming states across widget rebuilds
+  static final Map<String, _StreamingState> _streamingStates = {};
+  String get _stateKey => '${widget.message.hashCode}_${widget.isLatest}';
+
   int get _intervalMs => 1000 ~/ _cps;
   String get _preDisplay => _preFull.substring(0, _preShown.clamp(0, _preFull.length));
   String get _postDisplay => _postFull.substring(0, _postShown.clamp(0, _postFull.length));
@@ -499,41 +508,105 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
   @override
   void initState() {
     super.initState();
+    print("🎬 BotMessage: initState called");
+    _initializeWidget();
+  }
+
+  void _initializeWidget() {
     _recomputeSegments(widget.message);
     _updateTableData();
 
-    // Check for force stop on init
-    if (widget.forceStop == true) {
-      _handleForceStop();
+    // ✅ CRITICAL: Check if we have existing streaming state for this message
+    final existingState = _streamingStates[_stateKey];
+    if (existingState != null && !existingState.wasCompleted) {
+      print("🔄 BotMessage: Restoring streaming state from position ${existingState.preShown}");
+      _restoreStreamingState(existingState);
       return;
     }
 
-    // ✅ CHANGE: Historical messages OR complete messages should appear instantly
-    if (widget.isComplete || widget.isHistorical) {
-      // Show all content immediately without typing animation
-      _preShown = _preFull.length;
-      _postShown = _postFull.length;
-      _hasCompletedTyping = true;
-      _shouldShowTable = _hasTableDataAvailable;
+    // Check if already stopped/completed
+    final wasAlreadyStopped = widget.forceStop == true ||
+        widget.isComplete ||
+        widget.isHistorical;
 
-      // ✅ NEW: For historical messages, immediately call onRenderComplete
-      if (widget.isHistorical) {
-        print("📄 Historical message - showing instantly");
-        Future.microtask(() => widget.onRenderComplete?.call());
-      }
+    if (wasAlreadyStopped) {
+      print("📄 BotMessage: Already stopped/completed - showing instantly");
+      _showInstantly();
+    } else if (!widget.isHistorical && !widget.isComplete) {
+      print("⌨️ BotMessage: Starting continuous streaming animation");
+      _startContinuousStreaming();
     } else {
-      // Only start typing animation for NEW messages (not historical)
-      print("⌨️ New message - starting typing animation");
-      _startOrResumeTyping();
+      _showInstantly();
     }
+
+    _hasInitialized = true;
+  }
+
+  void _restoreStreamingState(_StreamingState state) {
+    _preShown = state.preShown;
+    _postShown = state.postShown;
+    _shouldShowTable = state.shouldShowTable;
+    _postDelayApplied = state.postDelayApplied;
+    _hasCompletedTyping = state.wasCompleted;
+    _wasForceStopped = state.wasForceStopped;
+
+    if (!_hasCompletedTyping && !_wasForceStopped) {
+      _isTyping = true;
+      _timer = Timer.periodic(Duration(milliseconds: _intervalMs), _continuousStreamingTick);
+      print("▶️ BotMessage: Resumed continuous streaming from position $_preShown");
+    }
+  }
+
+  void _saveStreamingState() {
+    _streamingStates[_stateKey] = _StreamingState(
+      preShown: _preShown,
+      postShown: _postShown,
+      shouldShowTable: _shouldShowTable,
+      postDelayApplied: _postDelayApplied,
+      wasCompleted: _hasCompletedTyping,
+      wasForceStopped: _wasForceStopped,
+    );
+  }
+
+  void _showInstantly() {
+    _preShown = _preFull.length;
+    _postShown = _postFull.length;
+    _hasCompletedTyping = true;
+    _shouldShowTable = _hasTableDataAvailable;
+    _wasForceStopped = widget.forceStop == true;
+
+    _saveStreamingState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onRenderComplete?.call();
+    });
   }
 
   void _recomputeSegments(String full) {
     final parts = full.split(_kPlaceholder);
-    _preFull = parts.isNotEmpty ? parts.first : '';
-    _postFull = parts.length > 1 ? parts.sublist(1).join(_kPlaceholder) : '';
-    _preShown = _preShown.clamp(0, _preFull.length);
-    _postShown = _postShown.clamp(0, _postFull.length);
+    final newPreFull = parts.isNotEmpty ? parts.first : '';
+    final newPostFull = parts.length > 1 ? parts.sublist(1).join(_kPlaceholder) : '';
+
+    // Handle message content updates during streaming
+    if (_preFull != newPreFull || _postFull != newPostFull) {
+      final oldPreLength = _preFull.length;
+      final newPreLength = newPreFull.length;
+
+      if (newPreLength >= oldPreLength && newPreFull.startsWith(_preFull)) {
+        // Message was extended - keep current position and continue streaming
+        print("📈 BotMessage: Message extended from $oldPreLength to $newPreLength chars");
+        _preFull = newPreFull;
+        _postFull = newPostFull;
+        // _preShown stays the same - animation continues from current position
+      } else {
+        // Completely different message content
+        print("🔄 BotMessage: Message content completely changed");
+        _preFull = newPreFull;
+        _postFull = newPostFull;
+        _preShown = _preShown.clamp(0, _preFull.length);
+        _postShown = _postShown.clamp(0, _postFull.length);
+      }
+    }
   }
 
   void _updateTableData() {
@@ -553,25 +626,20 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
     }
   }
 
-  // ✅ NEW: Handle force stop - finish animation immediately
   void _handleForceStop() {
-    print("🛑 Force stop detected - finishing animation immediately");
+    print("🛑 Force stop detected - stopping continuous streaming");
 
     _timer?.cancel();
     _isTyping = false;
-    _wasForceStopped = true; // ✅ FIXED: Correct variable name
+    _wasForceStopped = true;
+    _hasCompletedTyping = true;
 
-    // Show current state without further animation
     if (_hasTableDataAvailable && _reachedPlaceholder) {
       _shouldShowTable = true;
     }
 
-    // Mark as completed
-    _hasCompletedTyping = true;
-
+    _saveStreamingState();
     setState(() {});
-
-    // Notify parent that render is complete
     widget.onRenderComplete?.call();
   }
 
@@ -579,127 +647,175 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
   void didUpdateWidget(BotMessageWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // ✅ NEW: Check for force stop changes
-    if (widget.forceStop == true && oldWidget.forceStop != true) {
+    // Handle force stop or completion changes
+    final stopTsChanged = widget.stopTs != oldWidget.stopTs && widget.stopTs != null;
+    if ((widget.forceStop == true && oldWidget.forceStop != true) || stopTsChanged) {
+      _lastStopTs = widget.stopTs ?? '';
       _handleForceStop();
       return;
     }
 
+    // Handle completion state changes
+    if (widget.isComplete && !oldWidget.isComplete && !_hasCompletedTyping) {
+      print("✅ BotMessage: Message completed - finishing streaming");
+      _finishStreaming();
+      return;
+    }
+
+    // Handle message content updates during streaming
     if (widget.message != oldWidget.message) {
+      print("📝 BotMessage: Message content updated during streaming");
       _recomputeSegments(widget.message);
-      if (!_isTyping && !_hasCompletedTyping && !_wasForceStopped &&
-          (widget.currentStatus == null || widget.currentStatus!.isEmpty)) {
-        _startOrResumeTyping();
+      // Don't restart animation, just update content and continue
+      if (mounted) {
+        _saveStreamingState();
+        setState(() {});
       }
     }
 
+    // Handle status changes (pause/resume only for status, not for scrolling)
+    if (widget.currentStatus != oldWidget.currentStatus) {
+      if (widget.currentStatus != null && widget.currentStatus!.isNotEmpty) {
+        print("⏸️ BotMessage: Status active - pausing for status");
+        _pauseForStatus();
+      } else if (!_hasCompletedTyping && !_wasForceStopped) {
+        print("▶️ BotMessage: Status cleared - resuming streaming");
+        _resumeFromStatus();
+      }
+      setState(() {});
+    }
+
+    // Update table data if changed
     if (widget.tableData != oldWidget.tableData) {
       _updateTableData();
       setState(() {});
     }
-
-    if (widget.currentStatus != oldWidget.currentStatus) {
-      if (widget.currentStatus != null && widget.currentStatus!.isNotEmpty) {
-        _pauseTyping();
-      } else {
-        if (!_hasCompletedTyping && !_wasForceStopped) _startOrResumeTyping();
-      }
-      setState(() {});
-    }
   }
 
-  void _startOrResumeTyping() {
-    if (_isTyping || _hasCompletedTyping || _wasForceStopped) return;
-    if (widget.currentStatus != null && widget.currentStatus!.isNotEmpty) return;
-    if (widget.forceStop == true) return;
-
-    // ✅ NEW: Never start typing animation for historical messages
-    if (widget.isHistorical) {
-      print("🚫 Skipping typing animation for historical message");
+  void _startContinuousStreaming() {
+    if (_hasCompletedTyping || _wasForceStopped) {
+      print("🚫 BotMessage: Already completed/stopped - not starting streaming");
       return;
     }
 
-    print("▶️ Starting typing animation for new message");
+    if (widget.forceStop == true) return;
+    if (widget.isHistorical || widget.isComplete) return;
+
+    if (_isTyping) {
+      print("🔄 BotMessage: Already streaming - continuing");
+      return;
+    }
+
+    print("🚀 BotMessage: Starting continuous streaming (scroll-resistant)");
     _isTyping = true;
     _timer?.cancel();
-    _timer = Timer.periodic(Duration(milliseconds: _intervalMs), _tick);
+    _timer = Timer.periodic(Duration(milliseconds: _intervalMs), _continuousStreamingTick);
   }
 
-  void _pauseTyping() {
-    _timer?.cancel();
-    _isTyping = false;
+  void _pauseForStatus() {
+    if (_isTyping) {
+      _timer?.cancel();
+      _isTyping = false;
+      _saveStreamingState();
+      print("⏸️ BotMessage: Paused for status (saving state)");
+    }
   }
 
-  void _finishTyping() {
+  void _resumeFromStatus() {
+    if (!_hasCompletedTyping && !_wasForceStopped && !_isTyping) {
+      print("▶️ BotMessage: Resuming from status pause");
+      _startContinuousStreaming();
+    }
+  }
+
+  void _finishStreaming() {
+    print("✅ BotMessage: Finishing continuous streaming");
     _timer?.cancel();
     _isTyping = false;
     _hasCompletedTyping = true;
+
+    _saveStreamingState();
     setState(() {});
 
-    // ✅ Only notify if not force stopped (to avoid duplicate notifications)
     if (!_wasForceStopped) {
       widget.onRenderComplete?.call();
     }
   }
 
   void _applyPostDelayOnce() {
-    if (_postDelayApplied || _wasForceStopped) return; // ✅ Skip delay if force stopped
+    if (_postDelayApplied || _wasForceStopped) return;
     _postDelayApplied = true;
-    _pauseTyping();
+
     Future.delayed(const Duration(milliseconds: _postHoldMs), () {
       if (!mounted || _hasCompletedTyping || _wasForceStopped) return;
-      _startOrResumeTyping();
+      print("📋 BotMessage: Post-table delay completed, continuing stream");
     });
   }
 
-  void _tick(Timer t) {
+  void _continuousStreamingTick(Timer t) {
     if (!mounted) {
       t.cancel();
       return;
     }
 
-    // ✅ Stop ticking if force stopped
+    // Only stop for force stop, not for scrolling
     if (widget.forceStop == true || _wasForceStopped) {
       _handleForceStop();
       return;
     }
 
+    // Only pause for status, not for scrolling
     if (widget.currentStatus != null && widget.currentStatus!.isNotEmpty) {
-      _pauseTyping();
+      _pauseForStatus();
       return;
     }
 
+    // Continue streaming animation regardless of scroll position
     if (_preShown < _preFull.length) {
-      setState(() => _preShown++);
+      if (mounted) {
+        setState(() => _preShown++);
+        _saveStreamingState(); // Save progress periodically
+      }
       return;
     }
 
     if (_reachedPlaceholder && _hasTableDataAvailable && !_shouldShowTable) {
-      setState(() => _shouldShowTable = true);
+      if (mounted) setState(() => _shouldShowTable = true);
       _applyPostDelayOnce();
       return;
     }
 
-    if (_shouldShowTable && !_postDelayApplied) {
-      _applyPostDelayOnce();
+    // Continue to post text after delay without stopping
+    if (_postDelayApplied && _postShown < _postFull.length) {
+      if (mounted) {
+        setState(() => _postShown++);
+        _saveStreamingState();
+      }
       return;
     }
 
-    if (_postShown < _postFull.length) {
-      setState(() => _postShown++);
-      return;
+    // Check if we've completed everything
+    if (_preShown >= _preFull.length &&
+        (_postFull.isEmpty || _postShown >= _postFull.length) &&
+        (!_hasTableDataAvailable || _shouldShowTable)) {
+      _finishStreaming();
     }
-
-    _finishTyping();
   }
 
   @override
   void dispose() {
+    print("🧹 BotMessage: Disposing and cleaning up timer");
     _timer?.cancel();
+
+    // Clean up state if widget is being permanently disposed
+    if (_hasCompletedTyping || _wasForceStopped) {
+      _streamingStates.remove(_stateKey);
+    }
+
     super.dispose();
   }
 
-  // ---------- UI helpers ----------
+  // UI methods remain the same...
   Widget _buildStatusIndicator() {
     if (widget.currentStatus == null || widget.currentStatus!.isEmpty) {
       return const SizedBox.shrink();
@@ -716,11 +832,11 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
   }
 
   Widget _buildTypewriterCursor() {
-    // ✅ CHANGE: Hide cursor for historical messages, force stopped, or completed messages
     final showCursor = _isTyping &&
         !_hasCompletedTyping &&
         !_wasForceStopped &&
-        !widget.isHistorical;  // ✅ NEW: Hide for historical messages
+        !widget.isHistorical &&
+        !widget.isComplete;
 
     if (!showCursor) return const SizedBox.shrink();
 
@@ -788,7 +904,7 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Ask Vitty',style: TextStyle(color: Colors.black),),
+                const Text('Ask Vitty', style: TextStyle(color: Colors.black)),
                 const SizedBox(width: 8),
                 Image.asset('assets/images/vitty.png', width: 20, height: 20),
               ],
@@ -866,7 +982,6 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
               ],
             ),
 
-          // ✅ Show action buttons if completed OR force stopped
           if ((_hasCompletedTyping || widget.isComplete || _wasForceStopped) && !_isTyping) ...[
             const SizedBox(height: 15),
             _buildActionButtons(),
@@ -887,6 +1002,25 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
       ],
     );
   }
+}
+
+// ✅ Helper class to store streaming state
+class _StreamingState {
+  final int preShown;
+  final int postShown;
+  final bool shouldShowTable;
+  final bool postDelayApplied;
+  final bool wasCompleted;
+  final bool wasForceStopped;
+
+  _StreamingState({
+    required this.preShown,
+    required this.postShown,
+    required this.shouldShowTable,
+    required this.postDelayApplied,
+    required this.wasCompleted,
+    required this.wasForceStopped,
+  });
 }
 
 

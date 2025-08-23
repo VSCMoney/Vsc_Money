@@ -30,8 +30,8 @@ class EndPointService {
   bool isDebug = false;
 
   // Base URL
- // final String _baseUrl = 'https://fastapi-app-130321581049.asia-south1.run.app';
- final String _baseUrl = "http://localhost:8000";
+  final String _baseUrl = 'https://fastapi-app-130321581049.asia-south1.run.app';
+ //final String _baseUrl = "http://localhost:8000";
   // final String _baseUrl = 'http://127.0.0.1:8000';
 
   String? _lastEndpoint;
@@ -436,11 +436,18 @@ class ConsoleHttpLogger {
   /// Toggle ANSI colors in logs
   static bool useColors = true;
 
-  /// Limit printed body size
-  static int bodyMax = 1500;
+  /// Default limit for printed body size
+  static int defaultBodyMax = 10000000;
+
+  /// Whether to pretty-print JSON responses
+  static bool prettyPrintJson = true;
 
   /// Pretty-print JSON if possible
-  static String _pretty(String body) {
+  static String _pretty(String body, {bool forceRaw = false}) {
+    if (forceRaw || !prettyPrintJson) {
+      return body;
+    }
+
     try {
       final obj = json.decode(body);
       return const JsonEncoder.withIndent('  ').convert(obj);
@@ -449,9 +456,9 @@ class ConsoleHttpLogger {
     }
   }
 
-  static String _truncate(String s) {
-    if (s.length <= bodyMax) return s;
-    return s.substring(0, bodyMax) + ' …(truncated)…';
+  static String _truncate(String s, int maxLength) {
+    if (s.length <= maxLength) return s;
+    return s.substring(0, maxLength) + ' …(truncated ${s.length - maxLength} chars)…';
   }
 
   // Colors
@@ -460,6 +467,7 @@ class ConsoleHttpLogger {
   static String _yellow(String s)=> useColors ? '\x1B[33m$s\x1B[0m' : s;
   static String _cyan(String s)  => useColors ? '\x1B[36m$s\x1B[0m' : s;
   static String _bold(String s)  => useColors ? '\x1B[1m$s\x1B[0m'  : s;
+  static String _magenta(String s) => useColors ? '\x1B[35m$s\x1B[0m' : s;
 
   static String _statusColor(int code, String text) {
     if (code >= 200 && code < 300) return _green(text);
@@ -475,6 +483,9 @@ class ConsoleHttpLogger {
     if (out.containsKey('X-Refresh-Token')) {
       out['X-Refresh-Token'] = '***redacted***';
     }
+    if (out.containsKey('Cookie')) {
+      out['Cookie'] = '***redacted***';
+    }
     return out;
   }
 
@@ -483,17 +494,28 @@ class ConsoleHttpLogger {
     required Uri url,
     required Map<String, String> headers,
     String? body,
+    int? maxBodyLength,
+    bool prettyJson = true,
   }) {
     final h = _redactHeaders(headers);
     final hasBody = body != null && body.isNotEmpty;
+    final actualMax = maxBodyLength ?? defaultBodyMax;
+    final usePretty = prettyJson && prettyPrintJson;
+
     final lines = <String>[
       '┌───────────────────────── REQUEST ─────────────────────────',
       '│ ${_bold(method)} ${_cyan(url.toString())}',
       '│ Headers: ${jsonEncode(h)}',
-      if (hasBody) '│ Body:',
-      if (hasBody) ..._pretty(_truncate(body!)).split('\n').map((l) => '│   $l'),
-      '└──────────────────────────────────────────────────────────',
     ];
+
+    if (hasBody) {
+      final formattedBody = usePretty ? _pretty(body!, forceRaw: !usePretty) : body!;
+      final truncatedBody = _truncate(formattedBody, actualMax);
+      lines.add('│ Body:');
+      lines.addAll(truncatedBody.split('\n').map((l) => '│   $l'));
+    }
+
+    lines.add('└──────────────────────────────────────────────────────────');
     debugPrint(lines.join('\n'));
   }
 
@@ -505,25 +527,74 @@ class ConsoleHttpLogger {
     required Map<String, String> headers,
     required String body,
     String? note,
+    int? maxBodyLength,
+    bool prettyJson = true,
   }) {
-    final statusText =
-    _statusColor(statusCode, '$statusCode ${_statusLabel(statusCode)}');
+    final statusText = _statusColor(statusCode, '$statusCode ${_statusLabel(statusCode)}');
     final h = _redactHeaders(headers);
+    final actualMax = maxBodyLength ?? defaultBodyMax;
+    final usePretty = prettyJson && prettyPrintJson;
+
     final lines = <String>[
-      '┌──────────────────────── RESPONSE ─────────────────────────',
+      '┌──────────────────────── RESPONSE ────────────────────────',
       '│ ${_bold(method)} ${_cyan(url.toString())}  •  ${_bold(duration.inMilliseconds.toString())}ms',
       '│ Status: $statusText',
       '│ Headers: ${jsonEncode(h)}',
       if (note != null) '│ Note: $note',
-      '│ Body:',
-      ..._pretty(_truncate(body)).split('\n').map((l) => '│   $l'),
-      '└──────────────────────────────────────────────────────────',
     ];
+
+    // Add content length info
+    final contentLength = headers['content-length'] ?? headers['Content-Length'];
+    if (contentLength != null) {
+      lines.add('│ Content-Length: ${_magenta(contentLength)} bytes');
+    }
+
+    lines.add('│ Body:');
+
+    final formattedBody = usePretty ? _pretty(body, forceRaw: !usePretty) : body;
+    final truncatedBody = _truncate(formattedBody, actualMax);
+    lines.addAll(truncatedBody.split('\n').map((l) => '│   $l'));
+
+    lines.add('└──────────────────────────────────────────────────────────');
+
     final out = (statusCode >= 200 && statusCode < 300)
         ? _green(lines.join('\n'))
         : (statusCode >= 400 && statusCode < 500)
         ? _yellow(lines.join('\n'))
         : _red(lines.join('\n'));
+
+    debugPrint(out);
+  }
+
+  /// Special method for very large responses that should be logged minimally
+  static void responseMinimal({
+    required String method,
+    required Uri url,
+    required int statusCode,
+    required Duration duration,
+    required Map<String, String> headers,
+    required int bodyLength,
+    String? note,
+  }) {
+    final statusText = _statusColor(statusCode, '$statusCode ${_statusLabel(statusCode)}');
+    final h = _redactHeaders(headers);
+
+    final lines = <String>[
+      '┌──────────────────────── RESPONSE ────────────────────────',
+      '│ ${_bold(method)} ${_cyan(url.toString())}  •  ${_bold(duration.inMilliseconds.toString())}ms',
+      '│ Status: $statusText',
+      '│ Headers: ${jsonEncode(h)}',
+      if (note != null) '│ Note: $note',
+      '│ Body: ${_magenta('$bodyLength bytes')} (too large to display)',
+      '└──────────────────────────────────────────────────────────',
+    ];
+
+    final out = (statusCode >= 200 && statusCode < 300)
+        ? _green(lines.join('\n'))
+        : (statusCode >= 400 && statusCode < 500)
+        ? _yellow(lines.join('\n'))
+        : _red(lines.join('\n'));
+
     debugPrint(out);
   }
 
@@ -537,6 +608,11 @@ class ConsoleHttpLogger {
     if (code == 422) return 'Unprocessable Entity';
     if (code >= 500 && code < 600) return 'Server Error';
     return 'HTTP';
+  }
+
+  /// Helper method to detect if response is too large for comfortable logging
+  static bool isResponseTooLarge(String body, [int threshold = 100000]) {
+    return body.length > threshold;
   }
 }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:vscmoney/screens/AskVittyChat.dart';
+import 'package:vscmoney/screens/presentation/home/chat_screen.dart';
 
 import '../models/chat_session.dart';
 import '../services/chat_service.dart';
@@ -453,7 +454,7 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
       );
     }
 
-    return AskVittyChat(
+    return ChatScreen(
       key: ValueKey(_currentSession!.id),
       session: _currentSession!,
       chatService: widget.chatService,

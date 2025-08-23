@@ -120,6 +120,7 @@ class _StockAppBarState extends State<StockAppBar> {
               ),
               const Spacer(),
               Row(
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   IconButton(
                     icon: Icon(
@@ -127,19 +128,23 @@ class _StockAppBarState extends State<StockAppBar> {
                       color: widget.accentColor,
                       size: 24,
                     ),
+                    padding: EdgeInsets.zero, // Remove default padding
+                    constraints: const BoxConstraints(), // Remove default constraints
                     onPressed: () {
                       // TODO: hook your alerts/notifications sheet here
                     },
                   ),
+                  const SizedBox(width: 4), // Reduced spacing between icons
                   IconButton(
                     icon: Icon(
                       _watchlisted ? Icons.bookmark : Icons.bookmark_border,
                       color: widget.accentColor,
                       size: 24,
                     ),
+                    padding: EdgeInsets.zero, // Remove default padding
+                    constraints: const BoxConstraints(), // Remove default constraints
                     onPressed: _toggleWatchlist,
                   ),
-                  const SizedBox(width: 8),
                 ],
               ),
             ],

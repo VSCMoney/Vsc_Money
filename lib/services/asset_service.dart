@@ -533,48 +533,116 @@ class AssetService {
 
   // --- Chart helpers ---
   List<models.ChartPoint> _buildChartForPeriod(models.AssetData data, String period) {
-    // Get data from your timeSeriesData structure
-    final timeSeriesData = data.chartData.timeSeriesData;
+    final ts = data.chartData.timeSeriesData;
 
-    // Try to get direct period data first
-    final directData = timeSeriesData[period];
-    if (directData != null && directData.isNotEmpty) {
-      return _densify(directData, target: 120);
+    // 1) Choose a reliable base series
+    List<models.ChartPoint> base =
+        ts['ALL'] ?? _longestSeries(ts) ?? const <models.ChartPoint>[];
+    base = _sanitizeAndSort(base);
+    if (base.length < 2) return base;
+
+    // 2) If VM provides a direct series for the period AND it actually fits, prefer it
+    final direct = ts[period];
+    if (period != 'ALL' && direct != null && direct.isNotEmpty) {
+      final cleaned = _sanitizeAndSort(direct);
+      if (_seriesFitsPeriod(cleaned, period)) {
+        // Still slice by cutoff (keeps behavior consistent and trims any small drift)
+        final anchor = cleaned.last.timestamp;
+        final cutoff = _calculateCutoffDate(anchor, period);
+        final sliced = cleaned.where((p) =>
+        p.timestamp.isAfter(cutoff) || p.timestamp.isAtSameMomentAs(cutoff)
+        ).toList();
+
+        if (sliced.length >= 10) return _densify(sliced, target: 120);
+        if (sliced.length >= 2)  return _enhanceSparsePeriodData(sliced, cleaned, period);
+        return _generateRealisticDataForPeriod(base, period, anchor);
+      }
+      // If it doesn't fit, we’ll ignore and fall through to base slice.
     }
 
-    // Fallback to ALL data if specific period not available
-    final allData = timeSeriesData['ALL'] ?? const <models.ChartPoint>[];
-    if (allData.isEmpty) return const [];
-
-    // If requesting ALL, return all data
+    // 3) ALL → just densify the base
     if (period == 'ALL') {
-      return _densify(allData, target: 120);
+      return _densify(base, target: 120);
     }
 
-    // Calculate cutoff based on the LAST data point for period filtering
-    final anchor = allData.last.timestamp;
+    // 4) Slice base by cutoff for requested period
+    final anchor = base.last.timestamp;
     final cutoff = _calculateCutoffDate(anchor, period);
-
-    // Filter data points within the period
-    final filtered = allData.where((point) =>
-    point.timestamp.isAfter(cutoff) ||
-        point.timestamp.isAtSameMomentAs(cutoff)
+    final filtered = base.where((p) =>
+    p.timestamp.isAfter(cutoff) || p.timestamp.isAtSameMomentAs(cutoff)
     ).toList();
 
-    // Enhanced logic for sparse data
     if (filtered.length < 2) {
-      return _generateRealisticDataForPeriod(allData, period, anchor);
+      // Not enough points → synthesize realistic short-period curve
+      return _generateRealisticDataForPeriod(base, period, anchor);
     }
-
-    // For periods with very few points, enhance with interpolation
-    if (filtered.length < 10 && period != 'ALL') {
-      return _enhanceSparsePeriodData(filtered, allData, period);
+    if (filtered.length < 10) {
+      // Some points but sparse → enhance with interpolated points
+      return _enhanceSparsePeriodData(filtered, base, period);
     }
 
     return _densify(filtered, target: 120);
   }
 
 
+  /// Sort, drop duplicate timestamps (keep last)
+  List<models.ChartPoint> _sanitizeAndSort(List<models.ChartPoint> pts) {
+    if (pts.isEmpty) return pts;
+    final list = List<models.ChartPoint>.from(pts)
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    final seen = <int, models.ChartPoint>{};
+    for (final p in list) {
+      seen[p.timestamp.millisecondsSinceEpoch] = p;
+    }
+    final unique = seen.values.toList()
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return unique;
+  }
+
+  /// Choose the series with the largest time span if ALL is missing
+  List<models.ChartPoint>? _longestSeries(Map<String, List<models.ChartPoint>> ts) {
+    List<models.ChartPoint>? best;
+    int bestSpan = -1;
+    ts.forEach((_, series) {
+      if (series.length < 2) return;
+      final s = _sanitizeAndSort(series);
+      final span = s.last.timestamp.millisecondsSinceEpoch -
+          s.first.timestamp.millisecondsSinceEpoch;
+      if (span > bestSpan) {
+        bestSpan = span;
+        best = s;
+      }
+    });
+    return best;
+  }
+
+  /// Does a provided series *actually* fit the named period?
+  bool _seriesFitsPeriod(List<models.ChartPoint> s, String period) {
+    if (s.length < 2) return false;
+    if (period == 'ALL') return true;
+
+    final sorted = _sanitizeAndSort(s);
+    final spanDays = sorted.last.timestamp.difference(sorted.first.timestamp).inDays;
+
+    int maxDays;
+    if (period == '1D') {
+      maxDays = 2;       // allow some drift
+    } else if (period == '1W') {
+      maxDays = 10;
+    } else if (period == '1M') {
+      maxDays = 45;
+    } else if (period == '1Y') {
+      maxDays = 400;
+    } else if (period.endsWith('Y')) {
+      final years = int.tryParse(period.replaceAll('Y', '')) ?? 5;
+      maxDays = (years * 370);
+    } else {
+      maxDays = 400; // safe default
+    }
+
+    return spanDays <= maxDays;
+  }
 
 
   /// Generate realistic data for short periods when source data is sparse

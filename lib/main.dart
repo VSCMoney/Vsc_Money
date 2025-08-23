@@ -1,3 +1,4 @@
+// main.dart
 import 'dart:async';
 import 'dart:io';
 
@@ -49,7 +50,6 @@ void main() async {
   });
 }
 
-
 /// Handles all app initialization logic
 class AppInitializer {
   static int _initializeCallCount = 0;
@@ -61,15 +61,13 @@ class AppInitializer {
     print('🔍 INIT: AppInitializer.initialize() called - Count: $_initializeCallCount');
     print('🔍 INIT: Stack trace: ${StackTrace.current}');
 
-    // ✅ Prevent multiple simultaneous initializations
     if (_isInitializing) {
       print('⚠️ INIT: Already initializing, waiting...');
       while (_isInitializing) {
-        await Future.delayed(Duration(milliseconds: 100));
+        await Future.delayed(const Duration(milliseconds: 100));
       }
       return;
     }
-
     if (_isInitialized) {
       print('✅ INIT: Already initialized, skipping');
       return;
@@ -88,6 +86,19 @@ class AppInitializer {
       await _setupDependencies();
       await _initializeFirebase();
       await _loadUserPreferences();
+
+      // ✅ Edge-to-edge & show status bar with safe defaults (dark icons on light bg)
+      await SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.edgeToEdge,
+        overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
+      );
+      SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarBrightness: Brightness.light,   // iOS: dark glyphs
+        statusBarIconBrightness: Brightness.dark, // Android: dark glyphs
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ));
 
       // Allow UI to render
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -206,42 +217,64 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppThemeBuilder(
-      builder: (context, theme) => HeroControllerScope(
-        controller: MaterialApp.createMaterialHeroController(),
-        child: MaterialApp.router(
-          debugShowCheckedModeBanner: false,
-          title: 'Vitty.ai',
-          routerConfig: AppRouter.router,
-          theme: _buildThemeData(theme),
-          builder: (context, child) => AppWrapper(child: child),
-        ),
-      ),
+      builder: (context, theme) {
+        final isLight = theme == AppTheme.light;
+        final overlay = SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarBrightness: isLight ? Brightness.light : Brightness.dark,   // iOS
+          statusBarIconBrightness: isLight ? Brightness.dark : Brightness.light, // Android
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
+        );
+
+        return HeroControllerScope(
+          controller: MaterialApp.createMaterialHeroController(),
+          child: AnnotatedRegion<SystemUiOverlayStyle>(
+            value: overlay,
+            child: MaterialApp.router(
+              debugShowCheckedModeBanner: false,
+              title: 'Vitty.ai',
+              routerConfig: AppRouter.router,
+              theme: _buildThemeData(theme, overlay),
+              builder: (context, child) => AppWrapper(child: child),
+            ),
+          ),
+        );
+      },
     );
   }
 
-  ThemeData _buildThemeData(AppTheme theme) {
+  ThemeData _buildThemeData(AppTheme appTheme, SystemUiOverlayStyle overlay) {
+    final isLight = appTheme == AppTheme.light;
     return ThemeData(
-      scaffoldBackgroundColor: theme.bottombackground,
+      scaffoldBackgroundColor: appTheme.bottombackground,
       appBarTheme: AppBarTheme(
-        backgroundColor: theme.background,
-        iconTheme: IconThemeData(color: theme.icon),
+        backgroundColor: appTheme.background,
+        iconTheme: IconThemeData(color: appTheme.icon),
         titleTextStyle: TextStyle(
-          color: theme.text,
+          color: appTheme.text,
           fontSize: 18,
           fontWeight: FontWeight.bold,
         ),
+        // ✅ Make sure any AppBar page also drives correct status bar glyphs
+        systemOverlayStyle: overlay,
+        elevation: 0,
       ),
-      iconTheme: IconThemeData(color: theme.icon),
-      extensions: [AppThemeExtension(theme)],
-      // Modern text theme
+      iconTheme: IconThemeData(color: appTheme.icon),
+      extensions: [AppThemeExtension(appTheme)],
       textTheme: TextTheme(
-        bodyLarge: TextStyle(color: theme.text),
-        bodyMedium: TextStyle(color: theme.text),
-        bodySmall: TextStyle(color: theme.text),
-        titleLarge: TextStyle(color: theme.text),
-        titleMedium: TextStyle(color: theme.text),
-        titleSmall: TextStyle(color: theme.text),
+        bodyLarge: TextStyle(color: appTheme.text),
+        bodyMedium: TextStyle(color: appTheme.text),
+        bodySmall: TextStyle(color: appTheme.text),
+        titleLarge: TextStyle(color: appTheme.text),
+        titleMedium: TextStyle(color: appTheme.text),
+        titleSmall: TextStyle(color: appTheme.text),
       ),
+      // (optional) transparent bottom nav for edge-to-edge
+      bottomAppBarTheme: const BottomAppBarTheme(color: Colors.transparent, elevation: 0),
+      colorScheme: isLight
+          ? const ColorScheme.light()
+          : const ColorScheme.dark(),
     );
   }
 }
@@ -270,18 +303,32 @@ class _AppThemeBuilderState extends State<AppThemeBuilder> {
     _themeService = locator<ThemeService>();
     _currentTheme = _themeService.currentTheme;
 
-    // Setup subscription to theme changes
+    // Apply initial System UI for current theme
+    _applySystemUiForTheme(_currentTheme);
+
+    // React to theme changes
     _themeSubscription = _themeService.themeStream.listen((theme) {
       if (mounted && _currentTheme != theme) {
         setState(() {
           _currentTheme = theme;
         });
-
+        _applySystemUiForTheme(theme);
         if (kDebugMode) {
           debugPrint("🎨 Theme changed: ${theme == AppTheme.dark ? "Dark" : "Light"}");
         }
       }
     });
+  }
+
+  void _applySystemUiForTheme(AppTheme theme) {
+    final isLight = theme == AppTheme.light;
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarBrightness: isLight ? Brightness.light : Brightness.dark,    // iOS glyph color
+      statusBarIconBrightness: isLight ? Brightness.dark : Brightness.light, // Android glyph color
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
+    ));
   }
 
   @override
@@ -335,7 +382,6 @@ class _AppErrorBoundaryState extends State<AppErrorBoundary> {
     if (_error != null) {
       return widget.errorBuilder?.call(_error!) ?? _buildDefaultErrorWidget();
     }
-
     return widget.child;
   }
 
@@ -345,16 +391,10 @@ class _AppErrorBoundaryState extends State<AppErrorBoundary> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red,
-            ),
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            const Text(
-              'Oops! Something went wrong',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const Text('Oops! Something went wrong',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             const Text(
               'Please restart the app or contact support if the problem persists.',
@@ -374,8 +414,6 @@ class _AppErrorBoundaryState extends State<AppErrorBoundary> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    // Catch errors that occur during build
     FlutterError.onError = (FlutterErrorDetails details) {
       if (mounted) {
         setState(() => _error = details.exception);
@@ -391,17 +429,14 @@ class DevTools {
       callback();
       return;
     }
-
     final stopwatch = Stopwatch()..start();
     callback();
     stopwatch.stop();
-
     debugPrint('⏱️ $operation took ${stopwatch.elapsedMilliseconds}ms');
   }
 
   static void logMemoryUsage() {
     if (!kDebugMode) return;
-
     final info = ProcessInfo.currentRss;
     debugPrint('💾 Memory usage: ${(info / 1024 / 1024).toStringAsFixed(2)} MB');
   }
@@ -436,32 +471,3 @@ extension SafeAsyncOperation on Future {
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

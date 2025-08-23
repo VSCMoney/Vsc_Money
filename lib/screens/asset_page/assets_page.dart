@@ -1047,7 +1047,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final d = _view.data;
     final currency = d?.additionalData?.currencySymbol ?? '₹';
-    print("view data ${d?.portfolioData?.avgPrice}");
+
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -1114,7 +1114,6 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 
   Widget _buildPortfolioCardFromService() {
     final p = _view.data?.portfolioData;
-    print("PORTFOLIO DATA: $p");
     if (p == null) {
       // no portfolio section from API → hide the card (or return a placeholder if you prefer)
       return const SizedBox.shrink();
@@ -1750,18 +1749,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
     );
   }
 
-  // ───────── helpers ─────────
-  double _getMinY() {
-    if (chartData.isEmpty) return 0;
-    final min = chartData.map((s) => s.y).reduce((a, b) => a < b ? a : b);
-    return min - (min * 0.02); // small padding
-  }
 
-  double _getMaxY() {
-    if (chartData.isEmpty) return 0;
-    final max = chartData.map((s) => s.y).reduce((a, b) => a > b ? a : b);
-    return max + (max * 0.02); // small padding
-  }
 
   String _getTimeFromIndex(int index) {
     if (index < 0 || index >= _lastRawPoints.length) return '';
