@@ -6,6 +6,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../models/user.dart';
 import '../services/api_service.dart';
@@ -361,6 +362,112 @@ class AuthService {
       }
     } catch (e) {
       _setError("Google Sign-in failed: $e");
+      onFlow(AuthFlow.login);
+    } finally {
+      _setState(currentState.copyWith(status: AuthStatus.idle));
+    }
+  }
+
+
+  Future<void> handleAppleSignIn(Function(AuthFlow) onFlow) async {
+    _setLoading();
+    try {
+      // Check if Apple Sign In is available on this device
+      if (!await SignInWithApple.isAvailable()) {
+        _setError("Apple Sign-In is not available on this device");
+        onFlow(AuthFlow.login);
+        return;
+      }
+
+      // Request Apple Sign In
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      // Create Firebase credential
+      final oAuthCredential = OAuthProvider("apple.com").credential(
+        idToken: appleCredential.identityToken,
+        accessToken: appleCredential.authorizationCode,
+      );
+
+      // Sign in to Firebase
+      final userCred = await _firebaseAuth.signInWithCredential(oAuthCredential);
+      final firebaseUser = userCred.user!;
+      final uid = firebaseUser.uid;
+
+      // Extract name information from Apple credential
+      // Note: Apple only provides name on first sign-in, after that it's null
+      final firstName = appleCredential.givenName ?? '';
+      final lastName = appleCredential.familyName ?? '';
+
+      // Fallback: try to get name from Firebase display name if available
+      String fallbackFirstName = firstName;
+      String fallbackLastName = lastName;
+
+      if (firstName.isEmpty && lastName.isEmpty && firebaseUser.displayName != null) {
+        final displayName = firebaseUser.displayName!;
+        final parts = displayName.trim().split(RegExp(r'\s+'));
+        fallbackFirstName = parts.isNotEmpty ? parts.first : '';
+        fallbackLastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+      }
+
+      final payload = {
+        "uid": uid,
+        if (fallbackFirstName.isNotEmpty) "first_name": fallbackFirstName,
+        if (fallbackLastName.isNotEmpty) "last_name": fallbackLastName,
+        if (appleCredential.email?.isNotEmpty == true) "email": appleCredential.email,
+        // Apple-specific fields
+        if (appleCredential.userIdentifier?.isNotEmpty == true) "apple_id": appleCredential.userIdentifier,
+        // Check if email is Apple's private relay email
+        if (appleCredential.email?.contains('@privaterelay.appleid.com') == true) "is_private_email": true,
+      };
+
+      try {
+        final res = await _api.post(endpoint: "/auth/verify_apple_user", body: payload);
+        await _handleSuccessfulAuth(res, onFlow);
+      } catch (e) {
+        // Check if it's the refresh token mismatch error
+        if (_isRefreshTokenMismatchError(e)) {
+          print("Refresh token mismatch detected. Forcing logout and retrying...");
+
+          // Force logout all sessions for this user
+          await _forceLogoutUser(uid);
+
+          // Retry the verification with the same payload
+          final res = await _api.post(endpoint: "/auth/verify_apple_user", body: payload);
+          await _handleSuccessfulAuth(res, onFlow);
+        } else {
+          rethrow;
+        }
+      }
+    } on SignInWithAppleAuthorizationException catch (e) {
+      // Handle Apple-specific errors
+      switch (e.code) {
+        case AuthorizationErrorCode.canceled:
+        // User canceled the sign-in process
+          print("Apple Sign-In was canceled by user");
+          break;
+        case AuthorizationErrorCode.failed:
+          _setError("Apple Sign-In failed: ${e.message}");
+          break;
+        case AuthorizationErrorCode.invalidResponse:
+          _setError("Apple Sign-In received invalid response");
+          break;
+        case AuthorizationErrorCode.notHandled:
+          _setError("Apple Sign-In could not be handled");
+          break;
+        case AuthorizationErrorCode.unknown:
+          _setError("Unknown Apple Sign-In error occurred");
+          break;
+        default:
+          _setError("Apple Sign-In error: ${e.message}");
+      }
+      onFlow(AuthFlow.login);
+    } catch (e) {
+      _setError("Apple Sign-in failed: $e");
       onFlow(AuthFlow.login);
     } finally {
       _setState(currentState.copyWith(status: AuthStatus.idle));

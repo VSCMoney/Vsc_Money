@@ -94,7 +94,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                       style:  TextStyle(
                         color: theme.text,
                         fontSize: 15,
-                        fontFamily: 'SF Pro Text',
+                        fontFamily: 'SF Pro',
                       ),
                       contextMenuBuilder: (context, editableTextState) {
                         final selection = editableTextState.textEditingValue.selection;
@@ -145,22 +145,22 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children:  [
                           Text('Current',
-                              style: TextStyle(color: theme.secondaryText, fontFamily: 'SF Pro Text')),
+                              style: TextStyle(color: theme.secondaryText, fontFamily: 'SF Pro')),
                           SizedBox(height: 4),
                           Text('₹210.18',
                               style: TextStyle(
                                   color: theme.text,
                                   fontWeight: FontWeight.w500,
-                                  fontFamily: 'SF Pro Text')),
+                                  fontFamily: 'SF Pro')),
                           SizedBox(height: 16),
                           Text('Invested',
-                              style: TextStyle(color: theme.secondaryText, fontFamily: 'SF Pro Text')),
+                              style: TextStyle(color: theme.secondaryText, fontFamily: 'SF Pro')),
                           SizedBox(height: 4),
                           Text('₹300.18',
                               style: TextStyle(
                                   color: theme.text,
                                   fontWeight: FontWeight.w500,
-                                  fontFamily: 'SF Pro Text')),
+                                  fontFamily: 'SF Pro')),
                         ],
                       ),
                     ),
@@ -169,22 +169,22 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children:  [
                           Text('Total returns',
-                              style: TextStyle(color: theme.secondaryText, fontFamily: 'SF Pro Text')),
+                              style: TextStyle(color: theme.secondaryText, fontFamily: 'SF Pro')),
                           SizedBox(height: 4),
                           Text('+ ₹45.98 (28.00%)',
                               style: TextStyle(
                                   color: Colors.green,
                                   fontWeight: FontWeight.w500,
-                                  fontFamily: 'SF Pro Text')),
+                                  fontFamily: 'SF Pro')),
                           SizedBox(height: 16),
                           Text('1D returns',
-                              style: TextStyle(color:  theme.secondaryText, fontFamily: 'SF Pro Text')),
+                              style: TextStyle(color:  theme.secondaryText, fontFamily: 'SF Pro')),
                           SizedBox(height: 4),
                           Text('- ₹2.92 (1.37%)',
                               style: TextStyle(
                                   color: Colors.redAccent,
                                   fontWeight: FontWeight.w500,
-                                  fontFamily: 'SF Pro Text')),
+                                  fontFamily: 'SF Pro')),
                         ],
                       ),
                     )
@@ -220,7 +220,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
         style: TextStyle(
           color: filled ? Colors.black : theme.text,
           fontWeight: FontWeight.w500,
-          fontFamily: 'SF Pro Text',
+          fontFamily: 'SF Pro',
         ),
       ),
     );
@@ -253,7 +253,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                 color: theme.text,
                 fontSize: 15,
                 fontWeight: FontWeight.w400,
-                fontFamily: 'SF Pro Text',
+                fontFamily: 'SF Pro',
               ),
             ),
           ),
@@ -280,7 +280,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                   "₹${asset.amount.toStringAsFixed(2)}",
                   style: TextStyle(
                     color: theme.text,
-                    fontFamily: 'SF Pro Text',
+                    fontFamily: 'SF Pro',
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -289,7 +289,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                   style: TextStyle(
                     color: color,
                     fontSize: 13,
-                    fontFamily: 'SF Pro Text',
+                    fontFamily: 'SF Pro',
                   ),
                 ),
               ],

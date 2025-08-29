@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.vitty.ai.app-mergeDebugResources-67:/values-night-v31/values-night-v31.xml",
+            "outputFile": "com.ai.vitty.app-mergeDebugResources-67:/values-night-v31/values-night-v31.xml",
             "map": [
                 {
                     "source": "/Users/piyushgoyal/vscmoney/android/app/src/main/res/values-night-v31/styles.xml",

@@ -3,8 +3,13 @@ import 'dart:math';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:vscmoney/services/theme_service.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import '../models/chat_message.dart';
 import 'colors.dart';
@@ -572,7 +577,7 @@ class _PremiumShimmerWidgetState extends State<PremiumShimmerWidget>
             style: TextStyle(
               fontSize: 15,
               color: Colors.white, // White color for shader mask
-              fontFamily: 'DM Sans',
+              fontFamily: 'SF Pro',
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -588,112 +593,400 @@ class _PremiumShimmerWidgetState extends State<PremiumShimmerWidget>
 
 
 
+class WebViewPage extends StatefulWidget {
+  final String url;
+  final String title;
+
+  const WebViewPage({
+    super.key,
+    required this.url,
+    required this.title,
+  });
+
+  @override
+  State<WebViewPage> createState() => _WebViewPageState();
+}
+
+class _WebViewPageState extends State<WebViewPage> {
+  late final WebViewController controller;
+  bool isLoading = true;
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeController();
+  }
+
+  void _initializeController() {
+    controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.white)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (url) {
+            setState(() {
+              isLoading = true;
+              error = null;
+            });
+          },
+          onPageFinished: (url) {
+            setState(() => isLoading = false);
+          },
+          onWebResourceError: (error) {
+            setState(() {
+              this.error = error.description;
+              isLoading = false;
+            });
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.url));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.title),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () => context.pop(),
+        ),
+      ),
+      body: Stack(
+        children: [
+          if (error != null)
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: Colors.grey,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Failed to load page',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    error!,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() => error = null);
+                      _initializeController();
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          else
+            WebViewWidget(controller: controller),
+          if (isLoading)
+            const Center(
+              child: CircularProgressIndicator(),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
 
 
 
 
 
-// class StatusUpdateWidget extends StatefulWidget {
-//   final List<StatusUpdate> statusUpdates;
-//   final dynamic theme;
-//
-//   const StatusUpdateWidget({
-//     Key? key,
-//     required this.statusUpdates,
-//     required this.theme,
-//   }) : super(key: key);
-//
-//   @override
-//   _StatusUpdateWidgetState createState() => _StatusUpdateWidgetState();
-// }
-//
-// class _StatusUpdateWidgetState extends State<StatusUpdateWidget>
-//     with TickerProviderStateMixin {
-//   late AnimationController _transitionController;
-//   late Animation<double> _fadeAnimation;
-//   late Animation<Offset> _slideAnimation;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _transitionController = AnimationController(
-//       duration: const Duration(milliseconds: 400),
-//       vsync: this,
-//     );
-//
-//     _fadeAnimation = CurvedAnimation(
-//       parent: _transitionController,
-//       curve: Curves.easeInOut,
-//     );
-//
-//     _slideAnimation = Tween<Offset>(
-//       begin: const Offset(0, 0.3),
-//       end: Offset.zero,
-//     ).animate(CurvedAnimation(
-//       parent: _transitionController,
-//       curve: Curves.easeOutCubic,
-//     ));
-//
-//     _transitionController.forward();
-//   }
-//
-//   @override
-//   void didUpdateWidget(StatusUpdateWidget oldWidget) {
-//     super.didUpdateWidget(oldWidget);
-//
-//     if (widget.statusUpdates.length != oldWidget.statusUpdates.length ||
-//         (widget.statusUpdates.isNotEmpty && oldWidget.statusUpdates.isNotEmpty &&
-//             widget.statusUpdates.last.message != oldWidget.statusUpdates.last.message)) {
-//       _transitionController.reset();
-//       _transitionController.forward();
-//     }
-//   }
-//
-//   @override
-//   void dispose() {
-//     _transitionController.dispose();
-//     super.dispose();
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     if (widget.statusUpdates.isEmpty) return const SizedBox.shrink();
-//
-//     return Column(
-//       crossAxisAlignment: CrossAxisAlignment.start,
-//       children: widget.statusUpdates.map((status) {
-//         final isLatest = status == widget.statusUpdates.last;
-//
-//         return AnimatedSwitcher(
-//           duration: const Duration(seconds: 5),
-//           switchInCurve: Curves.easeInOut,
-//           switchOutCurve: Curves.easeInOut,
-//           transitionBuilder: (Widget child, Animation<double> animation) {
-//             return FadeTransition(
-//               opacity: animation,
-//               child: child,
-//             );
-//           },
-//           child: Container(
-//             key: ValueKey(status.id),
-//             child: buildStatusItem(status),
-//           ),
-//         );
-//     }      ).toList(),
-//     );
-//   }
-//
-//   // Even simpler usage
-//   Widget buildStatusItem(StatusUpdate status) {
-//     return PremiumShimmerWidget(
-//       text: status.message,
-//       isComplete: status.isComplete,
-//       baseColor: const Color(0xFF9CA3AF),
-//       highlightColor: const Color(0xFF6B7280),
-//     );
-//   }
-// }
+
+
+class ComparisonTableWidget extends StatelessWidget {
+  final String? heading;
+  final List<Map<String, dynamic>> rows;
+  final List<String>? columnOrder;
+  final Function(String idOrFallback)? onRowTap;
+  final int maxColumns;
+
+  const ComparisonTableWidget({
+    Key? key,
+    this.heading,
+    required this.rows,
+    this.columnOrder,
+    this.onRowTap,
+    this.maxColumns = 6,
+  }) : super(key: key);
+
+  bool _isOverviewField(String k) {
+    final lk = k.toLowerCase();
+    return lk.startsWith('overview.') || lk.contains('description') || lk.contains('summary');
+  }
+
+  bool _shouldHide(String k) {
+    final lk = k.toLowerCase();
+    return lk == '_id' || lk == 'id' || _isOverviewField(lk);
+  }
+
+  String? _getCI(Map<String, dynamic> row, List<String> keys) {
+    final lower = {for (final e in row.entries) e.key.toLowerCase(): e.value};
+    for (final k in keys) {
+      final v = lower[k.toLowerCase()];
+      if (v != null) return v.toString();
+    }
+    return null;
+  }
+
+  String _extractName(Map<String, dynamic> row) {
+    final v = _getCI(row, ['name','company','title','symbol','ticker']);
+    return (v == null || v.trim().isEmpty) ? 'Entity' : v.trim();
+  }
+
+  String _extractId(Map<String, dynamic> row) {
+    final v = _getCI(row, ['_id','id','isin','symbol','ticker']);
+    return (v == null || v.trim().isEmpty) ? _extractName(row) : v.trim();
+  }
+
+  String _label(String k) {
+    const map = {
+      'current_price': 'Current Price',
+      'current price': 'Current Price',
+      'price': 'Price',
+      'market_cap': 'Market Cap',
+      'market cap': 'Market Cap',
+      'pe_ratio': 'P/E',
+      'sector': 'Sector',
+      'industry': 'Industry',
+      'change': 'Change',
+      'ratios.returns.1d': '1D Return',
+      'ratios.returns.1m': '1M Return',
+      'ratios.returns.6m': '6M Return',
+      'ratios.returns.1y': '1Y Return',
+      'ratios.returns.1y_excess_over_nifty': '1Y vs Nifty',
+      'overview.sector': 'Sector',
+    };
+
+    final lk = k.toLowerCase();
+    if (map.containsKey(lk)) return map[lk]!;
+
+    if (k.contains('.')) {
+      final parts = k.split('.');
+      final lastPart = parts.last;
+      final cleaned = lastPart.replaceAll('_', ' ');
+      return cleaned
+          .split(' ')
+          .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+          .join(' ');
+    }
+
+    final cleaned = lk.replaceAll('_', ' ').replaceAll('.', ' ');
+    return cleaned
+        .split(' ')
+        .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
+
+  String _formatValue(String key, dynamic v) {
+    if (v == null) return '—';
+    final lk = key.toLowerCase();
+
+    final isPct = lk.contains('return') || lk.contains('change') ||
+        lk.contains('yield') || lk.contains('growth') ||
+        lk.contains('1d') || lk.contains('1m') ||
+        lk.contains('6m') || lk.contains('1y');
+
+    final isRupee = lk.contains('price') || lk.contains('market_cap') || lk.contains('market cap');
+
+    if (isPct && v is num) {
+      if (v > 100) return '${v.toStringAsFixed(1)}%';
+      return '${v.toStringAsFixed(2)}%';
+    }
+
+    if (isRupee && v is num) {
+      if (v >= 10_000_000) return '₹${(v / 10_000_000).toStringAsFixed(1)}Cr';
+      if (v >= 100_000) return '₹${(v / 100_000).toStringAsFixed(1)}L';
+      return '₹${v.toStringAsFixed(2)}';
+    }
+
+    if (lk.contains('volume') && v is num) {
+      return v.toStringAsFixed(2);
+    }
+
+    if (v is num) {
+      if (v >= 1_000_000) return '${(v / 1_000_000).toStringAsFixed(1)}M';
+      if (v >= 1_000) return '${(v / 1_000).toStringAsFixed(1)}K';
+      return v.toStringAsFixed(2);
+    }
+
+    return v.toString();
+  }
+
+  List<String> _inferColumnOrder(List<Map<String, dynamic>> rows, int cap) {
+    if (rows.isEmpty) return const [];
+
+    final keys = <String>{};
+    for (final r in rows) {
+      r.forEach((k, v) {
+        if (_shouldHide(k)) return;
+        if (v is Map) return;
+        keys.add(k);
+      });
+    }
+
+    // prefer both snake_case and human labels
+    const preferred = [
+      'price','current_price','current price',
+      'change',
+      'market_cap','market cap',
+      'sector','industry',
+      'ratios.returns.1d','ratios.returns.1m','ratios.returns.6m','ratios.returns.1y','ratios.returns.1y_excess_over_nifty',
+    ];
+
+    final ordered = <String>[];
+    for (final p in preferred) {
+      if (keys.remove(p)) ordered.add(p);
+    }
+    ordered.addAll(keys);
+
+    return ordered.take(cap).toList();
+  }
+
+  List<String> _resolveColumns() {
+    final provided = (columnOrder ?? [])
+        .where((c) => rows.any((r) => r.containsKey(c)))
+        .toList();
+    if (provided.isNotEmpty) {
+      return provided.take(maxColumns).toList();
+    }
+    return _inferColumnOrder(rows, maxColumns);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    final themeExt = Theme.of(context).extension<AppThemeExtension>();
+    final theme = themeExt?.theme;
+    final textColor = theme?.text ?? Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black;
+
+    final columns = _resolveColumns();
+    if (columns.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        child: const Text("No displayable columns found"),
+      );
+    }
+
+    final table = DataTable(
+      headingRowHeight: 36,
+      dataRowMinHeight: 44,
+      dataRowMaxHeight: 56,
+      headingTextStyle: TextStyle(
+        fontFamily: 'SF Pro',
+        fontWeight: FontWeight.w700,
+        fontSize: 13,
+        color: textColor.withOpacity(0.9),
+      ),
+      dataTextStyle: TextStyle(
+        fontFamily: 'SF Pro',
+        fontWeight: FontWeight.w500,
+        fontSize: 13,
+        color: textColor,
+        height: 1.4,
+      ),
+      columns: <DataColumn>[
+        const DataColumn(label: Text('Entity')),
+        ...columns.map((c) => DataColumn(label: Text(_label(c)))),
+      ],
+      rows: rows.map((row) {
+        final id = _extractId(row);
+        final name = _extractName(row);
+
+        final cells = <DataCell>[
+          DataCell(Text(name)),
+          ...columns.map((c) {
+            final value = row[c];
+            return DataCell(Text(_formatValue(c, value)));
+          }),
+        ];
+
+        return DataRow(
+          cells: cells,
+          onSelectChanged: onRowTap == null ? null : (_) => onRowTap!(id),
+        );
+      }).toList(),
+      dividerThickness: 0.6,
+      border: TableBorder(
+        horizontalInside: BorderSide(
+          color: (theme?.border ?? Colors.grey.withOpacity(0.2)),
+          width: 0.6,
+        ),
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if ((heading ?? '').isNotEmpty) ...[
+          Row(
+            children: [
+              const Text('📊 '),
+              Expanded(
+                child: Text(
+                  heading!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'SF Pro',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme?.box ?? Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme?.box ?? Colors.transparent,
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: table,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 
 
 
@@ -708,12 +1001,7 @@ class KeyValueTableWidget extends StatefulWidget {
   final String? heading;
   final List<Map<String, dynamic>> rows;
   final List<String>? columnOrder;
-
-  /// Will receive the row's `_id` (string). If `_id` is not present,
-  /// we fall back to the card's name.
   final Function(String idOrFallback)? onCardTap;
-
-  // spacing
   final double cardSpacing;
   final double headerBottomSpacing;
 
@@ -739,6 +1027,14 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
   late Animation<double> _headerAnimation;
 
   bool _shouldHideField(String k) => k.trim().toLowerCase() == '_id';
+
+  bool _isOverviewField(String k) {
+    final lk = k.toLowerCase();
+    return lk == 'overview.sector' ||
+        lk == 'description' ||
+        lk == 'summary' ||
+        lk == 'overview.desc';
+  }
 
   @override
   void initState() {
@@ -801,24 +1097,23 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
 
   // -------------------- data helpers --------------------
 
-  /// Extract a human-friendly name for the card.
-  String _extractEntityName(Map<String, dynamic> row) {
-    const nameFields = ['name', 'company', 'symbol', 'ticker', 'title'];
-    for (final f in nameFields) {
-      if (row.containsKey(f) && row[f] != null) {
-        var v = row[f].toString();
-        if (v.length > 25) v = '${v.substring(0, 22)}...';
-        return v;
-      }
+  String? _getCaseInsensitive(Map<String, dynamic> row, List<String> keys) {
+    final lower = {for (final e in row.entries) e.key.toLowerCase(): e.value};
+    for (final k in keys) {
+      final v = lower[k.toLowerCase()];
+      if (v != null) return v.toString();
     }
-    return 'Entity';
+    return null;
   }
 
-  /// Extract the `_id` or `id` as a string; empty string if not found.
+  String _extractEntityName(Map<String, dynamic> row) {
+    final v = _getCaseInsensitive(row, ['name', 'company', 'symbol', 'ticker', 'title']);
+    return (v == null || v.trim().isEmpty) ? 'Entity' : v.trim();
+  }
+
   String _extractEntityId(Map<String, dynamic> row) {
-    final raw = row['_id'] ?? row['id'];
-    if (raw == null) return '';
-    return raw.toString();
+    final v = _getCaseInsensitive(row, ['_id', 'id']);
+    return v?.trim() ?? '';
   }
 
   Map<String, String> _processRowData(Map<String, dynamic> row) {
@@ -846,20 +1141,24 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
       'volume',
       'returns',
       'yield',
-      'growth'
+      'growth',
+      // backend sometimes uses spaced labels:
+      'current price',
+      'market cap',
     ];
     int count = 0;
 
-    // priority fields
+    // priority (case-insensitive)
+    final lower = {for (final e in row.entries) e.key.toLowerCase(): e.value};
     for (final k in priority) {
       if (count >= 4) break;
-      if (row.containsKey(k) && row[k] != null) {
-        result[_label(k)] = _format(k, row[k]);
+      if (lower.containsKey(k) && lower[k] != null && !_isOverviewField(k)) {
+        result[_label(k)] = _format(k, lower[k]);
         count++;
       }
     }
 
-    // nested maps → skip _id
+    // nested maps
     if (count < 4) {
       for (final e in row.entries) {
         if (count >= 4) break;
@@ -867,10 +1166,11 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
           final nested = Map<String, dynamic>.from(e.value as Map);
           for (final ne in nested.entries) {
             if (count >= 4) break;
-            if (_shouldHideField(ne.key)) continue; // hide _id
+            final key = ne.key;
+            if (_shouldHideField(key) || _isOverviewField(key)) continue;
             final v = ne.value;
             if (v != null && (v is num || v is String)) {
-              result[_label(ne.key)] = _format(ne.key, v);
+              result[_label(key)] = _format(key, v);
               count++;
             }
           }
@@ -878,15 +1178,16 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
       }
     }
 
-    // remaining top-level fields → skip name-ish and _id
+    // remaining top-level
     if (count < 4) {
       for (final e in row.entries) {
         if (count >= 4) break;
-        if (_shouldHideField(e.key)) continue; // hide _id
-        if (!_isNameField(e.key) && e.value != null && e.value is! Map) {
-          final lab = _label(e.key);
+        final key = e.key;
+        if (_shouldHideField(key) || _isOverviewField(key)) continue;
+        if (!_isNameField(key) && e.value != null && e.value is! Map) {
+          final lab = _label(key);
           if (!result.containsKey(lab)) {
-            result[lab] = _format(e.key, e.value);
+            result[lab] = _format(key, e.value);
             count++;
           }
         }
@@ -895,14 +1196,18 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
     return result;
   }
 
-  bool _isNameField(String k) =>
-      {'name', 'company', 'symbol', 'ticker', 'title'}.contains(k.toLowerCase());
+  bool _isNameField(String k) {
+    final lk = k.toLowerCase();
+    return lk == 'name' || lk == 'company' || lk == 'symbol' || lk == 'ticker' || lk == 'title';
+  }
 
   String _label(String k) {
     const map = {
       'price': 'Price',
+      'current price': 'Current Price',
       'sector': 'Sector',
       'market_cap': 'Market Cap',
+      'market cap': 'Market Cap',
       'pe_ratio': 'P/E',
       'dividend_yield': 'Dividend',
       'revenue': 'Revenue',
@@ -918,7 +1223,7 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
     };
     final lk = k.toLowerCase();
     if (map.containsKey(lk)) return map[lk]!;
-    final cleaned = k.replaceAll('_', ' ').replaceAll('.', ' ');
+    final cleaned = lk.replaceAll('_', ' ').replaceAll('.', ' ');
     return cleaned
         .split(' ')
         .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
@@ -929,23 +1234,20 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
     if (v == null) return '—';
     final lk = k.toLowerCase();
 
-    if (lk.contains('price') || lk.contains('market_cap')) {
+    if (lk.contains('price') || lk.contains('market_cap') || lk.contains('market cap')) {
       if (v is num) {
         if (v > 10000000) return '₹${(v / 10000000).toStringAsFixed(1)}Cr';
         if (v > 100000) return '₹${(v / 100000).toStringAsFixed(1)}L';
         return '₹${v.toStringAsFixed(2)}';
       }
     }
-    if (lk.contains('return') ||
-        lk.contains('change') ||
-        lk.contains('growth') ||
-        lk.contains('yield')) {
+    if (lk.contains('return') || lk.contains('change') || lk.contains('growth') || lk.contains('yield')) {
       if (v is num) return '${v.toStringAsFixed(1)}%';
     }
     if (lk.contains('rating') || lk.contains('score')) {
       if (v is num) return '${v.toStringAsFixed(1)}/5';
     }
-    if (v is String) return v.length > 12 ? '${v.substring(0, 9)}...' : v;
+    if (v is String) return v;
     if (v is num) {
       if (v > 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
       if (v > 1000) return '${(v / 1000).toStringAsFixed(1)}K';
@@ -954,75 +1256,110 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
     return v.toString();
   }
 
-  Widget _stat(String label, String value) {
-    return Expanded(
-      child: Column(
+  String _pickId(Map<String, dynamic> row) {
+    final v = _getCaseInsensitive(row, ['_id', 'id', 'isin', 'symbol', 'ticker']);
+    return (v == null || v.trim().isEmpty) ? _extractEntityName(row) : v.trim();
+  }
+
+  String _extractOverview(Map<String, dynamic> row) {
+    final lower = {for (final e in row.entries) e.key.toLowerCase(): e.value};
+    for (final k in ['overview.sector', 'description', 'summary']) {
+      final v = lower[k];
+      if (v != null && v.toString().trim().isNotEmpty) return v.toString().trim();
+    }
+    for (final k in ['meta', 'details', 'company']) {
+      final obj = row[k];
+      if (obj is Map) {
+        final lower2 = {for (final e in obj.entries) e.key.toLowerCase(): e.value};
+        for (final f in ['overview.sector', 'description', 'summary']) {
+          final v = lower2[f];
+          if (v != null && v.toString().trim().isNotEmpty) return v.toString().trim();
+        }
+      }
+    }
+    return '';
+  }
+
+  // -------------------- NEW: single-row stats helpers --------------------
+
+  Widget _statTile(String label, String value) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 12,
+            color: theme.text.withOpacity(0.7),
+            fontWeight: FontWeight.w400,
+            fontFamily: "SF Pro",
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: theme.text,
+            fontFamily: "SF Pro",
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Exactly one horizontal row with up to 3 stats; truncates if tight.
+  Widget _statsOneRow(List<MapEntry<String, String>> entries) {
+    final shown = entries.take(3).toList();
+    if (shown.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 70, right: 8), // align under title (avatar offset)
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade500,
-                fontWeight: FontWeight.w400,
-                fontFamily: "DM Sans",
-              )),
-          const SizedBox(height: 3),
-          Text(value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.black,
-                fontFamily: "DM Sans",
-              )),
+          for (int i = 0; i < shown.length; i++) ...[
+            Expanded(child: _statTile(shown[i].key, shown[i].value)),
+            if (i < shown.length - 1) const SizedBox(width: 16),
+          ],
         ],
       ),
     );
   }
-  String _pickId(Map<String, dynamic> row) {
-    final candidates = ['_id', 'id', 'isin', 'symbol', 'ticker'];
-    for (final k in candidates) {
-      final v = row[k];
-      if (v != null) {
-        final s = v.toString().trim();
-        if (s.isNotEmpty) return s;
-      }
-    }
-    // last resort: use the display name so UX doesn’t break
-    return _extractEntityName(row);
-  }
 
+  // -------------------- UI --------------------
 
   Widget _card(Map<String, dynamic> row, Animation<double> anim, int i) {
     final data = _processRowData(row);
     final name = data['name'] ?? 'Entity';
-    final id = _extractEntityId(row); // <-- _id / id here
     final fields = Map<String, String>.from(data)..remove('name');
     final entries = fields.entries.toList();
+    final overview = _extractOverview(row);
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
     return FadeTransition(
       opacity: anim,
       child: SlideTransition(
-        position:
-        Tween<Offset>(begin: const Offset(0, .06), end: Offset.zero).animate(anim),
+        position: Tween<Offset>(begin: const Offset(0, .06), end: Offset.zero).animate(anim),
         child: GestureDetector(
-          onTap: () {
-            // Pass `_id` to the consumer (fallback to name if missing)
-            final assetId = _pickId(row);
-            widget.onCardTap?.call(assetId);
-          },
+          onTap: () => widget.onCardTap?.call(_pickId(row)),
           child: Container(
             margin: EdgeInsets.only(
               bottom: i < widget.rows.length - 1 ? widget.cardSpacing : 0,
             ),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xffFAF9F7),
+              color: theme.box,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200, width: 1),
+              border: Border.all(color: const Color(0xffFAF9F7), width: 1),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.06),
@@ -1031,46 +1368,85 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
                 ),
               ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
               children: [
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                          fontFamily: "DM Sans",
+                    // Header row with name and bookmark
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 70),
+                            child: Text(
+                              name,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: theme.text,
+                                fontFamily: "SF Pro",
+                                height: 1.0,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.bookmark_border, size: 25, color: theme.icon),
+                      ],
+                    ),
+
+                    // 🔸 Single-row stats (max 3)
+                    if (entries.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _statsOneRow(entries),
+                    ],
+
+                    // Overview line
+                    if (overview.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 0),
+                        child: Text(
+                          overview,
+                          style: TextStyle(
+                            fontFamily: 'SF Pro',
+                            fontSize: 13,
+                            height: 1.45,
+                            color: theme.text.withOpacity(0.8),
+                            fontWeight: FontWeight.w400,
+                          ),
                         ),
                       ),
-                    ),
-                    const Icon(Icons.bookmark_border,
-                        size: 25, color: Color(0xff734012)),
+                    ],
                   ],
                 ),
-                if (entries.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Row(children: [
-                    _stat(entries[0].key, entries[0].value),
-                    const SizedBox(width: 16),
-                    _stat(entries.length > 1 ? entries[1].key : '',
-                        entries.length > 1 ? entries[1].value : ''),
-                  ]),
-                  if (entries.length >= 3) ...[
-                    const SizedBox(height: 8),
-                    Row(children: [
-                      _stat(entries[2].key, entries[2].value),
-                      const SizedBox(width: 16),
-                      _stat(entries.length > 3 ? entries[3].key : '',
-                          entries.length > 3 ? entries[3].value : ''),
-                    ]),
-                  ],
-                ],
+
+                // Company logo/avatar
+                Positioned(
+                  top: 12,
+                  left: 0,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.black,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRCvh-j7HsTHJ8ZckknAoiZMx9VcFmsFkv72g&s",
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const ColoredBox(
+                            color: Colors.black,
+                            child: Icon(Icons.business, color: Colors.white, size: 24),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1080,36 +1456,29 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
   }
 
   Widget _header(String text) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return FadeTransition(
       opacity: _headerAnimation,
       child: SlideTransition(
-        position:
-        Tween<Offset>(begin: const Offset(0, .06), end: Offset.zero).animate(_headerAnimation),
-        child: Padding(
-          padding: EdgeInsets.only(bottom: widget.headerBottomSpacing, left: 4),
-          child: Row(
-            children: [
-              const SizedBox(width: 8),
-              const Text("🔰 ",
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black,
-                      fontFamily: "DM Sans")),
-              Expanded(
-                child: Text(
-                  text,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
-                      fontFamily: "DM Sans"),
+        position: Tween<Offset>(begin: const Offset(0, .06), end: Offset.zero)
+            .animate(_headerAnimation),
+        child: Row(
+          children: [
+            const Text('🔰 '),
+            Expanded(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style:  TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'SF Pro',
+                  color: theme.text
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1119,23 +1488,32 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
   Widget build(BuildContext context) {
     if (widget.rows.isEmpty) return const SizedBox.shrink();
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if ((widget.heading ?? '').isNotEmpty) _header(widget.heading!),
-          ...widget.rows.asMap().entries.map((e) {
-            final i = e.key;
-            final anim =
-            i < _fadeAnimations.length ? _fadeAnimations[i] : _headerAnimation;
-            return _card(e.value, anim, i);
-          }),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if ((widget.heading ?? '').isNotEmpty) Column(
+          children: [
+            Divider(
+              thickness: 0.0,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 5,),
+            _header(widget.heading!),
+            SizedBox(height: 20,)
+          ],
+        ),
+        ...widget.rows.asMap().entries.map((e) {
+          final i = e.key;
+          final anim =
+          i < _fadeAnimations.length ? _fadeAnimations[i] : _headerAnimation;
+          return _card(e.value, anim, i);
+        }),
+      ],
     );
   }
 }
+
+
 
 
 
@@ -1411,694 +1789,694 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
 
 
 
-class ChatAnimationTracker {
-  static final Set<String> _completedAnimations = <String>{};
-
-  static bool hasAnimated(String id) {
-    return _completedAnimations.contains(id);
-  }
-
-  static void markAsAnimated(String id) {
-    _completedAnimations.add(id);
-  }
-
-  static void clearAll() {
-    _completedAnimations.clear();
-  }
-}
-
-// FIXED TYPEWRITER TEXT - NO RE-ANIMATION
-
-class TypewriterText extends StatefulWidget {
-  final String text;
-  final TextStyle style;
-  final Duration speed;
-  final bool isComplete;
-  final String uniqueId; // ADD THIS
-
-  const TypewriterText({
-    Key? key,
-    required this.text,
-    required this.style,
-    this.speed = const Duration(milliseconds: 30),
-    required this.isComplete,
-    required this.uniqueId, // ADD THIS
-  }) : super(key: key);
-
-  @override
-  _TypewriterTextState createState() => _TypewriterTextState();
-}
-
-class _TypewriterTextState extends State<TypewriterText>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<int> _characterCount;
-  String _displayedText = '';
-  bool _hasAnimated = false;
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Check if this text has already animated
-    _hasAnimated = ChatAnimationTracker.hasAnimated(widget.uniqueId);
-
-    _controller = AnimationController(
-      duration: Duration(milliseconds: widget.text.length * widget.speed.inMilliseconds),
-      vsync: this,
-    );
-
-    _characterCount = IntTween(
-      begin: 0,
-      end: widget.text.length,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
-
-    _characterCount.addListener(() {
-      if (mounted) {
-        setState(() {
-          _displayedText = widget.text.substring(0, _characterCount.value);
-        });
-      }
-    });
-
-    if (_hasAnimated) {
-      // If already animated, show complete text immediately
-      _controller.value = 1.0;
-      _displayedText = widget.text;
-    } else {
-      // First time - animate and mark as completed
-      ChatAnimationTracker.markAsAnimated(widget.uniqueId);
-      _controller.forward();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SelectableText.rich(
-      TextSpan(
-        children: [
-          TextSpan(text: _displayedText, style: widget.style),
-          // Only show cursor if actively animating
-          if (!_hasAnimated && !widget.isComplete && _characterCount.value < widget.text.length)
-            WidgetSpan(
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  return Opacity(
-                    opacity: (_controller.value * 2) % 1 > 0.5 ? 1.0 : 0.0,
-                    child: Text('|', style: widget.style),
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-//FIXED ANIMATED TABLE - NO RE-AnimationController
-
-// Since your current ChatMessage model doesn't use payloads,
-// here's a simplified version that works with your structured data
-
-// Since your current ChatMessage model doesn't use payloads,
-// here's a simplified version that works with your structured data
-
-class AnimatedTableRenderer extends StatefulWidget {
-  final Map<String, dynamic> structuredData;
-  final String messageId;
-  final Function(String)? onStockTap;
-  final EditableTextContextMenuBuilder? contextMenuBuilder;
-
-  const AnimatedTableRenderer({
-    Key? key,
-    required this.structuredData,
-    required this.messageId,
-    this.onStockTap,
-    this.contextMenuBuilder,
-  }) : super(key: key);
-
-  @override
-  State<AnimatedTableRenderer> createState() => _AnimatedTableRendererState();
-}
-
-class _AnimatedTableRendererState extends State<AnimatedTableRenderer>
-    with TickerProviderStateMixin {
-  late AnimationController _fadeController;
-  late AnimationController _slideController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeInOut,
-    ));
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeOutCubic,
-    ));
-
-    // Start animations
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted) {
-        _fadeController.forward();
-        _slideController.forward();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _fadeController.dispose();
-    _slideController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: Listenable.merge([_fadeAnimation, _slideAnimation]),
-      builder: (context, child) {
-        return FadeTransition(
-          opacity: _fadeAnimation,
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: _buildTableContent(),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTableContent() {
-    final heading = widget.structuredData['heading']?.toString();
-    final rowsRaw = widget.structuredData['rows'] as List?;
-    final columnOrderRaw = widget.structuredData['columnOrder'] as List?;
-    final captionRaw = widget.structuredData['caption']?.toString();
-
-    final rows = rowsRaw?.map((e) {
-      if (e is Map) {
-        return Map<String, dynamic>.from(e);
-      }
-      return <String, dynamic>{};
-    }).toList() ?? <Map<String, dynamic>>[];
-
-    final columnOrder = columnOrderRaw?.map((e) => e?.toString() ?? '').toList();
-
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Heading
-          if (heading != null && heading.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                heading,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'DM Sans',
-                ),
-              ),
-            ),
-
-          // Table
-          _buildAnimatedTable(rows, columnOrder),
-
-          // Caption (if any)
-          if (captionRaw != null && captionRaw.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                captionRaw,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontStyle: FontStyle.italic,
-                  color: Colors.grey[600],
-                  fontFamily: 'DM Sans',
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnimatedTable(List<Map<String, dynamic>> rows, List<String>? columnOrder) {
-    if (rows.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        child: const Text('No data available'),
-      );
-    }
-
-    // Determine columns
-    final allKeys = <String>{};
-    for (final row in rows) {
-      allKeys.addAll(row.keys);
-    }
-
-    final columns = columnOrder ?? allKeys.toList();
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          // Header row
-          _buildHeaderRow(columns),
-
-          // Data rows with staggered animation
-          ...rows.asMap().entries.map((entry) {
-            final index = entry.key;
-            final row = entry.value;
-
-            return _buildAnimatedDataRow(row, columns, index);
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderRow(List<String> columns) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(8),
-        ),
-      ),
-      child: Row(
-        children: columns.map((column) {
-          return Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              child: Text(
-                column,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  fontFamily: 'DM Sans',
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildAnimatedDataRow(Map<String, dynamic> row, List<String> columns, int index) {
-    return TweenAnimationBuilder<double>(
-      duration: Duration(milliseconds: 200 + (index * 100)), // Staggered timing
-      tween: Tween(begin: 0.0, end: 1.0),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, child) {
-        return Transform.translate(
-          offset: Offset(0, 20 * (1 - value)),
-          child: Opacity(
-            opacity: value,
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Colors.grey[200]!),
-                ),
-              ),
-              child: Row(
-                children: columns.map((column) {
-                  final cellValue = row[column]?.toString() ?? '';
-                  final isStockCell = _isStockColumn(column);
-
-                  return Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      child: _buildSelectableCell(cellValue, isStockCell),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  bool _isStockColumn(String columnName) {
-    // Determine if this column contains stock names/symbols
-    final stockColumnNames = [
-      'name', 'company', 'stock', 'symbol', 'ticker',
-      'company name', 'stock name', 'security'
-    ];
-    return stockColumnNames.contains(columnName.toLowerCase());
-  }
-
-  Widget _buildSelectableCell(String cellValue, bool isStockCell) {
-    if (isStockCell && widget.onStockTap != null) {
-      // Stock cell - tappable and styled
-      return GestureDetector(
-        onTap: () {
-          print("🔍 Stock tapped from animated table: $cellValue");
-          widget.onStockTap!(cellValue);
-        },
-        child: SelectableText(
-          cellValue,
-          style: TextStyle(
-            fontSize: 14,
-            fontFamily: 'DM Sans',
-            color: Colors.blue[700],
-            fontWeight: FontWeight.w600,
-            decoration: TextDecoration.underline,
-            decorationColor: Colors.blue[700],
-          ),
-          contextMenuBuilder: widget.contextMenuBuilder,
-        ),
-      );
-    } else {
-      // Regular cell
-      return SelectableText(
-        cellValue,
-        style: const TextStyle(
-          fontSize: 14,
-          fontFamily: 'DM Sans',
-        ),
-        contextMenuBuilder: widget.contextMenuBuilder,
-      );
-    }
-  }
-}
-
-// Simple animation tracker to prevent re-animations
-
-// Updated KeyValueTableWidget to use animation (optional)
-class AnimatedKeyValueTableWidget extends StatelessWidget {
-  final String? heading;
-  final List<Map<String, dynamic>> rows;
-  final List<String>? columnOrder;
-  final Function(String)? onStockTap;
-
-  const AnimatedKeyValueTableWidget({
-    Key? key,
-    this.heading,
-    required this.rows,
-    this.columnOrder,
-    this.onStockTap,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final messageId = DateTime.now().millisecondsSinceEpoch.toString();
-
-    return AnimatedTableRenderer(
-      structuredData: {
-        'heading': heading,
-        'rows': rows,
-        'columnOrder': columnOrder,
-      },
-      messageId: messageId,
-      onStockTap: onStockTap,
-      contextMenuBuilder: _buildContextMenu,
-    );
-  }
-
-  Widget _buildContextMenu(BuildContext context, EditableTextState editableTextState) {
-    final value = editableTextState.textEditingValue;
-    final selection = value.selection;
-
-    if (!selection.isValid || selection.isCollapsed) {
-      return const SizedBox.shrink();
-    }
-
-    final selectedText = value.text.substring(selection.start, selection.end);
-
-    return AdaptiveTextSelectionToolbar(
-      anchors: editableTextState.contextMenuAnchors,
-      children: [
-        TextButton(
-          onPressed: () {
-            Clipboard.setData(ClipboardData(text: selectedText));
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Copied!')),
-            );
-            ContextMenuController.removeAny();
-          },
-          child: const Text('Copy', style: TextStyle(color: Colors.black)),
-        ),
-      ],
-    );
-  }
-}
-
-
-
-
-class AnimatedTable extends StatefulWidget {
-  final Map<String, dynamic> data;
-  final dynamic theme;
-  final Function(String)? onStockTap;
-  final String messageId;
-
-  const AnimatedTable({
-    Key? key,
-    required this.data,
-    required this.theme,
-    this.onStockTap,
-    required this.messageId,
-  }) : super(key: key);
-
-  @override
-  _AnimatedTableState createState() => _AnimatedTableState();
-}
-
-class _AnimatedTableState extends State<AnimatedTable>
-    with TickerProviderStateMixin {
-  late AnimationController _fadeController;
-  late List<AnimationController> _rowControllers;
-  late List<Animation<double>> _rowAnimations;
-
-  late final List<List<String>> rows;
-  late final List<String> headers;
-  late final bool _hasAnimated;
-  late final String _tableId;
-
-  @override
-  void initState() {
-    super.initState();
-
-    headers = widget.data['headers'] as List<String>? ?? [];
-    rows = widget.data['rows'] as List<List<String>>? ?? [];
-
-    _tableId = '${widget.messageId}_table';
-    _hasAnimated = ChatAnimationTracker.hasAnimated(_tableId);
-
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-
-    _rowControllers = List.generate(
-      rows.length,
-          (index) => AnimationController(
-        duration: Duration(milliseconds: 300 + (index * 100)),
-        vsync: this,
-      ),
-    );
-
-    _rowAnimations = _rowControllers
-        .map((controller) => CurvedAnimation(
-      parent: controller,
-      curve: Curves.easeOutBack,
-    ))
-        .toList();
-
-    if (_hasAnimated) {
-      _fadeController.value = 1.0;
-      for (var c in _rowControllers) {
-        c.value = 1.0;
-      }
-    } else {
-      ChatAnimationTracker.markAsAnimated(_tableId);
-      _fadeController.forward();
-      _startRowAnimations();
-    }
-  }
-
-  void _startRowAnimations() async {
-    for (int i = 0; i < _rowControllers.length; i++) {
-      _rowControllers[i].forward();
-      await Future.delayed(const Duration(milliseconds: 100));
-    }
-  }
-
-  @override
-  void dispose() {
-    _fadeController.dispose();
-    for (var controller in _rowControllers) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isStockTable = headers.isNotEmpty &&
-        (headers.first.toLowerCase().contains('stock') ||
-            headers.first.toLowerCase().contains('symbol') ||
-            headers.first.toLowerCase().contains('ticker'));
-
-    return FadeTransition(
-      opacity: _fadeController,
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: widget.theme.text.withOpacity(0.2)),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: widget.theme.text.withOpacity(0.05),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(8),
-                  topRight: Radius.circular(8),
-                ),
-              ),
-              child: Table(
-                border: TableBorder(
-                  horizontalInside:
-                  BorderSide(color: widget.theme.text.withOpacity(0.2)),
-                  verticalInside:
-                  BorderSide(color: widget.theme.text.withOpacity(0.2)),
-                ),
-                children: [
-                  TableRow(
-                    children: headers
-                        .map(
-                          (header) => Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(
-                          header,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            fontFamily: 'DM Sans',
-                            color: widget.theme.text,
-                          ),
-                        ),
-                      ),
-                    )
-                        .toList(),
-                  ),
-                ],
-              ),
-            ),
-            Table(
-              border: TableBorder(
-                horizontalInside:
-                BorderSide(color: widget.theme.text.withOpacity(0.2)),
-                verticalInside:
-                BorderSide(color: widget.theme.text.withOpacity(0.2)),
-              ),
-              children: rows.asMap().entries.map((entry) {
-                final rowIndex = entry.key;
-                final row = entry.value;
-
-                return TableRow(
-                  children: row.asMap().entries.map((cellEntry) {
-                    final columnIndex = cellEntry.key;
-                    final cellValue = cellEntry.value;
-
-                    return AnimatedBuilder(
-                      animation: _rowAnimations[rowIndex],
-                      builder: (context, child) {
-                        final animation = _rowAnimations[rowIndex];
-                        return FadeTransition(
-                          opacity: animation,
-                          child: Transform.translate(
-                            offset: Offset((1 - animation.value) * 50, 0),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: _buildTableCell(
-                                cellValue,
-                                isStockTable && columnIndex == 0,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  }).toList(),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTableCell(String value, bool isStock) {
-    if (isStock && widget.onStockTap != null) {
-      return GestureDetector(
-        onTap: () => widget.onStockTap!(value),
-        child: Text(
-          value,
-          style: TextStyle(
-            fontSize: 14,
-            fontFamily: 'DM Sans',
-            color: Colors.black87,
-            fontWeight: FontWeight.w600,
-           // decoration: TextDecoration.underline,
-           // decorationColor: Colors.blue[700],
-          ),
-        ),
-      );
-    } else {
-      return Text(
-        value,
-        style: TextStyle(
-          fontSize: 14,
-          fontFamily: 'DM Sans',
-          color: widget.theme.text,
-        ),
-      );
-    }
-  }
-}
+// class ChatAnimationTracker {
+//   static final Set<String> _completedAnimations = <String>{};
+//
+//   static bool hasAnimated(String id) {
+//     return _completedAnimations.contains(id);
+//   }
+//
+//   static void markAsAnimated(String id) {
+//     _completedAnimations.add(id);
+//   }
+//
+//   static void clearAll() {
+//     _completedAnimations.clear();
+//   }
+// }
+//
+// // FIXED TYPEWRITER TEXT - NO RE-ANIMATION
+//
+// class TypewriterText extends StatefulWidget {
+//   final String text;
+//   final TextStyle style;
+//   final Duration speed;
+//   final bool isComplete;
+//   final String uniqueId; // ADD THIS
+//
+//   const TypewriterText({
+//     Key? key,
+//     required this.text,
+//     required this.style,
+//     this.speed = const Duration(milliseconds: 30),
+//     required this.isComplete,
+//     required this.uniqueId, // ADD THIS
+//   }) : super(key: key);
+//
+//   @override
+//   _TypewriterTextState createState() => _TypewriterTextState();
+// }
+//
+// class _TypewriterTextState extends State<TypewriterText>
+//     with SingleTickerProviderStateMixin {
+//   late AnimationController _controller;
+//   late Animation<int> _characterCount;
+//   String _displayedText = '';
+//   bool _hasAnimated = false;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//
+//     // Check if this text has already animated
+//     _hasAnimated = ChatAnimationTracker.hasAnimated(widget.uniqueId);
+//
+//     _controller = AnimationController(
+//       duration: Duration(milliseconds: widget.text.length * widget.speed.inMilliseconds),
+//       vsync: this,
+//     );
+//
+//     _characterCount = IntTween(
+//       begin: 0,
+//       end: widget.text.length,
+//     ).animate(CurvedAnimation(
+//       parent: _controller,
+//       curve: Curves.easeOut,
+//     ));
+//
+//     _characterCount.addListener(() {
+//       if (mounted) {
+//         setState(() {
+//           _displayedText = widget.text.substring(0, _characterCount.value);
+//         });
+//       }
+//     });
+//
+//     if (_hasAnimated) {
+//       // If already animated, show complete text immediately
+//       _controller.value = 1.0;
+//       _displayedText = widget.text;
+//     } else {
+//       // First time - animate and mark as completed
+//       ChatAnimationTracker.markAsAnimated(widget.uniqueId);
+//       _controller.forward();
+//     }
+//   }
+//
+//   @override
+//   void dispose() {
+//     _controller.dispose();
+//     super.dispose();
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return SelectableText.rich(
+//       TextSpan(
+//         children: [
+//           TextSpan(text: _displayedText, style: widget.style),
+//           // Only show cursor if actively animating
+//           if (!_hasAnimated && !widget.isComplete && _characterCount.value < widget.text.length)
+//             WidgetSpan(
+//               child: AnimatedBuilder(
+//                 animation: _controller,
+//                 builder: (context, child) {
+//                   return Opacity(
+//                     opacity: (_controller.value * 2) % 1 > 0.5 ? 1.0 : 0.0,
+//                     child: Text('|', style: widget.style),
+//                   );
+//                 },
+//               ),
+//             ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+//
+// //FIXED ANIMATED TABLE - NO RE-AnimationController
+//
+// // Since your current ChatMessage model doesn't use payloads,
+// // here's a simplified version that works with your structured data
+//
+// // Since your current ChatMessage model doesn't use payloads,
+// // here's a simplified version that works with your structured data
+//
+// class AnimatedTableRenderer extends StatefulWidget {
+//   final Map<String, dynamic> structuredData;
+//   final String messageId;
+//   final Function(String)? onStockTap;
+//   final EditableTextContextMenuBuilder? contextMenuBuilder;
+//
+//   const AnimatedTableRenderer({
+//     Key? key,
+//     required this.structuredData,
+//     required this.messageId,
+//     this.onStockTap,
+//     this.contextMenuBuilder,
+//   }) : super(key: key);
+//
+//   @override
+//   State<AnimatedTableRenderer> createState() => _AnimatedTableRendererState();
+// }
+//
+// class _AnimatedTableRendererState extends State<AnimatedTableRenderer>
+//     with TickerProviderStateMixin {
+//   late AnimationController _fadeController;
+//   late AnimationController _slideController;
+//   late Animation<double> _fadeAnimation;
+//   late Animation<Offset> _slideAnimation;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//
+//     _fadeController = AnimationController(
+//       duration: const Duration(milliseconds: 600),
+//       vsync: this,
+//     );
+//
+//     _slideController = AnimationController(
+//       duration: const Duration(milliseconds: 800),
+//       vsync: this,
+//     );
+//
+//     _fadeAnimation = Tween<double>(
+//       begin: 0.0,
+//       end: 1.0,
+//     ).animate(CurvedAnimation(
+//       parent: _fadeController,
+//       curve: Curves.easeInOut,
+//     ));
+//
+//     _slideAnimation = Tween<Offset>(
+//       begin: const Offset(0, 0.3),
+//       end: Offset.zero,
+//     ).animate(CurvedAnimation(
+//       parent: _slideController,
+//       curve: Curves.easeOutCubic,
+//     ));
+//
+//     // Start animations
+//     Future.delayed(const Duration(milliseconds: 100), () {
+//       if (mounted) {
+//         _fadeController.forward();
+//         _slideController.forward();
+//       }
+//     });
+//   }
+//
+//   @override
+//   void dispose() {
+//     _fadeController.dispose();
+//     _slideController.dispose();
+//     super.dispose();
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return AnimatedBuilder(
+//       animation: Listenable.merge([_fadeAnimation, _slideAnimation]),
+//       builder: (context, child) {
+//         return FadeTransition(
+//           opacity: _fadeAnimation,
+//           child: SlideTransition(
+//             position: _slideAnimation,
+//             child: _buildTableContent(),
+//           ),
+//         );
+//       },
+//     );
+//   }
+//
+//   Widget _buildTableContent() {
+//     final heading = widget.structuredData['heading']?.toString();
+//     final rowsRaw = widget.structuredData['rows'] as List?;
+//     final columnOrderRaw = widget.structuredData['columnOrder'] as List?;
+//     final captionRaw = widget.structuredData['caption']?.toString();
+//
+//     final rows = rowsRaw?.map((e) {
+//       if (e is Map) {
+//         return Map<String, dynamic>.from(e);
+//       }
+//       return <String, dynamic>{};
+//     }).toList() ?? <Map<String, dynamic>>[];
+//
+//     final columnOrder = columnOrderRaw?.map((e) => e?.toString() ?? '').toList();
+//
+//     return Container(
+//       margin: const EdgeInsets.symmetric(vertical: 8),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           // Heading
+//           if (heading != null && heading.isNotEmpty)
+//             Padding(
+//               padding: const EdgeInsets.only(bottom: 12),
+//               child: Text(
+//                 heading,
+//                 style: const TextStyle(
+//                   fontSize: 18,
+//                   fontWeight: FontWeight.bold,
+//                   fontFamily: 'SF Pro',
+//                 ),
+//               ),
+//             ),
+//
+//           // Table
+//           _buildAnimatedTable(rows, columnOrder),
+//
+//           // Caption (if any)
+//           if (captionRaw != null && captionRaw.isNotEmpty)
+//             Padding(
+//               padding: const EdgeInsets.only(top: 8),
+//               child: Text(
+//                 captionRaw,
+//                 style: TextStyle(
+//                   fontSize: 14,
+//                   fontStyle: FontStyle.italic,
+//                   color: Colors.grey[600],
+//                   fontFamily: 'SF Pro',
+//                 ),
+//               ),
+//             ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   Widget _buildAnimatedTable(List<Map<String, dynamic>> rows, List<String>? columnOrder) {
+//     if (rows.isEmpty) {
+//       return Container(
+//         padding: const EdgeInsets.all(16),
+//         child: const Text('No data available'),
+//       );
+//     }
+//
+//     // Determine columns
+//     final allKeys = <String>{};
+//     for (final row in rows) {
+//       allKeys.addAll(row.keys);
+//     }
+//
+//     final columns = columnOrder ?? allKeys.toList();
+//
+//     return Container(
+//       decoration: BoxDecoration(
+//         border: Border.all(color: Colors.grey[300]!),
+//         borderRadius: BorderRadius.circular(8),
+//       ),
+//       child: Column(
+//         children: [
+//           // Header row
+//           _buildHeaderRow(columns),
+//
+//           // Data rows with staggered animation
+//           ...rows.asMap().entries.map((entry) {
+//             final index = entry.key;
+//             final row = entry.value;
+//
+//             return _buildAnimatedDataRow(row, columns, index);
+//           }),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   Widget _buildHeaderRow(List<String> columns) {
+//     return Container(
+//       decoration: BoxDecoration(
+//         color: Colors.grey[100],
+//         borderRadius: const BorderRadius.only(
+//           topLeft: Radius.circular(8),
+//           topRight: Radius.circular(8),
+//         ),
+//       ),
+//       child: Row(
+//         children: columns.map((column) {
+//           return Expanded(
+//             child: Container(
+//               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+//               child: Text(
+//                 column,
+//                 style: const TextStyle(
+//                   fontWeight: FontWeight.bold,
+//                   fontSize: 14,
+//                   fontFamily: 'SF Pro',
+//                 ),
+//                 overflow: TextOverflow.ellipsis,
+//               ),
+//             ),
+//           );
+//         }).toList(),
+//       ),
+//     );
+//   }
+//
+//   Widget _buildAnimatedDataRow(Map<String, dynamic> row, List<String> columns, int index) {
+//     return TweenAnimationBuilder<double>(
+//       duration: Duration(milliseconds: 200 + (index * 100)), // Staggered timing
+//       tween: Tween(begin: 0.0, end: 1.0),
+//       curve: Curves.easeOutCubic,
+//       builder: (context, value, child) {
+//         return Transform.translate(
+//           offset: Offset(0, 20 * (1 - value)),
+//           child: Opacity(
+//             opacity: value,
+//             child: Container(
+//               decoration: BoxDecoration(
+//                 border: Border(
+//                   top: BorderSide(color: Colors.grey[200]!),
+//                 ),
+//               ),
+//               child: Row(
+//                 children: columns.map((column) {
+//                   final cellValue = row[column]?.toString() ?? '';
+//                   final isStockCell = _isStockColumn(column);
+//
+//                   return Expanded(
+//                     child: Container(
+//                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+//                       child: _buildSelectableCell(cellValue, isStockCell),
+//                     ),
+//                   );
+//                 }).toList(),
+//               ),
+//             ),
+//           ),
+//         );
+//       },
+//     );
+//   }
+//
+//   bool _isStockColumn(String columnName) {
+//     // Determine if this column contains stock names/symbols
+//     final stockColumnNames = [
+//       'name', 'company', 'stock', 'symbol', 'ticker',
+//       'company name', 'stock name', 'security'
+//     ];
+//     return stockColumnNames.contains(columnName.toLowerCase());
+//   }
+//
+//   Widget _buildSelectableCell(String cellValue, bool isStockCell) {
+//     if (isStockCell && widget.onStockTap != null) {
+//       // Stock cell - tappable and styled
+//       return GestureDetector(
+//         onTap: () {
+//           print("🔍 Stock tapped from animated table: $cellValue");
+//           widget.onStockTap!(cellValue);
+//         },
+//         child: SelectableText(
+//           cellValue,
+//           style: TextStyle(
+//             fontSize: 14,
+//             fontFamily: 'SF Pro',
+//             color: Colors.blue[700],
+//             fontWeight: FontWeight.w600,
+//             decoration: TextDecoration.underline,
+//             decorationColor: Colors.blue[700],
+//           ),
+//           contextMenuBuilder: widget.contextMenuBuilder,
+//         ),
+//       );
+//     } else {
+//       // Regular cell
+//       return SelectableText(
+//         cellValue,
+//         style: const TextStyle(
+//           fontSize: 14,
+//           fontFamily: 'SF Pro',
+//         ),
+//         contextMenuBuilder: widget.contextMenuBuilder,
+//       );
+//     }
+//   }
+// }
+//
+// // Simple animation tracker to prevent re-animations
+//
+// // Updated KeyValueTableWidget to use animation (optional)
+// class AnimatedKeyValueTableWidget extends StatelessWidget {
+//   final String? heading;
+//   final List<Map<String, dynamic>> rows;
+//   final List<String>? columnOrder;
+//   final Function(String)? onStockTap;
+//
+//   const AnimatedKeyValueTableWidget({
+//     Key? key,
+//     this.heading,
+//     required this.rows,
+//     this.columnOrder,
+//     this.onStockTap,
+//   }) : super(key: key);
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final messageId = DateTime.now().millisecondsSinceEpoch.toString();
+//
+//     return AnimatedTableRenderer(
+//       structuredData: {
+//         'heading': heading,
+//         'rows': rows,
+//         'columnOrder': columnOrder,
+//       },
+//       messageId: messageId,
+//       onStockTap: onStockTap,
+//       contextMenuBuilder: _buildContextMenu,
+//     );
+//   }
+//
+//   Widget _buildContextMenu(BuildContext context, EditableTextState editableTextState) {
+//     final value = editableTextState.textEditingValue;
+//     final selection = value.selection;
+//
+//     if (!selection.isValid || selection.isCollapsed) {
+//       return const SizedBox.shrink();
+//     }
+//
+//     final selectedText = value.text.substring(selection.start, selection.end);
+//
+//     return AdaptiveTextSelectionToolbar(
+//       anchors: editableTextState.contextMenuAnchors,
+//       children: [
+//         TextButton(
+//           onPressed: () {
+//             Clipboard.setData(ClipboardData(text: selectedText));
+//             ScaffoldMessenger.of(context).showSnackBar(
+//               const SnackBar(content: Text('Copied!')),
+//             );
+//             ContextMenuController.removeAny();
+//           },
+//           child: const Text('Copy', style: TextStyle(color: Colors.black)),
+//         ),
+//       ],
+//     );
+//   }
+// }
+//
+//
+//
+//
+// class AnimatedTable extends StatefulWidget {
+//   final Map<String, dynamic> data;
+//   final dynamic theme;
+//   final Function(String)? onStockTap;
+//   final String messageId;
+//
+//   const AnimatedTable({
+//     Key? key,
+//     required this.data,
+//     required this.theme,
+//     this.onStockTap,
+//     required this.messageId,
+//   }) : super(key: key);
+//
+//   @override
+//   _AnimatedTableState createState() => _AnimatedTableState();
+// }
+//
+// class _AnimatedTableState extends State<AnimatedTable>
+//     with TickerProviderStateMixin {
+//   late AnimationController _fadeController;
+//   late List<AnimationController> _rowControllers;
+//   late List<Animation<double>> _rowAnimations;
+//
+//   late final List<List<String>> rows;
+//   late final List<String> headers;
+//   late final bool _hasAnimated;
+//   late final String _tableId;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//
+//     headers = widget.data['headers'] as List<String>? ?? [];
+//     rows = widget.data['rows'] as List<List<String>>? ?? [];
+//
+//     _tableId = '${widget.messageId}_table';
+//     _hasAnimated = ChatAnimationTracker.hasAnimated(_tableId);
+//
+//     _fadeController = AnimationController(
+//       duration: const Duration(milliseconds: 600),
+//       vsync: this,
+//     );
+//
+//     _rowControllers = List.generate(
+//       rows.length,
+//           (index) => AnimationController(
+//         duration: Duration(milliseconds: 300 + (index * 100)),
+//         vsync: this,
+//       ),
+//     );
+//
+//     _rowAnimations = _rowControllers
+//         .map((controller) => CurvedAnimation(
+//       parent: controller,
+//       curve: Curves.easeOutBack,
+//     ))
+//         .toList();
+//
+//     if (_hasAnimated) {
+//       _fadeController.value = 1.0;
+//       for (var c in _rowControllers) {
+//         c.value = 1.0;
+//       }
+//     } else {
+//       ChatAnimationTracker.markAsAnimated(_tableId);
+//       _fadeController.forward();
+//       _startRowAnimations();
+//     }
+//   }
+//
+//   void _startRowAnimations() async {
+//     for (int i = 0; i < _rowControllers.length; i++) {
+//       _rowControllers[i].forward();
+//       await Future.delayed(const Duration(milliseconds: 100));
+//     }
+//   }
+//
+//   @override
+//   void dispose() {
+//     _fadeController.dispose();
+//     for (var controller in _rowControllers) {
+//       controller.dispose();
+//     }
+//     super.dispose();
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final isStockTable = headers.isNotEmpty &&
+//         (headers.first.toLowerCase().contains('stock') ||
+//             headers.first.toLowerCase().contains('symbol') ||
+//             headers.first.toLowerCase().contains('ticker'));
+//
+//     return FadeTransition(
+//       opacity: _fadeController,
+//       child: Container(
+//         decoration: BoxDecoration(
+//           border: Border.all(color: widget.theme.text.withOpacity(0.2)),
+//           borderRadius: BorderRadius.circular(8),
+//         ),
+//         child: Column(
+//           children: [
+//             Container(
+//               decoration: BoxDecoration(
+//                 color: widget.theme.text.withOpacity(0.05),
+//                 borderRadius: const BorderRadius.only(
+//                   topLeft: Radius.circular(8),
+//                   topRight: Radius.circular(8),
+//                 ),
+//               ),
+//               child: Table(
+//                 border: TableBorder(
+//                   horizontalInside:
+//                   BorderSide(color: widget.theme.text.withOpacity(0.2)),
+//                   verticalInside:
+//                   BorderSide(color: widget.theme.text.withOpacity(0.2)),
+//                 ),
+//                 children: [
+//                   TableRow(
+//                     children: headers
+//                         .map(
+//                           (header) => Padding(
+//                         padding: const EdgeInsets.all(12),
+//                         child: Text(
+//                           header,
+//                           style: TextStyle(
+//                             fontWeight: FontWeight.bold,
+//                             fontSize: 14,
+//                             fontFamily: 'SF Pro',
+//                             color: widget.theme.text,
+//                           ),
+//                         ),
+//                       ),
+//                     )
+//                         .toList(),
+//                   ),
+//                 ],
+//               ),
+//             ),
+//             Table(
+//               border: TableBorder(
+//                 horizontalInside:
+//                 BorderSide(color: widget.theme.text.withOpacity(0.2)),
+//                 verticalInside:
+//                 BorderSide(color: widget.theme.text.withOpacity(0.2)),
+//               ),
+//               children: rows.asMap().entries.map((entry) {
+//                 final rowIndex = entry.key;
+//                 final row = entry.value;
+//
+//                 return TableRow(
+//                   children: row.asMap().entries.map((cellEntry) {
+//                     final columnIndex = cellEntry.key;
+//                     final cellValue = cellEntry.value;
+//
+//                     return AnimatedBuilder(
+//                       animation: _rowAnimations[rowIndex],
+//                       builder: (context, child) {
+//                         final animation = _rowAnimations[rowIndex];
+//                         return FadeTransition(
+//                           opacity: animation,
+//                           child: Transform.translate(
+//                             offset: Offset((1 - animation.value) * 50, 0),
+//                             child: Padding(
+//                               padding: const EdgeInsets.all(12),
+//                               child: _buildTableCell(
+//                                 cellValue,
+//                                 isStockTable && columnIndex == 0,
+//                               ),
+//                             ),
+//                           ),
+//                         );
+//                       },
+//                     );
+//                   }).toList(),
+//                 );
+//               }).toList(),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _buildTableCell(String value, bool isStock) {
+//     if (isStock && widget.onStockTap != null) {
+//       return GestureDetector(
+//         onTap: () => widget.onStockTap!(value),
+//         child: Text(
+//           value,
+//           style: TextStyle(
+//             fontSize: 14,
+//             fontFamily: 'SF Pro',
+//             color: Colors.black87,
+//             fontWeight: FontWeight.w600,
+//            // decoration: TextDecoration.underline,
+//            // decorationColor: Colors.blue[700],
+//           ),
+//         ),
+//       );
+//     } else {
+//       return Text(
+//         value,
+//         style: TextStyle(
+//           fontSize: 14,
+//           fontFamily: 'SF Pro',
+//           color: widget.theme.text,
+//         ),
+//       );
+//     }
+//   }
+// }

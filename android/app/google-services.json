@@ -7,6 +7,50 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:130321581049:android:8f6be72000263eed8bb328",
+        "android_client_info": {
+          "package_name": "com.ai.vitty"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "130321581049-lahrn2onf0k13k2pf15ce5hc0rcd6ehd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ai.vitty",
+            "certificate_hash": "fa9d75e3acc7dbf11d1117ddfe2cdd9aceac3911"
+          }
+        },
+        {
+          "client_id": "130321581049-ktqt7omporh5is930jmjpmmbaq5m5noi.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCVy0_yJgFVv92Fu_VIPdG61jvdHRXuGqY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "130321581049-ktqt7omporh5is930jmjpmmbaq5m5noi.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "130321581049-41mfh1t7mn9u6n725mibuq7288vacbgs.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.vitty.ai"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:130321581049:android:d2e03774009916518bb328",
         "android_client_info": {
           "package_name": "com.vitty.ai"

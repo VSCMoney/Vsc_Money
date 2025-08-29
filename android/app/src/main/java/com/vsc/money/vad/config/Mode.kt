@@ -1,4 +1,4 @@
-package com.vitty.ai.vad.config
+package com.ai.vitty.vad.config
 
 /**
  * Created by Georgiy Konovalov on 6/1/2023.

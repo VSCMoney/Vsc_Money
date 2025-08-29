@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.vitty.ai.app-mergeDebugResources-67:/values/values.xml",
+            "outputFile": "com.ai.vitty.app-mergeDebugResources-67:/values/values.xml",
             "map": [
                 {
                     "source": "/Users/piyushgoyal/.gradle/caches/8.9/transforms/642e7c40e4fafaf075925133ac8f6c6c/transformed/recyclerview-1.0.0/res/values/values.xml",

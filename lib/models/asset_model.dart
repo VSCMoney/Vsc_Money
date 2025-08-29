@@ -986,6 +986,9 @@ class AssetData {
   final AssetFuturesOptions? futuresOptions;
   final AdditionalData? additionalData;
 
+  // NEW: root-level expandable tiles
+  final ExpandableTilesData? expandableTiles;
+
   AssetData({
     required this.assetId,
     required this.basicInfo,
@@ -999,6 +1002,7 @@ class AssetData {
     this.events = const [],
     this.futuresOptions,
     this.additionalData,
+    this.expandableTiles, // NEW
   });
 
   factory AssetData.fromJson(Map<String, dynamic> json) {
@@ -1029,9 +1033,13 @@ class AssetData {
       additionalData: json['additional_data'] != null
           ? AdditionalData.fromJson(json['additional_data'] as Map<String, dynamic>)
           : null,
+      expandableTiles: json['expandable_tiles'] != null
+          ? ExpandableTilesData.fromJson(json['expandable_tiles'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
+
 
 // ============================================================================
 // BASIC INFO (exchange can be String or List -> normalized to String)
@@ -1290,10 +1298,6 @@ class AssetPerformanceData {
   final String volume;
   final double lowerCircuit;
   final double upperCircuit;
-  final FinancialMetrics financialMetrics;
-  final FinancialChartsData financialCharts;
-  final MarketDepthData marketDepth;
-  final ExpandableTilesData expandableTiles;
 
   AssetPerformanceData({
     required this.todayLow,
@@ -1305,10 +1309,6 @@ class AssetPerformanceData {
     required this.volume,
     required this.lowerCircuit,
     required this.upperCircuit,
-    required this.financialMetrics,
-    required this.financialCharts,
-    required this.marketDepth,
-    required this.expandableTiles,
   });
 
   factory AssetPerformanceData.fromJson(Map<String, dynamic> json) {
@@ -1322,13 +1322,10 @@ class AssetPerformanceData {
       volume: json['volume']?.toString() ?? '0',
       lowerCircuit: _asDouble(json['lower_circuit']),
       upperCircuit: _asDouble(json['upper_circuit']),
-      financialMetrics: FinancialMetrics.fromJson(json['financial_metrics'] ?? const {}),
-      financialCharts: FinancialChartsData.fromJson(json['financial_charts'] ?? const {}),
-      marketDepth: MarketDepthData.fromJson(json['market_depth'] ?? const {}),
-      expandableTiles: ExpandableTilesData.fromJson(json['expandable_tiles'] ?? const {}),
     );
   }
 }
+
 
 // ============================================================================
 // FINANCIAL METRICS
@@ -1380,10 +1377,12 @@ class FinancialMetrics {
 class FinancialChartsData {
   final List<ChartDataPoint> revenueQuarterly;
   final List<ChartDataPoint> revenueYearly;
-  final List<ChartDataPoint> profitQuarterly;
-  final List<ChartDataPoint> profitYearly;
+  final List<ChartDataPoint> profitQuarterly; // maps from net_income_quarterly if profit_quarterly missing
+  final List<ChartDataPoint> profitYearly;    // maps from net_income_yearly if profit_yearly missing
   final List<ChartDataPoint> netWorthQuarterly;
   final List<ChartDataPoint> netWorthYearly;
+  final List<ChartDataPoint> ebitdaQuarterly; // NEW (optional)
+  final List<ChartDataPoint> ebitdaYearly;    // NEW (optional)
   final String valueUnit;
 
   FinancialChartsData({
@@ -1393,27 +1392,37 @@ class FinancialChartsData {
     this.profitYearly = const [],
     this.netWorthQuarterly = const [],
     this.netWorthYearly = const [],
+    this.ebitdaQuarterly = const [],
+    this.ebitdaYearly = const [],
     this.valueUnit = "Rs. CR",
   });
 
   factory FinancialChartsData.fromJson(Map<String, dynamic> json) {
+    List<ChartDataPoint> _chart(dynamic v) =>
+        (v as List<dynamic>?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(ChartDataPoint.fromJson)
+            .toList() ??
+            const [];
+
+    // Prefer canonical keys; fallback to aliases from response
+    final pq = _chart(json['profit_quarterly']);
+    final py = _chart(json['profit_yearly']);
+
+    final niq = _chart(json['net_income_quarterly']);
+    final niy = _chart(json['net_income_yearly']);
+
     return FinancialChartsData(
-      revenueQuarterly: _chartList(json['revenue_quarterly']),
-      revenueYearly: _chartList(json['revenue_yearly']),
-      profitQuarterly: _chartList(json['profit_quarterly']),
-      profitYearly: _chartList(json['profit_yearly']),
-      netWorthQuarterly: _chartList(json['net_worth_quarterly']),
-      netWorthYearly: _chartList(json['net_worth_yearly']),
+      revenueQuarterly: _chart(json['revenue_quarterly']),
+      revenueYearly: _chart(json['revenue_yearly']),
+      profitQuarterly: pq.isNotEmpty ? pq : niq,
+      profitYearly:    py.isNotEmpty ? py : niy,
+      netWorthQuarterly: _chart(json['net_worth_quarterly']),
+      netWorthYearly:    _chart(json['net_worth_yearly']),
+      ebitdaQuarterly:   _chart(json['EBITDA_quarterly']),
+      ebitdaYearly:      _chart(json['EBITDA_yearly']),
       valueUnit: json['value_unit']?.toString() ?? "Rs. CR",
     );
-  }
-
-  static List<ChartDataPoint> _chartList(dynamic v) {
-    return (v as List<dynamic>?)
-        ?.whereType<Map<String, dynamic>>()
-        .map(ChartDataPoint.fromJson)
-        .toList() ??
-        const [];
   }
 
   List<ChartDataPoint> getDataForChart({
@@ -1430,6 +1439,7 @@ class FinancialChartsData {
     }
   }
 }
+
 
 class ChartDataPoint {
   final String period;
@@ -1491,16 +1501,19 @@ class MarketDepthData {
 class OrderData {
   final double price;
   final int quantity;
+  final int orders; // NEW
 
-  const OrderData({required this.price, required this.quantity});
+  const OrderData({required this.price, required this.quantity, this.orders = 0});
 
   factory OrderData.fromJson(Map<String, dynamic> json) {
     return OrderData(
       price: _asDouble(json['price']),
       quantity: (json['quantity'] as num?)?.toInt() ?? 0,
+      orders: (json['orders'] as num?)?.toInt() ?? 0,
     );
   }
 }
+
 
 // ============================================================================
 // EXPANDABLE TILES DATA
@@ -1711,7 +1724,7 @@ class AssetNewsItem {
   final String source;
   final String timeAgo;
   final String? imageUrl;
-  final DateTime publishedAt;
+  final DateTime? publishedAt; // ← nullable
   final String? url;
 
   AssetNewsItem({
@@ -1720,7 +1733,7 @@ class AssetNewsItem {
     required this.source,
     required this.timeAgo,
     this.imageUrl,
-    required this.publishedAt,
+    this.publishedAt,
     this.url,
   });
 
@@ -1731,11 +1744,12 @@ class AssetNewsItem {
       source: json['source']?.toString() ?? '',
       timeAgo: json['time_ago']?.toString() ?? '',
       imageUrl: json['image_url']?.toString(),
-      publishedAt: _parseDateTime(json['published_at']),
+      publishedAt: _tryParseDateTime(json['published_at']), // ← keeps null
       url: json['url']?.toString(),
     );
   }
 }
+
 
 class AssetEvent {
   final String title;
@@ -1970,10 +1984,14 @@ double? _asNullableDouble(dynamic v) {
   return double.tryParse(v.toString());
 }
 
-DateTime _parseDateTime(dynamic v) {
-  final d = _tryParseDateTime(v);
-  return d ?? DateTime.now().toUtc();
+DateTime _parseDateTime(String s) {
+  final dt = DateTime.tryParse(s);
+  if (dt == null) return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+  final ist = dt.isUtc ? dt.toUtc() : dt; // treat as local naive
+  // If you want to force IST → then subtract 5:30 to convert to UTC storage:
+  return DateTime.utc(ist.year, ist.month, ist.day, ist.hour - 5, ist.minute - 30, ist.second);
 }
+
 
 DateTime? _tryParseDateTime(dynamic v) {
   if (v == null) return null;

@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.9
+version: 1.0.13
 
 
 environment:
@@ -37,7 +37,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_svg: ^2.0.17
   pinput: ^5.0.1
-  url_launcher: ^6.3.1
+  url_launcher: ^6.3.2
   path_provider: ^2.1.5
   intl: ^0.20.2
   go_router: ^14.8.1
@@ -70,6 +70,7 @@ dependencies:
   fl_chart: ^1.0.0
   collection: ^1.19.1
   record: ^6.0.0
+  webview_flutter: ^4.13.0
 
 dev_dependencies:
   flutter_test:
@@ -84,8 +85,8 @@ flutter_native_splash:
   color_dark: "#000000"
 
   # Pre-Android 12 and iOS: CENTER icon (no text)
-  image: assets/images/splash_logo.png
-  image_dark: assets/images/splash_logo.png
+  image: assets/images/ying yang full.png
+  image_dark: assets/images/ying yang full.png
 
   # Positioning
   android_gravity: center
@@ -101,8 +102,8 @@ flutter_native_splash:
     color_dark: "#000000"
 
     # Android 12+ needs a square, icon-only asset
-    image: assets/images/splash_logo.png
-    image_dark: assets/images/splash_logo.png
+    image: assets/images/ying yang full.png
+    image_dark: assets/images/ying yang full.png
 
     # ❌ No branding here either
     # branding:
@@ -140,7 +141,7 @@ flutter:
     - assets/images/
   #   - images/a_dot_ham.jpeg
   fonts:
-    - family: SF Pro Text
+    - family: SF Pro
       fonts:
         - asset: assets/fonts/dm-sans/DMSans-Regular.ttf
         - asset: assets/fonts/dm-sans/DMSans-Bold.ttf
@@ -160,13 +161,13 @@ flutter:
         - asset: assets/fonts/josefin-sans/JosefinSans-Bold.ttf
           weight: 700
 
-    - family: SF Pro Text
+    - family: SF Pro
       fonts:
-      - asset: assets/fonts/SF-Pro-Text-Font-Family/SF-Pro-Text-Regular.otf
+      - asset: assets/fonts/sf-pro-display/SFPRODISPLAYREGULAR.OTF
         weight: 400
-      - asset: assets/fonts/SF-Pro-Text-Font-Family/SF-Pro-Text-Medium.otf
+      - asset: assets/fonts/sf-pro-display/SFPRODISPLAYMEDIUM.OTF
         weight: 500
-      - asset: assets/fonts/SF-Pro-Text-Font-Family/SF-Pro-Text-Bold.otf
+      - asset: assets/fonts/sf-pro-display/SFPRODISPLAYBOLD.OTF
         weight: 700
 #    - family: Satoshi
 #      fonts:
@@ -187,17 +188,17 @@ flutter_launcher_icons:
   ios: true
 
   # iOS icon (full-bleed, no transparency)
-  image_path_ios: assets/images/Final_For_IOS.png
-
+  image_path_ios: assets/images/ying_yang_ios.png
+  remove_alpha_ios: true
   # Android legacy fallback (no spaces in filename!)
-  image_path_android: assets/images/Final Android.png
+  image_path_android: assets/images/ying_yang_android.png
 
   # Android adaptive (8.0+) — foreground should be transparent PNG (logo only)
-  adaptive_icon_background: "#ffffff"            # or an image path
-  adaptive_icon_foreground: assets/images/Final Android.png
+  adaptive_icon_background: "#FAF9F7"            # osr an image path
+  adaptive_icon_foreground: assets/images/ying_yang_android.png
 
   # Optional but nice for Android 13 themed icons
-  adaptive_icon_monochrome: assets/images/Final Android.png
+  adaptive_icon_monochrome: assets/images/ying_yang_android.png
 
   # Optional
   min_sdk_android: 21

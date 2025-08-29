@@ -10,7 +10,6 @@ import 'bot_message.dart';
 import 'message_bubble.dart';
 
 
-// Replace your existing MessageRowWidget class with this:
 
 
 class MessageRowWidget extends StatelessWidget {

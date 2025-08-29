@@ -992,6 +992,185 @@ class ChatService{
     _checkAndNotifyFirstMessageComplete();
   }
 
+  // Future<void> sendMessage(String? sessionId, String text) async {
+  //   // 🔐 ensure we have a real session id (creates one if needed)
+  //   final effectiveSessionId = await _ensureActiveSessionId(sessionId);
+  //
+  //   final userMessage = sanitizeMessage(text);
+  //   final isFirstMessage = !messages.any((m) => m['role'] == 'user');
+  //   final userMessageId = UniqueKey().toString();
+  //   final botMessageId = UniqueKey().toString();
+  //
+  //   _isTypingSubject.add(true);
+  //
+  //   _messagesSubject.add([
+  //     ...messages,
+  //     {
+  //       'id': userMessageId,
+  //       'role': 'user',
+  //       'content': userMessage,
+  //       'isComplete': true,
+  //     },
+  //     {
+  //       'id': botMessageId,
+  //       'role': 'bot',
+  //       'content': '',
+  //       'isComplete': false,
+  //     }
+  //   ]);
+  //
+  //   try {
+  //     if (isFirstMessage) {
+  //       await updateSessionTitle(effectiveSessionId, userMessage);
+  //     }
+  //
+  //     final responseStream = await sendMessageWithStreaming(
+  //       sessionId: effectiveSessionId,
+  //       message: userMessage,
+  //     );
+  //
+  //     _currentStreamingId = '';
+  //
+  //     _streamSubscription = responseStream.listen((chatMessage) {
+  //       if (_currentStreamingId.isEmpty) {
+  //         _currentStreamingId = chatMessage.id;
+  //       }
+  //
+  //       final updated = [..._messagesSubject.value];
+  //       final lastIndex = updated.length - 1;
+  //
+  //       if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
+  //         final prev = Map<String, Object>.from(updated[lastIndex]);
+  //
+  //         final Map<String, Object> messageData = <String, Object>{
+  //           ...prev,
+  //           'id': botMessageId,
+  //           'role': 'bot',
+  //           'content': chatMessage.text,
+  //           'isComplete': (prev['isComplete'] as bool?) ?? false,
+  //           'backendComplete': chatMessage.isComplete,
+  //           'currentStatus': chatMessage.currentStatus ?? '',
+  //         };
+  //
+  //         // ✅ Preserve table data + render type
+  //         if (chatMessage.isTable && chatMessage.structuredData != null) {
+  //           final sd = Map<String, dynamic>.from(chatMessage.structuredData!);
+  //
+  //           final heading = sd['heading']?.toString() ?? 'Results';
+  //           final rows = (sd['rows'] as List?)
+  //               ?.whereType<Map>()
+  //               .map((e) => Map<String, dynamic>.from(e))
+  //               .toList() ??
+  //               const <Map<String, dynamic>>[];
+  //
+  //           // Prefer sd['type']; fall back to chatMessage.messageType; finally 'cards'
+  //           final renderType = ((sd['type'] ?? chatMessage.messageType) as String?)
+  //               ?.toLowerCase()
+  //               ?.trim() ??
+  //               'cards';
+  //
+  //           messageData['type'] = 'kv_table';
+  //           messageData['tableData'] = <String, Object>{
+  //             'heading': heading,
+  //             'rows': rows,
+  //             'type': renderType, // 🔴 CRITICAL: keep the render type
+  //             'columnOrder': (prev['tableData'] is Map &&
+  //                 (prev['tableData'] as Map)['columnOrder'] is List)
+  //                 ? List<String>.from((prev['tableData'] as Map)['columnOrder'])
+  //                 : const <String>[],
+  //           };
+  //         } else if (prev.containsKey('tableData') && prev['tableData'] != null) {
+  //           // keep whatever we had (including its 'type')
+  //           messageData['tableData'] = prev['tableData']!;
+  //         }
+  //
+  //         // Preserve previous message-level type if we didn't set one this tick
+  //         if (prev.containsKey('type') &&
+  //             !messageData.containsKey('type') &&
+  //             prev['type'] != null) {
+  //           messageData['type'] = prev['type']!;
+  //         }
+  //
+  //         // mark front-end completion if backend finished
+  //         if (chatMessage.isComplete) {
+  //           messageData['isComplete'] = true;
+  //         }
+  //
+  //         updated[lastIndex] = messageData;
+  //         _messagesSubject.add(updated);
+  //       }
+  //     }, onError: (e) {
+  //       debugPrint("❌ CHAT SERVICE ERROR: $e");
+  //       _isTypingSubject.add(false);
+  //
+  //       final updated = [..._messagesSubject.value];
+  //       final lastIndex = updated.length - 1;
+  //       if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
+  //         updated[lastIndex] = {
+  //           'id': botMessageId,
+  //           'role': 'bot',
+  //           'content': '❌ Failed to respond.',
+  //           'isComplete': true,
+  //           'retry': true,
+  //           'originalMessage': userMessage,
+  //         };
+  //         _messagesSubject.add(updated);
+  //       }
+  //     });
+  //   } catch (e) {
+  //     debugPrint("❌ SEND MESSAGE ERROR: $e");
+  //     _isTypingSubject.add(false);
+  //
+  //     final updated = [..._messagesSubject.value];
+  //     final lastIndex = updated.length - 1;
+  //     if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
+  //       updated[lastIndex] = {
+  //         'id': botMessageId,
+  //         'role': 'bot',
+  //         'content': '❌ Failed to send.',
+  //         'isComplete': true,
+  //         'retry': true,
+  //         'originalMessage': userMessage,
+  //       };
+  //       _messagesSubject.add(updated);
+  //     }
+  //   }
+  // }
+  Future<void> stopResponse(String sessionId) async {
+    // 1) Ask server to cancel the live stream first
+    if (_currentStreamingId.isNotEmpty) {
+      try {
+        await _apiService.post(endpoint: '/chat/message/stop', body: {
+          'session_id': sessionId,
+          'message_id': _currentStreamingId, // server ignores if not used
+        });
+      } catch (e) {
+        debugPrint('❌ Stop (server) failed: $e'); // fine, we'll still freeze UI
+      }
+    }
+
+    // 2) Now cancel local SSE subscription
+    _streamSubscription?.cancel();
+    _streamSubscription = null;
+    _currentStreamingId = '';
+
+    // 3) Freeze the last bot message at current progress (no isComplete=true)
+    final updated = [..._messagesSubject.value];
+    final lastIndex = updated.length - 1;
+    if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
+      updated[lastIndex] = {
+        ...updated[lastIndex],
+        'currentStatus': '',
+        'forceStop': true,                     // BotMessageWidget will finish animation
+        'stopTs': DateTime.now().toIso8601String(),
+      };
+      _messagesSubject.add(updated);
+    }
+
+    // 4) Hide stop button (typing false). Do NOT call _checkAndNotifyFirstMessageComplete() here.
+    _isTypingSubject.add(false);
+  }
+
 
   Future<void> sendMessage(String? sessionId, String text) async {
     // 🔐 ensure we have a real session id (creates one if needed)
@@ -1032,7 +1211,7 @@ class ChatService{
         sessionId: effectiveSessionId,
         message: userMessage,
       );
-
+print("BHAIIII $responseStream");
       _currentStreamingId = '';
 
       _streamSubscription = responseStream.listen((chatMessage) {
@@ -1127,177 +1306,6 @@ class ChatService{
   }
 
 
-  // Future<void> sendMessage(String sessionId, String text) async {
-  //   final userMessage = sanitizeMessage(text);
-  //   final isFirstMessage = !messages.any((m) => m['role'] == 'user');
-  //   final userMessageId = UniqueKey().toString();
-  //   final botMessageId = UniqueKey().toString();
-  //
-  //   _isTypingSubject.add(true);
-  //
-  //   _messagesSubject.add([
-  //     ...messages,
-  //     {
-  //       'id': userMessageId,
-  //       'role': 'user',
-  //       'msg': userMessage,
-  //       'isComplete': true,
-  //     },
-  //     {
-  //       'id': botMessageId,
-  //       'role': 'bot',
-  //       'msg': '',
-  //       'isComplete': false, // <-- stays false until UI finishes
-  //     }
-  //   ]);
-  //
-  //   try {
-  //     if (isFirstMessage) {
-  //       await updateSessionTitle(sessionId, userMessage);
-  //     }
-  //
-  //     final responseStream = await sendMessageWithStreaming(
-  //       sessionId: sessionId,
-  //       message: userMessage,
-  //     );
-  //
-  //     _currentStreamingId = '';
-  //
-  //     _streamSubscription = responseStream.listen((chatMessage) {
-  //       if (_currentStreamingId.isEmpty) {
-  //         _currentStreamingId = chatMessage.id;
-  //       }
-  //
-  //       final updated = [..._messagesSubject.value];
-  //       final lastIndex = updated.length - 1;
-  //
-  //       if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
-  //         final prev = Map<String, Object>.from(updated[lastIndex]);
-  //
-  //         // IMPORTANT:
-  //         //  - DO NOT set isComplete based on backend.
-  //         //  - Keep isComplete as-is (UI will flip later).
-  //         //  - Optionally track backendComplete separately if you want.
-  //         Map<String, Object> messageData = <String, Object>{
-  //           ...prev,
-  //           'id': botMessageId,
-  //           'role': 'bot',
-  //           'msg': chatMessage.text,
-  //           'isComplete': (prev['isComplete'] as bool?) ?? false,
-  //           'backendComplete': chatMessage.isComplete, // optional debug/logic
-  //           'currentStatus': chatMessage.currentStatus ?? '',
-  //         };
-  //
-  //         // Handle table updates (unchanged from your code)
-  //         if (chatMessage.isTable && chatMessage.structuredData != null) {
-  //           final sd = chatMessage.structuredData!;
-  //           final heading = sd['heading']?.toString() ?? 'Results';
-  //           final rows = (sd['rows'] as List?)
-  //               ?.whereType<Map>()
-  //               .map((e) => Map<String, dynamic>.from(e))
-  //               .toList() ??
-  //               <Map<String, dynamic>>[];
-  //
-  //           messageData['type'] = 'kv_table';
-  //           messageData['tableData'] = <String, Object>{
-  //             'heading': heading,
-  //             'rows': rows,
-  //             'columnOrder': (prev['tableData'] is Map &&
-  //                 (prev['tableData'] as Map)['columnOrder'] is List)
-  //                 ? List<String>.from((prev['tableData'] as Map)['columnOrder'])
-  //                 : <String>[],
-  //           };
-  //         } else if (prev.containsKey('tableData') && prev['tableData'] != null) {
-  //           messageData['tableData'] = prev['tableData']!;
-  //         }
-  //
-  //         if (prev.containsKey('type') && !messageData.containsKey('type') && prev['type'] != null) {
-  //           messageData['type'] = prev['type']!;
-  //         }
-  //
-  //         updated[lastIndex] = messageData;
-  //         _messagesSubject.add(updated);
-  //       }
-  //
-  //       // ⛔️ DO NOT stop typing here when backend finishes
-  //       // if (chatMessage.isComplete) {  <-- remove this entire block
-  //       //   _isTypingSubject.add(false);
-  //       //   _checkAndNotifyFirstMessageComplete();
-  //       // }
-  //     }, onError: (e) {
-  //       debugPrint("❌ CHAT SERVICE ERROR: $e");
-  //       _isTypingSubject.add(false);
-  //
-  //       final updated = [..._messagesSubject.value];
-  //       final lastIndex = updated.length - 1;
-  //       if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
-  //         updated[lastIndex] = {
-  //           'id': botMessageId,
-  //           'role': 'bot',
-  //           'msg': '❌ Failed to respond.',
-  //           'isComplete': true,
-  //           'retry': true,
-  //           'originalMessage': userMessage,
-  //         };
-  //         _messagesSubject.add(updated);
-  //       }
-  //     });
-  //   } catch (e) {
-  //     debugPrint("❌ SEND MESSAGE ERROR: $e");
-  //     _isTypingSubject.add(false);
-  //
-  //     final updated = [..._messagesSubject.value];
-  //     final lastIndex = updated.length - 1;
-  //     if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
-  //       updated[lastIndex] = {
-  //         'id': botMessageId,
-  //         'role': 'bot',
-  //         'msg': '❌ Failed to send.',
-  //         'isComplete': true,
-  //         'retry': true,
-  //         'originalMessage': userMessage,
-  //       };
-  //       _messagesSubject.add(updated);
-  //     }
-  //   }
-  // }
-
-  Future<void> stopResponse(String sessionId) async {
-    // 1) Ask server to cancel the live stream first
-    if (_currentStreamingId.isNotEmpty) {
-      try {
-        await _apiService.post(endpoint: '/chat/message/stop', body: {
-          'session_id': sessionId,
-          'message_id': _currentStreamingId, // server ignores if not used
-        });
-      } catch (e) {
-        debugPrint('❌ Stop (server) failed: $e'); // fine, we'll still freeze UI
-      }
-    }
-
-    // 2) Now cancel local SSE subscription
-    _streamSubscription?.cancel();
-    _streamSubscription = null;
-    _currentStreamingId = '';
-
-    // 3) Freeze the last bot message at current progress (no isComplete=true)
-    final updated = [..._messagesSubject.value];
-    final lastIndex = updated.length - 1;
-    if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
-      updated[lastIndex] = {
-        ...updated[lastIndex],
-        'currentStatus': '',
-        'forceStop': true,                     // BotMessageWidget will finish animation
-        'stopTs': DateTime.now().toIso8601String(),
-      };
-      _messagesSubject.add(updated);
-    }
-
-    // 4) Hide stop button (typing false). Do NOT call _checkAndNotifyFirstMessageComplete() here.
-    _isTypingSubject.add(false);
-  }
-
-
 
 
   Future<Stream<ChatMessage>> sendMessageWithStreaming({
@@ -1307,8 +1315,8 @@ class ChatService{
     await SessionManager.checkTokenValidityAndRefresh();
 
     try {
-     final url = Uri.parse('https://fastapi-app-130321581049.asia-south1.run.app/chat/respond');
-     // final url = Uri.parse('http://localhost:8000/chat/respond');
+   final url = Uri.parse('https://fastapi-app-130321581049.asia-south1.run.app/chat/respond');
+   //   final url = Uri.parse('http://localhost:8000/chat/respond');
       final request = http.Request('POST', url);
 
       request.headers.addAll({
@@ -1467,7 +1475,7 @@ class ChatService{
 
                   // 🔥 FIX: Check for 'table' (singular) as well as 'tables' and 'cards'
                   if (jsonData is Map && (jsonData['type'] == 'cards' ||
-                      jsonData['type'] == 'tables' ||
+                      jsonData['type'] == 'card' || jsonData['type'] == 'tables' ||
                       jsonData['type'] == 'table')) {
 
                     print("🎯 TABLE DETECTED! Type: ${jsonData['type']}");
@@ -1475,7 +1483,7 @@ class ChatService{
                     List<Map<String, dynamic>> rows = [];
                     String heading = 'Results';
 
-                    if (jsonData['type'] == 'cards') {
+                    if (jsonData['type'] == 'cards' ||jsonData['type'] == 'cards' ) {
                       final cardsList = (jsonData['list'] as List?) ?? const [];
                       heading = (jsonData['heading']?.toString() ?? 'Results');
                       rows = cardsList.map<Map<String, dynamic>>((e) {
@@ -1548,11 +1556,12 @@ class ChatService{
                     // Add all rows to the combined list
                     allTableRows.addAll(rows);
                     print("📈 ACCUMULATED ROWS: ${allTableRows.length} total rows (added ${rows.length} from this chunk)");
-
+                    final originalType = jsonData['type'].toString();
                     // Create combined table data
                     tableData = {
                       'heading': combinedHeading,
-                      'rows': allTableRows, // ← All rows from all tables combined
+                      'rows': allTableRows,
+                      'type': originalType,
                     };
 
                     print("✅ Combined table data processed: ${allTableRows.length} total rows");
@@ -1671,248 +1680,6 @@ class ChatService{
 
 
 
-//   Future<void> sendMessage(String sessionId, String text) async {
-//     final userMessage = sanitizeMessage(text);
-//     final isFirstMessage = !messages.any((m) => m['role'] == 'user');
-//     final userMessageId = UniqueKey().toString();
-//     final botMessageId = UniqueKey().toString();
-//
-//     _isTypingSubject.add(true);
-//     _messagesSubject.add([
-//       ...messages,
-//       {
-//         'id': userMessageId,
-//         'role': 'user',
-//         'msg': userMessage,
-//         'isComplete': true,
-//       },
-//       {
-//         'id': botMessageId,
-//         'role': 'bot',
-//         'msg': '',
-//         'isComplete': false,
-//         // NEW: Add enhanced fields
-//         'statusUpdates': <Map<String, dynamic>>[],
-//         'payloads': <Map<String, dynamic>>[],
-//       }
-//     ]);
-//
-//     try {
-//       if (isFirstMessage) {
-//         await updateSessionTitle(sessionId, userMessage);
-//       }
-//
-//       final responseStream = await sendMessageWithStreaming(
-//         sessionId: sessionId,
-//         message: userMessage,
-//       );
-//
-//       String streamedText = '';
-//       _currentStreamingId = '';
-//       int lastUpdateTime = DateTime.now().millisecondsSinceEpoch;
-//
-//       _streamSubscription = responseStream.listen((chatMessage) {
-//         if (_currentStreamingId.isEmpty) {
-//           _currentStreamingId = chatMessage.id;
-//         }
-//
-//         // Handle legacy text streaming (for backward compatibility)
-//         if (chatMessage.text.isNotEmpty) {
-//           streamedText += chatMessage.text;
-//         }
-//
-//         final currentTime = DateTime.now().millisecondsSinceEpoch;
-//         final timeSinceLastUpdate = currentTime - lastUpdateTime;
-//
-//         // Update UI at reasonable intervals or when complete
-//         if (timeSinceLastUpdate > 50 || chatMessage.isComplete) {
-//           final updated = [..._messagesSubject.value];
-//           final lastIndex = updated.length - 1;
-//
-//           if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
-//             updated[lastIndex] = {
-//               'id': botMessageId,
-//               'role': 'bot',
-//               'msg': streamedText,
-//               'isComplete': chatMessage.isComplete,
-//               // NEW: Convert enhanced fields to Map format
-//               'statusUpdates': chatMessage.statusUpdates.map((status) => {
-//                 'id': status.id,
-//                 'type': status.type.toString().split('.').last,
-//                 'message': status.message,
-//                 'timestamp': status.timestamp.toIso8601String(),
-//                 'isComplete': status.isComplete,
-//               }).toList(),
-//               'payloads': chatMessage.payloads.map((payload) => {
-//                 'id': payload.id,
-//                 'type': payload.type.toString().split('.').last,
-//                 'data': payload.data,
-//                 'title': payload.title,
-//                 'description': payload.description,
-//               }).toList(),
-//             };
-//             _messagesSubject.add(updated);
-//           }
-//           lastUpdateTime = currentTime;
-//         }
-//
-//         if (chatMessage.isComplete) {
-//           final updated = [..._messagesSubject.value];
-//           final lastIndex = updated.length - 1;
-//
-//           if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
-//             updated[lastIndex] = {
-//               'id': botMessageId,
-//               'role': 'bot',
-//               'msg': streamedText,
-//               'isComplete': true,
-//               // NEW: Final enhanced fields
-//               'statusUpdates': chatMessage.statusUpdates.map((status) => {
-//                 'id': status.id,
-//                 'type': status.type.toString().split('.').last,
-//                 'message': status.message,
-//                 'timestamp': status.timestamp.toIso8601String(),
-//                 'isComplete': status.isComplete,
-//               }).toList(),
-//               'payloads': chatMessage.payloads.map((payload) => {
-//                 'id': payload.id,
-//                 'type': payload.type.toString().split('.').last,
-//                 'data': payload.data,
-//                 'title': payload.title,
-//                 'description': payload.description,
-//               }).toList(),
-//             };
-//             _messagesSubject.add(updated);
-//           }
-//
-//           _isTypingSubject.add(false);
-//           _checkAndNotifyFirstMessageComplete();
-//
-//           // Keep your existing stock parsing logic
-//           if (streamedText.contains('"stocks":')) {
-//             try {
-//               final cleaned = streamedText.replaceAll("```json", "").replaceAll("```", "").trim();
-//               final data = jsonDecode(cleaned);
-//               final List<dynamic> stocks = data['stocks'];
-//               final updated = [..._messagesSubject.value];
-//               updated.removeLast();
-//               updated.add({
-//                 'id': UniqueKey().toString(),
-//                 'role': 'bot',
-//                 'msg': '',
-//                 'type': 'stocks',
-//                 'stocks': stocks,
-//               });
-//               _messagesSubject.add(updated);
-//             } catch (e) {
-//               debugPrint('❌ Error parsing stock JSON: $e');
-//             }
-//           }
-//         }
-//       }, onError: (e) {
-//         _isTypingSubject.add(false);
-//         final updated = [..._messagesSubject.value];
-//         final lastIndex = updated.length - 1;
-//         if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
-//           updated[lastIndex] = {
-//             'id': botMessageId,
-//             'role': 'bot',
-//             'msg': '❌ Failed to respond.',
-//             'isComplete': true,
-//             'retry': true,
-//             'originalMessage': userMessage,
-//             'statusUpdates': <Map<String, dynamic>>[],
-//             'payloads': <Map<String, dynamic>>[],
-//           };
-//           _messagesSubject.add(updated);
-//         }
-//       });
-//     } catch (e) {
-//       _isTypingSubject.add(false);
-//       final updated = [..._messagesSubject.value];
-//       final lastIndex = updated.length - 1;
-//       if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
-//         updated[lastIndex] = {
-//           'id': botMessageId,
-//           'role': 'bot',
-//           'msg': '❌ Failed to send.',
-//           'isComplete': true,
-//           'retry': true,
-//           'originalMessage': userMessage,
-//           'statusUpdates': <Map<String, dynamic>>[],
-//           'payloads': <Map<String, dynamic>>[],
-//         };
-//         _messagesSubject.add(updated);
-//       }
-//     }
-//   }
-//
-// // Keep your existing stopResponse method unchanged - it works perfectly
-//   Future<void> stopResponse(String sessionId) async {
-//     _streamSubscription?.cancel();
-//     if (_currentStreamingId.isNotEmpty) {
-//       try {
-//         await _apiService.post(endpoint: '/chat/message/stop', body: {
-//           'session_id': sessionId,
-//           'message_id': _currentStreamingId,
-//         });
-//       } catch (e) {
-//         debugPrint('❌ Stop failed: $e');
-//       }
-//     }
-//     final updated = [..._messagesSubject.value];
-//     final lastIndex = updated.length - 1;
-//     if (lastIndex >= 0) {
-//       updated[lastIndex] = {
-//         ...updated[lastIndex],
-//         'isComplete': true,
-//       };
-//       _messagesSubject.add(updated);
-//     }
-//     _isTypingSubject.add(false);
-//     _checkAndNotifyFirstMessageComplete();
-//   }
-//
-// // NEW: Helper method to convert Map message to ChatMessage object for UI
-//   ChatMessage mapToChatMessage(Map<String, dynamic> messageMap) {
-//     // Convert statusUpdates from Map format back to StatusUpdate objects
-//     final statusUpdates = (messageMap['statusUpdates'] as List<Map<String, dynamic>>? ?? [])
-//         .map((statusMap) => StatusUpdate(
-//       id: statusMap['id'],
-//       type: StatusType.values.firstWhere(
-//             (e) => e.toString().split('.').last == statusMap['type'],
-//         orElse: () => StatusType.processing,
-//       ),
-//       message: statusMap['message'],
-//       timestamp: DateTime.parse(statusMap['timestamp']),
-//       isComplete: statusMap['isComplete'],
-//     ))
-//         .toList();
-//
-//     // Convert payloads from Map format back to ResponsePayload objects
-//     final payloads = (messageMap['payloads'] as List<Map<String, dynamic>>? ?? [])
-//         .map((payloadMap) => ResponsePayload(
-//       id: payloadMap['id'],
-//       type: PayloadType.values.firstWhere(
-//             (e) => e.toString().split('.').last == payloadMap['type'],
-//         orElse: () => PayloadType.text,
-//       ),
-//       data: payloadMap['data'],
-//       title: payloadMap['title'],
-//       description: payloadMap['description'],
-//     ))
-//         .toList();
-//
-//     return ChatMessage(
-//       id: messageMap['id'],
-//       text: messageMap['msg'] ?? '',
-//       isUser: messageMap['role'] == 'user',
-//       timestamp: DateTime.now(), // You might want to store actual timestamp in the map
-//       isComplete: messageMap['isComplete'] ?? true,
-//       statusUpdates: statusUpdates,
-//       payloads: payloads,
-//     );
-//   }
 
 
   Future<void> updateSessionTitle(String sessionId, String newTitle) async {

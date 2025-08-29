@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:vscmoney/constants/widgets.dart';
 import 'package:vscmoney/screens/presentation/auth/auth_screen.dart';
 import 'package:vscmoney/screens/presentation/auth/phone_otp_scree.dart';
 import 'package:vscmoney/screens/presentation/auth/profile_screen.dart';
@@ -235,6 +236,18 @@ class AppRouter {
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
           child: const PremiumAccessScreen(),
+          transitionsBuilder: slideLeftTransition,
+        ),
+      ),
+      GoRoute(
+        path: '/privacy',
+        name: 'privacy',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const WebViewPage(
+            url: 'https://piyushvitty.github.io/vitty-privacy/',
+            title: 'Privacy Policy',
+          ),
           transitionsBuilder: slideLeftTransition,
         ),
       ),

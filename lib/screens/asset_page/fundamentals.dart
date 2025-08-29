@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../services/theme_service.dart';
 import '../../testpage.dart';
 
 
@@ -15,7 +16,7 @@ class FundamentalsSection extends StatelessWidget {
           Text(
             'Fundamentals',
             style: TextStyle(
-              fontFamily: 'DM Sans',
+              fontFamily: 'SF Pro',
               fontSize: 20,
               fontWeight: FontWeight.w600,
               color: Colors.black,
@@ -71,11 +72,12 @@ class FundamentalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.box,
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
@@ -96,7 +98,7 @@ class FundamentalCard extends StatelessWidget {
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Image.asset(imageName,width: 30,),
+          Image.asset(imageName,width: 30,color: theme.icon,),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -104,21 +106,21 @@ class FundamentalCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontFamily: 'DM Sans',
+                  style:  TextStyle(
+                    fontFamily: 'SF Pro',
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black,
+                    color: theme.text,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   description,
-                  style: const TextStyle(
-                    fontFamily: 'DM Sans',
+                  style:  TextStyle(
+                    fontFamily: 'SF Pro',
                     fontSize: 10,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF6B7280),
+                    color: theme.text,
                     height: 1.4,
                   ),
                 ),
@@ -169,6 +171,7 @@ class CustomFundamentalsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return Container(
       padding: EdgeInsets.all(16),
       child: Column(
@@ -177,10 +180,10 @@ class CustomFundamentalsSection extends StatelessWidget {
           Text(
             title,
             style: TextStyle(
-              fontFamily: 'DM Sans',
+              fontFamily: 'SF Pro',
               fontSize: 20,
               fontWeight: FontWeight.w600,
-              color: Colors.black,
+              color: theme.text,
             ),
           ),
           SizedBox(height: 20),

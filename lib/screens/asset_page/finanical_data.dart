@@ -5,7 +5,8 @@ import 'package:get_it/get_it.dart';
 
 import '../../constants/colors.dart';
 import '../../services/asset_service.dart';            // <-- path where AssetService is
-import '../../models/asset_model.dart' as models;     // <-- your API models
+import '../../models/asset_model.dart' as models;
+import '../../services/theme_service.dart';     // <-- your API models
 
 class FinancialChartsWidget extends StatefulWidget {
   const FinancialChartsWidget({super.key});
@@ -48,12 +49,14 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
   }
 
   void _onState(AssetViewState s) {
-    final charts = s.data?.performanceData?.financialCharts;
+    final d = s.data;
+    if (d == null) return;
+
+    // ✅ Charts are under root -> expandableTiles.financials (nullable)
+    final charts = d.expandableTiles?.financials;
     if (charts == null) return;
 
-    _valueUnit = charts.valueUnit?.toString().trim().isNotEmpty == true
-        ? charts.valueUnit!
-        : _valueUnit;
+    _valueUnit = charts.valueUnit.isNotEmpty ? charts.valueUnit : _valueUnit;
 
     _revQ  = _toBars(charts.revenueQuarterly);
     _revY  = _toBars(charts.revenueYearly);
@@ -73,6 +76,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
 
     if (mounted) setState(() {});
   }
+
 
   // ------- helpers to select the active list -------
   List<_BarPoint> get _activeList {
@@ -103,30 +107,26 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
   }
 
   // normalize any model list with {period, value}
-  List<_BarPoint> _toBars(List<dynamic>? list) {
-    if (list == null) return const [];
-    final out = <_BarPoint>[];
-    for (final e in list) {
-      try {
-        final d = e as dynamic;
-        final p = (d.period ?? d['period']).toString();
-        final raw = (d.value ?? d['value']);
-        final v = raw is num ? raw.toDouble() : double.tryParse(raw.toString()) ?? 0.0;
-        if (p.isNotEmpty) out.add(_BarPoint(period: p, value: v));
-      } catch (_) {/* ignore bad rows */}
-    }
-    return out;
+  List<_BarPoint> _toBars(List<models.ChartDataPoint> list) {
+    if (list.isEmpty) return const [];
+    return list
+        .where((e) => (e.period).toString().trim().isNotEmpty)
+        .map((e) => _BarPoint(period: e.period, value: e.value))
+        .toList();
   }
+
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     final active = _activeList;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.background,
         borderRadius: BorderRadius.circular(0),
       ),
       child: Column(
@@ -163,7 +163,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
               Text(
                 'See details',
                 style: const TextStyle(
-                  fontFamily: 'DM Sans',
+                  fontFamily: 'SF Pro',
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primary,
@@ -237,7 +237,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
         child: Text(
           label,
           style: TextStyle(
-            fontFamily: 'DM Sans',
+            fontFamily: 'SF Pro',
             fontSize: 12,
             fontWeight: FontWeight.w500,
             color: textColor,
@@ -268,7 +268,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
           Text(
             title,
             style: TextStyle(
-              fontFamily: 'DM Sans',
+              fontFamily: 'SF Pro',
               fontSize: 12,
               fontWeight: FontWeight.w500,
               color: isSelected ? const Color(0xFFE87E2E) : const Color(0xFF9CA3AF),
@@ -301,7 +301,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
           child: Text(
             'All values are in $_valueUnit',
             style: const TextStyle(
-              fontFamily: 'DM Sans',
+              fontFamily: 'SF Pro',
               fontSize: 10,
               fontWeight: FontWeight.w500,
               color: Color(0xFF7E7E7E),
@@ -321,7 +321,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
                   Text(
                     d.value.toStringAsFixed(d.value == d.value.roundToDouble() ? 0 : 2),
                     style: const TextStyle(
-                      fontFamily: 'DM Sans',
+                      fontFamily: 'SF Pro',
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
                       color: Color(0xFF7E7E7E),
@@ -348,7 +348,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
           children: data.map((d) => Text(
             d.period,
             style: const TextStyle(
-              fontFamily: 'DM Sans',
+              fontFamily: 'SF Pro',
               fontSize: 10,
               fontWeight: FontWeight.w500,
               color: Color(0xFF7E7E7E),
@@ -368,7 +368,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
         Text(
           'No data available',
           style: TextStyle(
-            fontFamily: 'DM Sans',
+            fontFamily: 'SF Pro',
             fontSize: 16,
             fontWeight: FontWeight.w500,
             color: Color(0xFF9CA3AF),
@@ -379,7 +379,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
           'Data for this metric will be displayed here when available',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontFamily: 'DM Sans',
+            fontFamily: 'SF Pro',
             fontSize: 14,
             fontWeight: FontWeight.w400,
             color: Color(0xFFD1D5DB),
@@ -404,7 +404,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
       child: Text(
         title,
         style: TextStyle(
-          fontFamily: 'DM Sans',
+          fontFamily: 'SF Pro',
           fontSize: 12,
           fontWeight: FontWeight.w500,
           color: textColor,

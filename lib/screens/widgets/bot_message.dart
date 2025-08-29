@@ -170,7 +170,7 @@ import '../../services/theme_service.dart';
 //           style: baseStyle.copyWith(
 //             fontWeight: FontWeight.w700,
 //             height: 1.5,
-//             fontFamily: "SF Pro Text",
+//             fontFamily: "SF Pro",
 //           ),
 //         ),
 //       );
@@ -318,7 +318,7 @@ import '../../services/theme_service.dart';
 //     final theme = locator<ThemeService>().currentTheme;
 //
 //     final style = TextStyle(
-//       fontFamily: 'DM Sans',
+//       fontFamily: 'SF Pro',
 //       fontSize: 16,
 //       fontWeight: FontWeight.w500,
 //       height: 1.75,
@@ -873,7 +873,7 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
         style: baseStyle.copyWith(
           fontWeight: FontWeight.w700,
           height: 1.5,
-          fontFamily: "SF Pro Text",
+          fontFamily: "SF Pro",
         ),
       ));
       lastMatchEnd = match.end;
@@ -926,7 +926,7 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
   Widget build(BuildContext context) {
     final textColor = Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black;
     final style = TextStyle(
-      fontFamily: 'DM Sans',
+      fontFamily: 'SF Pro',
       fontSize: 16,
       fontWeight: FontWeight.w500,
       height: 1.75,
@@ -959,12 +959,13 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
             ),
 
           if (_shouldShowTable && _availableTableRows.isNotEmpty) ...[
-            KeyValueTableWidget(
-              heading: _availableTableHeading,
-              rows: _availableTableRows,
-              columnOrder: widget.tableData?['columnOrder']?.cast<String>(),
-              onCardTap: widget.onStockTap,
-            ),
+            // KeyValueTableWidget(
+            //   heading: _availableTableHeading,
+            //   rows: _availableTableRows,
+            //   columnOrder: widget.tableData?['columnOrder']?.cast<String>(),
+            //   onCardTap: widget.onStockTap,
+            // ),
+            _buildTableWidget()
           ],
 
           if (hasPostText)
@@ -990,6 +991,45 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
       ),
     );
   }
+
+
+  Widget _buildTableWidget() {
+    if (widget.tableData == null || _availableTableRows.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final dataType = (widget.tableData!['type']?.toString().toLowerCase() ?? 'cards');
+
+    if (dataType == 'cards' || dataType == 'card') {
+      return KeyValueTableWidget(
+        heading: _availableTableHeading,
+        rows: _availableTableRows,
+        columnOrder: widget.tableData?['columnOrder']?.cast<String>(),
+        onCardTap: widget.onStockTap,
+      );
+    }
+
+    if (dataType == 'tables' ||
+        dataType == 'table' ||
+        dataType == 'comparison' ||
+        dataType == 'compare' ||
+        dataType == 'comparison_table') {
+      return ComparisonTableWidget(
+        heading: _availableTableHeading,
+        rows: _availableTableRows,
+        onRowTap: widget.onStockTap,
+      );
+    }
+
+    // Fallback
+    return KeyValueTableWidget(
+      heading: _availableTableHeading,
+      rows: _availableTableRows,
+      columnOrder: widget.tableData?['columnOrder']?.cast<String>(),
+      onCardTap: widget.onStockTap,
+    );
+  }
+
 
   Widget _buildActionButtons() {
     return Row(

@@ -1,4 +1,4 @@
-//package com.vitty.ai
+//package com.ai.vitty
 //
 //import android.media.AudioFormat
 //import android.media.AudioRecord
@@ -94,7 +94,7 @@
 
 
 
-package com.vitty.ai
+package com.ai.vitty
 
 import android.media.*
 import android.os.*

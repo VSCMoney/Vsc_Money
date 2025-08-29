@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.vitty.ai.app-mergeDebugResources-67:/values-watch-v20/values-watch-v20.xml",
+            "outputFile": "com.ai.vitty.app-mergeDebugResources-67:/values-watch-v20/values-watch-v20.xml",
             "map": [
                 {
                     "source": "/Users/piyushgoyal/.gradle/caches/8.9/transforms/cc6e884f0f248536aa87da2f90c148a8/transformed/jetified-play-services-auth-21.2.0/res/values-watch-v20/values.xml",

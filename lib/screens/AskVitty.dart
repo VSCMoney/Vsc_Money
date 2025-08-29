@@ -391,7 +391,7 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
                                 fontSize: 14,
                                 color: isSelected ? Colors.blue : Colors.black87,
                                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                                fontFamily: "DM Sans",
+                                fontFamily: "SF Pro",
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,

@@ -21,6 +21,7 @@ import 'package:vscmoney/constants/colors.dart';
 import 'package:vscmoney/screens/presentation/home/chat_screen.dart';
 import 'package:vscmoney/services/asset_service.dart';
 import 'package:vscmoney/services/chat_service.dart';
+import 'package:vscmoney/services/theme_service.dart';
 
 import 'models/asset_model.dart';
 import 'models/chat_message.dart';
@@ -31,8 +32,9 @@ class PremiumAccessScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.background,
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: Column(
@@ -43,7 +45,7 @@ class PremiumAccessScreen extends StatelessWidget {
             Container(
               width: 40,
               height: 40,
-              child: Image.asset("assets/images/new_app_logo.png"),
+              child: Image.asset("assets/images/ying yang.png"),
             ),
 
             SizedBox(height: 20),
@@ -55,8 +57,9 @@ class PremiumAccessScreen extends StatelessWidget {
               style: TextStyle(
                 fontSize: 25,
                 fontWeight: FontWeight.w700,
-                color: Colors.black,
+                color: theme.text,
                 height: 1.2,
+                fontFamily: "SF Pro"
               ),
             ),
 
@@ -68,8 +71,8 @@ class PremiumAccessScreen extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.black,
-                fontFamily: "DM Sans",
+                color: theme.text,
+                fontFamily: "SF Pro",
               ),
             ),
 
@@ -130,8 +133,8 @@ class PremiumAccessScreen extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.black,
-                fontFamily: "DM Sans",
+                color: theme.text,
+                fontFamily: "SF Pro",
               ),
             ),
 
@@ -140,15 +143,15 @@ class PremiumAccessScreen extends StatelessWidget {
             // Continue Button
             SizedBox(
               width: double.infinity,
-              height: 56,
+              height: 50,
               child: ElevatedButton(
                 onPressed: () {
                   GoRouter.of(context).go('/home');
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFFE87E2E),
+                  backgroundColor: AppColors.primary,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   elevation: 0,
                 ),
@@ -199,6 +202,7 @@ class FeatureItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -218,8 +222,8 @@ class FeatureItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black,
-                  fontFamily: "DM Sans",
+                  color: theme.text,
+                  fontFamily: "SF Pro",
                 ),
               ),
 
@@ -231,7 +235,7 @@ class FeatureItem extends StatelessWidget {
                   fontSize: 14,
                   color: Colors.grey[600],
                   height: 1.4,
-                  fontFamily: "DM Sans",
+                  fontFamily: "SF Pro",
                 ),
               ),
             ],
@@ -321,7 +325,7 @@ class AppleSignInService {
       ],
       nonce: hashedNonce,
       webAuthenticationOptions: WebAuthenticationOptions(
-        clientId: 'com.vitty.ai.signin', // ✅ FIX — THIS PASSES YOUR SERVICE ID
+        clientId: 'com.ai.vitty.signin', // ✅ FIX — THIS PASSES YOUR SERVICE ID
         redirectUri: Uri.parse(
           'https://mystic-primacy-455711-q3.firebaseapp.com/__/auth/handler',
         ),
@@ -1132,7 +1136,7 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
                                 fontSize: 14,
                                 color: isSelected ? Colors.blue : Colors.black87,
                                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                                fontFamily: "DM Sans",
+                                fontFamily: "SF Pro",
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -2874,342 +2878,80 @@ class _VPCMiddlewareDemoPageState extends State<VPCMiddlewareDemoPage> {
 
 
 
-class AssetTestPage extends StatefulWidget {
-  final String assetId;
-  const AssetTestPage({super.key, required this.assetId});
+
+/// A small pill that wraps (in a Wrap) and has a flowing gradient.
+class NotePill extends StatefulWidget {
+  final String label;
+  final VoidCallback? onTap;
+
+  const NotePill({
+    super.key,
+    required this.label,
+    this.onTap,
+  });
 
   @override
-  State<AssetTestPage> createState() => _AssetTestPageState();
+  State<NotePill> createState() => _NotePillState();
 }
 
-class _AssetTestPageState extends State<AssetTestPage> {
-  late final AssetService _svc;
-  StreamSubscription<AssetViewState>? _sub;
-  AssetViewState _state = AssetViewState.loading('ALL');
-
-  @override
-  void initState() {
-    super.initState();
-    _svc = GetIt.I<AssetService>();
-    _sub = _svc.state.listen((s) {
-      if (!mounted) return;
-      setState(() => _state = s);
-    });
-
-    // First fetch (only overview/summary/news + tiles; notes/watchlist excluded)
-    _svc.init(
-      assetId: widget.assetId,
-      sections: {
-        Section.overview,
-        Section.summary,
-        Section.news,
-        Section.marketDepth,
-        Section.shareholding,
-        Section.fundamentals,
-        Section.financials,
-      },
-      initialPeriod: 'ALL',
-    );
-  }
+class _NotePillState extends State<NotePill>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+  AnimationController(vsync: this, duration: const Duration(seconds: 3))
+    ..repeat();
 
   @override
   void dispose() {
-    _sub?.cancel();
+    _c.dispose();
     super.dispose();
   }
 
-  void _retry() => _svc.refresh();
-  void _changePeriod(String p) => _svc.setPeriod(p);
-
   @override
   Widget build(BuildContext context) {
-    final s = _state;
-
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Asset Test • ${widget.assetId}'),
-        actions: [
-          IconButton(onPressed: _retry, icon: const Icon(Icons.refresh)),
-        ],
-      ),
-      body: Builder(
-        builder: (_) {
-          if (s.loading && s.data == null) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (s.error != null && s.data == null) {
-            return _ErrorView(message: s.error!.message, onRetry: _retry);
-          }
-          final data = s.data!;
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _HeaderCard(data: data),
-              const SizedBox(height: 12),
-              _PeriodChips(active: s.activePeriod, onChange: _changePeriod),
-              const SizedBox(height: 12),
-              _QuickStatsCard(data: data),
-              const SizedBox(height: 12),
-              _FundamentalsCard(data: data),
-              const SizedBox(height: 12),
-              _MarketDepthCard(data: data),
-              const SizedBox(height: 12),
-              _ChartInfo(points: s.currentChart),
-            ],
+      body: AnimatedBuilder(
+        animation: _c,
+        builder: (_, __) {
+          // Slide the gradient diagonally for a soft “flow” effect
+          final t = _c.value; // 0 → 1
+          final begin = Alignment(-1.2 + 2.4 * t, -1.2);
+          final end = Alignment(1.2 + 2.4 * t, 1.2);
+      
+          return InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: const [Color(0xFFF1EAE4), Color(0xFFFFFFFF)],
+                  begin: begin,
+                  end: end,
+                ),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min, // <- so it hugs its content
+                children: [
+                  Image.asset("assets/images/notes.png", width: 12, height: 12),
+                  const SizedBox(width: 6),
+                  Text(
+                    widget.label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.black,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: 'SF Pro',
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         },
       ),
     );
   }
-}
-
-// ----- Widgets -----
-
-class _ErrorView extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-  const _ErrorView({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text(message, textAlign: TextAlign.center),
-        const SizedBox(height: 12),
-        ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
-      ]),
-    );
-  }
-}
-
-class _HeaderCard extends StatelessWidget {
-  final AssetData data;
-  const _HeaderCard({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    final b = data.basicInfo;
-    final p = data.priceData;
-    final symbol = b.symbol;
-    final name = b.name;
-    final ex = b.exchange;
-    final curr = data.additionalData?.currencySymbol ?? "₹";
-    final price = p.currentPrice.toStringAsFixed(2);
-    final chAmt = p.changeAmount;
-    final chPct = p.changePercent;
-    final sign = chAmt >= 0 ? '+' : '';
-    final color = chAmt >= 0 ? Colors.green : Colors.red;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(children: [
-          CircleAvatar(radius: 20, child: Text(symbol.isNotEmpty ? symbol[0] : '?')),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              Text('$ex • $symbol', style: Theme.of(context).textTheme.bodySmall),
-            ]),
-          ),
-          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text('$curr $price', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-            Text('$sign${chAmt.toStringAsFixed(2)}  ($sign${chPct.toStringAsFixed(2)}%)',
-                style: TextStyle(color: color)),
-          ]),
-        ]),
-      ),
-    );
-  }
-}
-
-class _PeriodChips extends StatelessWidget {
-  final String active;
-  final void Function(String) onChange;
-  const _PeriodChips({required this.active, required this.onChange});
-
-  @override
-  Widget build(BuildContext context) {
-    const periods = ['1D','1W','1M','1Y','5Y','ALL'];
-    return Wrap(
-      spacing: 8,
-      children: periods.map((p) {
-        final sel = p == active;
-        return ChoiceChip(
-          label: Text(p),
-          selected: sel,
-          onSelected: (_) => onChange(p),
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _QuickStatsCard extends StatelessWidget {
-  final AssetData data;
-  const _QuickStatsCard({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    final perf = data.performanceData;
-    final rows = <_KVP>[
-      _KVP('Open', perf.openPrice.toStringAsFixed(2)),
-      _KVP('Prev Close', perf.prevClose.toStringAsFixed(2)),
-      _KVP('Day High', perf.todayHigh.toStringAsFixed(2)),
-      _KVP('Day Low', perf.todayLow.toStringAsFixed(2)),
-      _KVP('52W High', perf.week52High.toStringAsFixed(2)),
-      _KVP('52W Low', perf.week52Low.toStringAsFixed(2)),
-      _KVP('Volume', perf.volume),
-    ];
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Quick Stats', style: TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 24,
-            runSpacing: 8,
-            children: rows.map((kv) {
-              return SizedBox(
-                width: 140,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [Text(kv.k), Text(kv.v, style: const TextStyle(fontWeight: FontWeight.w600))],
-                ),
-              );
-            }).toList(),
-          ),
-        ]),
-      ),
-    );
-  }
-}
-
-class _FundamentalsCard extends StatelessWidget {
-  final AssetData data;
-  const _FundamentalsCard({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    final fm = data.performanceData.financialMetrics;
-    final insights = data.fundamentals.insights;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Fundamentals', style: TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 24,
-            runSpacing: 8,
-            children: [
-              _miniKV('Mkt Cap', fm.marketCap),
-              _miniKV('PE', fm.peRatio),
-              _miniKV('PB', fm.pbRatio),
-              _miniKV('EPS', fm.eps),
-              _miniKV('ROE', fm.roe),
-              _miniKV('Div Yld', fm.divYield),
-              _miniKV('D/E', fm.debtToEquity),
-            ],
-          ),
-          if (insights.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            const Text('Insights', style: TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: insights.take(3).map((i) => Text('• ${i.title}: ${i.description}')).toList(),
-            ),
-          ]
-        ]),
-      ),
-    );
-  }
-
-  Widget _miniKV(String k, String v) {
-    return SizedBox(
-      width: 180,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(k),
-          Text(v, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-}
-
-class _MarketDepthCard extends StatelessWidget {
-  final AssetData data;
-  const _MarketDepthCard({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    final md = data.performanceData.marketDepth;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Market Depth', style: TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(child: _depthTile('Buy %', md.buyPercentage.toStringAsFixed(2))),
-              const SizedBox(width: 12),
-              Expanded(child: _depthTile('Sell %', md.sellPercentage.toStringAsFixed(2))),
-            ],
-          ),
-        ]),
-      ),
-    );
-  }
-
-  Widget _depthTile(String title, String value) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.black12.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontSize: 12)),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-      ]),
-    );
-  }
-}
-
-class _ChartInfo extends StatelessWidget {
-  final List<ChartPoint> points;
-  const _ChartInfo({required this.points});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Chart (debug)', style: TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
-          Text('Points loaded: ${points.length}'),
-          if (points.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text('First: ${points.first.timestamp.toIso8601String()} → ${points.first.price}'),
-            Text('Last:  ${points.last.timestamp.toIso8601String()} → ${points.last.price}'),
-          ]
-        ]),
-      ),
-    );
-  }
-}
-
-class _KVP {
-  final String k; final String v;
-  _KVP(this.k, this.v);
 }
 
 

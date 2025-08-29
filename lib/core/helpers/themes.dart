@@ -14,6 +14,8 @@ class AppTheme {
   final Color bottombackground;
   List<Color> gradient;
   final Color google;
+  final Color stocksearch;
+  final Color card;
 
   AppTheme({
     required this.background,
@@ -28,7 +30,9 @@ class AppTheme {
     required this.searchBox,
     required this.bottombackground,
     required this.gradient,
-    required this.google
+    required this.google,
+    required this.stocksearch,
+    required this.card,
   });
 
   static final light = AppTheme(
@@ -36,6 +40,8 @@ class AppTheme {
       Color(0xFFF1EAE4),
       Color(0xFFFFFFFF),
     ],
+    card: Color(0xffFAF9F7),
+    stocksearch: Color(0xFFFAF9F7),
     google: Color(0xFFC8C8C8),
     bottombackground: Colors.black,
     searchBox: Color(0xFFF1EFEF),
@@ -57,6 +63,7 @@ class AppTheme {
         Color(0xFF303030),
       ],
     bottombackground: Colors.white,
+    stocksearch: Color(0XFF1E1F22),
     searchBox: Color(0xFF303030),
     secondaryText: Color(0xFFB0B0B0),
     background: Color(0XFF1E1F22),
@@ -68,5 +75,6 @@ class AppTheme {
     message: Color(0xFF303030),
     shadow: Color(0xFF00000029),
       google: Colors.white,
+    card: Color(0xFF303030),
   );
 }

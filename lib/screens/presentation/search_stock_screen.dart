@@ -1,20 +1,20 @@
-import 'dart:convert';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../constants/bottomsheet.dart';
+import '../../constants/colors.dart';
 import '../../services/asset_service.dart';
 import '../../services/theme_service.dart';
-// If you’ll open details, keep whichever you use:
-// import '../asset_page/assets_page.dart';
-// Or use your bottom sheet manager in onTap (commented below).
 
-import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
+// import your own classes:
+/// import 'package:your_app/theme/app_theme_extension.dart';
+/// import 'package:your_app/widgets/chatgpt_bottom_sheet_wrapper.dart';
+/// import 'package:your_app/services/asset_service.dart';
+/// import 'package:your_app/models/asset_mini.dart';
+/// import 'package:your_app/bottom_sheet/bottom_sheet_manager.dart';
+/// import 'package:your_app/theme/app_colors.dart';
 
 class StockSearchScreen extends StatefulWidget {
   const StockSearchScreen({super.key});
@@ -25,36 +25,44 @@ class StockSearchScreen extends StatefulWidget {
 
 class _StockSearchScreenState extends State<StockSearchScreen> {
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
   final GlobalKey<ChatGPTBottomSheetWrapperState> _sheetKey =
   GlobalKey(debugLabel: 'BottomSheetWrapper');
 
-  // ✅ Replace API calls with AssetService
   late final AssetService _assetService;
   late final StreamSubscription _searchSubscription;
 
   bool _loading = false;
   String _lastQuery = '';
-  List<AssetMini> _results = []; // ✅ Use AssetMini from AssetService
+  List<AssetMini> _results = [];
 
-  // Recent searches (local)
   List<String> _recentSearches = [];
   static const String _recentSearchesKey = 'recent_searches';
+
+  // ---------- UTIL: always-close keyboard (reliable on iOS & Android) ----------
+  void _closeKeyboard() {
+    // 1) Unfocus the text field we control
+    if (_focusNode.hasFocus) _focusNode.unfocus();
+
+    // 2) Also clear any other primary focus in case AppBar has its own scope
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    // 3) Tell the system keyboard to hide (covers iOS cases with sheets)
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+  }
 
   @override
   void initState() {
     super.initState();
 
-    // ✅ Initialize AssetService
     _assetService = AssetService();
 
-    // ✅ Listen to search results stream
     _searchSubscription = _assetService.searchResults.listen((results) {
-      if (mounted) {
-        setState(() {
-          _results = results;
-          _loading = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _results = results;
+        _loading = false;
+      });
     });
 
     _loadRecentSearches();
@@ -62,10 +70,10 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
 
   @override
   void dispose() {
-    // ✅ Clean up AssetService and subscription
     _searchSubscription.cancel();
     _assetService.dispose();
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -76,6 +84,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
       final prefs = await SharedPreferences.getInstance();
       final searches = prefs.getStringList(_recentSearchesKey);
       if (searches != null) {
+        if (!mounted) return;
         setState(() => _recentSearches = searches);
       }
     } catch (_) {}
@@ -113,7 +122,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
     } catch (_) {}
   }
 
-  // ✅ Updated search method using AssetService
+  // Search (keeps keyboard open while typing)
   void _searchStock(String raw) {
     final keyword = raw.trim();
     if (keyword.isEmpty) {
@@ -130,64 +139,49 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
       _lastQuery = keyword;
     });
 
-    // Save to recent searches
     _saveRecentSearch(keyword);
-
-    // ✅ Use AssetService search (debounced automatically)
-    _assetService.setSearchQuery(keyword);
+    _assetService.setSearchQuery(keyword); // debounced inside service
   }
 
-  // // ✅ Navigate to asset details (implement based on your navigation pattern)
-  // void _openAssetDetails(AssetMini asset) {
-  //   // TODO: Implement navigation to asset details
-  //   // Option 1: Using your existing bottom sheet
-  //   // BottomSheetManager.buildStockDetailSheet(
-  //   //   assetId: asset.id,
-  //   //   onTap: () => Navigator.pop(context),
-  //   // );
-  //
-  //   // Option 2: Navigate to dedicated page
-  //   // Navigator.push(context, MaterialPageRoute(
-  //   //   builder: (_) => AssetDetailsPage(assetId: asset.id, assetName: asset.name),
-  //   // ));
-  //
-  //   // Option 3: Return selected asset to parent
-  //   Navigator.pop(context, asset);
-  //
-  //   print("Selected asset: ${asset.name} (${asset.id})");
-  // }
+  // Submit (auto-close keyboard)
+  void _onSearchSubmitted(String value) {
+    _closeKeyboard();            // <— force close
+    _searchStock(value);
+  }
 
   void _openStockDetailSheet(String assetId) {
-    print(assetId);
-    final stockSheet = BottomSheetManager.buildStockDetailSheet(
-      assetId: assetId,
-      onTap: () => _sheetKey.currentState?.closeSheet(),
-    );
-    _sheetKey.currentState?.openSheet(stockSheet);
+    _closeKeyboard();            // <— force close before opening sheet
+
+    // Open sheet on next frame to ensure IME is already dismissed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final stockSheet = BottomSheetManager.buildStockDetailSheet(
+        assetId: assetId,
+        onTap: () => _sheetKey.currentState?.closeSheet(),
+      );
+      _sheetKey.currentState?.openSheet(stockSheet);
+    });
   }
 
   // ---------------- UI ----------------
 
-  List<String> trendingStocks = const [
-    "Tata Motors",
-    "Reliance",
-    "BSE",
-    "Tata Steel",
-  ];
+  List<String> trendingStocks = const ["Tata Motors", "Reliance", "BSE", "Tata Steel"];
 
   Widget _buildChip(String label, {bool selected = false, VoidCallback? onTap}) {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        _closeKeyboard(); // <— close when tapping filters
+        onTap?.call();
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         margin: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
           border: Border.all(
-            color: selected ? const Color(0xFFF66A00) : Colors.grey.shade300,
+            color: selected ? theme.box : theme.box,
           ),
-          color: selected ? const Color(0xFFF66A00) : Colors.white,
-          borderRadius: BorderRadius.circular(10),
+          color: selected ? AppColors.primary : theme.box,
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           label,
@@ -195,7 +189,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
             fontWeight: FontWeight.w500,
             fontSize: 14,
             color: selected ? Colors.white : theme.text,
-            fontFamily: 'SF Pro Display',
+            fontFamily: 'SF Pro',
           ),
         ),
       ),
@@ -211,196 +205,198 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
 
     return ChatGPTBottomSheetWrapper(
       key: _sheetKey,
-      child: Scaffold(
-        backgroundColor: theme.background,
-        appBar: AppBar(
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back, color: theme.icon, size: 24),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          titleSpacing: 0,
-          title: TextField(
-            controller: _controller,
-            onSubmitted: _searchStock, // 🔎 hit enter to search
-            onChanged: _searchStock,   // ✅ Search on every keystroke (debounced by AssetService)
-            autofocus: true,
-            style: TextStyle(
-              fontSize: 16,
-              color: theme.text,
-              fontFamily: 'SF Pro Display',
-            ),
-            decoration: InputDecoration(
-              hintText: 'Search stocks',
-              hintStyle: TextStyle(
-                color: theme.text.withOpacity(0.6),
-                fontSize: 16,
-                fontFamily: 'SF Pro Display',
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-          ),
+      child: GestureDetector(
+        // Dismiss keyboard when tapping outside ANYWHERE
+        onTap: _closeKeyboard,
+        child: Scaffold(
           backgroundColor: theme.background,
-          elevation: 1,
-        ),
-        body: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 16),
+          appBar: AppBar(
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back, color: theme.icon, size: 24),
+              onPressed: () {
+                _closeKeyboard(); // <— make sure it closes on back
+                Navigator.of(context).pop();
+              },
+            ),
+            titleSpacing: 0,
+            title: TextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              onSubmitted: _onSearchSubmitted, // closes keyboard
+              onChanged: _searchStock,         // real-time, keep open
+              autofocus: true,
+              textInputAction: TextInputAction.search,
+              style: TextStyle(
+                fontSize: 16,
+                color: theme.text,
+                fontFamily: 'SF Pro',
+              ),
+              decoration: InputDecoration(
+                hintText: 'Search stocks',
+                hintStyle: TextStyle(
+                  color: theme.text.withOpacity(0.6),
+                  fontSize: 16,
+                  fontFamily: 'SF Pro',
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+              ),
+            ),
+            backgroundColor: theme.box,
+            surfaceTintColor: theme.background,
+            shadowColor: Colors.transparent,
+            elevation: 0,
+            systemOverlayStyle: const SystemUiOverlayStyle(
+              statusBarColor: Colors.white,
+              statusBarIconBrightness: Brightness.dark,
+            ),
+          ),
+          body: SafeArea(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
+              child: SingleChildScrollView(
+                // Also dismiss on scroll gestures
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
 
-                  // Filter chips (static as requested)
-                  SizedBox(
-                    height: 40,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        const SizedBox(width: 8),
-                        _buildChip("All", selected: true),
-                        _buildChip("Stocks"),
-                        _buildChip("MF"),
-                        _buildChip("ETF"),
-                        const SizedBox(width: 8),
-                      ],
+                    // Filter chips
+                    SizedBox(
+                      height: 40,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          const SizedBox(width: 8),
+                          _buildChip("All", selected: true),
+                          _buildChip("Stocks"),
+                          _buildChip("MF"),
+                          _buildChip("ETF"),
+                          const SizedBox(width: 8),
+                        ],
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                  // Recent searches when nothing shown
-                  if (!_loading && _results.isEmpty && _lastQuery.isEmpty && _recentSearches.isNotEmpty)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ..._recentSearches.take(3).map(
-                              (term) => InkWell(
-                            onTap: () {
-                              _controller.text = term;
-                              _searchStock(term);
-                            },
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: horizontalPadding,
-                                vertical: 8,
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade200,
-                                      shape: BoxShape.circle,
+                    // Recent searches
+                    if (!_loading && _results.isEmpty && _lastQuery.isEmpty && _recentSearches.isNotEmpty)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ..._recentSearches.take(3).map(
+                                (term) => InkWell(
+                              onTap: () {
+                                _controller.text = term;
+                                _onSearchSubmitted(term); // closes inside
+                              },
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: horizontalPadding,
+                                  vertical: 8,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade200,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.history, size: 18, color: Colors.black54),
                                     ),
-                                    child: const Icon(Icons.history, size: 18, color: Colors.black54),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        term,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontFamily: 'SF Pro',
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(Icons.close, size: 18, color: Colors.grey.shade600),
+                                      onPressed: () {
+                                        _closeKeyboard();
+                                        _removeRecentSearch(term);
+                                      },
+                                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                      padding: EdgeInsets.zero,
+                                      splashRadius: 20,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                    // Loading
+                    if (_loading)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24.0),
+                          child: CircularProgressIndicator(color: Color(0xFFF66A00)),
+                        ),
+                      ),
+
+                    // Results
+                    if (!_loading && _results.isNotEmpty)
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: _results.map((asset) {
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Row(
+                                children: [
+                                  const CircleAvatar(
+                                    child: Icon(Icons.trending_up, size: 18, color: Colors.black),
+                                    backgroundColor: Color(0xFFD9D9D9),
+                                    maxRadius: 15,
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      term,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontFamily: 'SF Pro Display',
-                                      ),
+                                      asset.name,
                                       overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontFamily: 'SF Pro',
+                                        color: theme.text,
+                                      ),
                                     ),
-                                  ),
-                                  IconButton(
-                                    icon: Icon(Icons.close, size: 18, color: Colors.grey.shade600),
-                                    onPressed: () => _removeRecentSearch(term),
-                                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                                    padding: EdgeInsets.zero,
-                                    splashRadius: 20,
                                   ),
                                 ],
                               ),
-                            ),
+                              onTap: () => _openStockDetailSheet(asset.id), // closes + opens sheet
+                            );
+                          }).toList(),
+                        ),
+                      ),
+
+                    // No results
+                    if (!_loading && _results.isEmpty && _lastQuery.isNotEmpty)
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
+                        child: Text(
+                          'No results for "$_lastQuery"',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 14,
+                            fontFamily: 'SF Pro',
                           ),
                         ),
-                      ],
-                    ),
-
-                  // Loading
-                  if (_loading)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(24.0),
-                        child: CircularProgressIndicator(color: Color(0xFFF66A00)),
                       ),
-                    ),
 
-                  // ✅ Updated Results using AssetMini
-                  if (!_loading && _results.isNotEmpty)
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: _results.map((asset) {
-                          return ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Row(
-                              children: [
-                                CircleAvatar(
-                                  child: const Icon(Icons.trending_up, size: 18, color: Colors.black),
-                                  backgroundColor: const Color(0xFFD9D9D9),
-                                  maxRadius: 15,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    asset.name, // ✅ Use AssetMini.name
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontFamily: 'SF Pro Display',
-                                      color: theme.text,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            onTap: () {
-                              _openStockDetailSheet(asset.id);
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ),
-
-                  // No results (after a query)
-                  if (!_loading && _results.isEmpty && _lastQuery.isNotEmpty)
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
-                      child: Text(
-                        'No results for "$_lastQuery"',
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 14,
-                          fontFamily: 'SF Pro Display',
-                        ),
-                      ),
-                    ),
-
-                  const SizedBox(height: 24),
-
-                  // Trending (static as requested)
-                  // if (!_loading)
-                  //   Padding(
-                  //     padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                  //     child: const Text(
-                  //       "Trending Searches",
-                  //       style: TextStyle(
-                  //         fontWeight: FontWeight.bold,
-                  //         fontSize: 18,
-                  //         fontFamily: 'SF Pro Display',
-                  //       ),
-                  //     ),
-                  //   ),
-                  // const SizedBox(height: 12),
-                  // if (!_loading) _buildTrendingGrid(trendingStocks),
-                ],
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
             ),
           ),
@@ -432,7 +428,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
               return InkWell(
                 onTap: () {
                   _controller.text = label;
-                  _searchStock(label);
+                  _onSearchSubmitted(label); // closes inside
                 },
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
@@ -454,7 +450,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
-                            fontFamily: 'SF Pro Display',
+                            fontFamily: 'SF Pro',
                           ),
                         ),
                       ),
@@ -469,3 +465,4 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
     );
   }
 }
+

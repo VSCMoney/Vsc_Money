@@ -1,9 +1,9 @@
-package com.vitty.ai.vad
+package com.ai.vitty.vad
 
 import android.content.Context
-import com.vitty.ai.vad.config.FrameSize
-import com.vitty.ai.vad.config.Mode
-import com.vitty.ai.vad.config.SampleRate
+import com.ai.vitty.vad.config.FrameSize
+import com.ai.vitty.vad.config.Mode
+import com.ai.vitty.vad.config.SampleRate
 import org.tensorflow.lite.support.audio.TensorAudio
 import org.tensorflow.lite.support.audio.TensorAudio.TensorAudioFormat
 import org.tensorflow.lite.task.audio.classifier.AudioClassifier

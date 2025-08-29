@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:get_it/get_it.dart';
+import 'package:vscmoney/services/locator.dart';
 
 import '../../../services/asset_service.dart';
+import '../../constants/bottomsheet.dart';
+import '../../services/theme_service.dart';
 
 class StockAppBar extends StatefulWidget {
   const StockAppBar({
     super.key,
     required this.onClose,
-    required this.fallbackTitle, // e.g., the symbol or name you already have
+    required this.fallbackTitle,
     this.accentColor = const Color(0xFF734012),
   });
 
@@ -21,7 +24,7 @@ class StockAppBar extends StatefulWidget {
 }
 
 class _StockAppBarState extends State<StockAppBar> {
-  late final AssetService _svc = GetIt.I<AssetService>();
+  late final AssetService _svc = locator<AssetService>();
   StreamSubscription<AssetViewState>? _sub;
 
   String _title = '';
@@ -30,11 +33,7 @@ class _StockAppBarState extends State<StockAppBar> {
   @override
   void initState() {
     super.initState();
-
-    // initial from snapshot (if available)
     _syncFromState(_svc.snapshot);
-
-    // subscribe to changes
     _sub = _svc.state.listen((s) {
       if (!mounted) return;
       _syncFromState(s);
@@ -47,14 +46,12 @@ class _StockAppBarState extends State<StockAppBar> {
 
     final d = s.data;
     if (d != null) {
-      // Prefer backend name; else use fallback
       if (d.basicInfo.name.trim().isNotEmpty) {
         newTitle = d.basicInfo.name.trim();
       }
       newWatch = d.additionalData?.userWatchlisted ?? false;
     }
 
-    // Update only if changed to avoid rebuild churn
     if (newTitle != _title || newWatch != _watchlisted) {
       setState(() {
         _title = newTitle;
@@ -70,90 +67,153 @@ class _StockAppBarState extends State<StockAppBar> {
   }
 
   void _toggleWatchlist() {
-    // optimistic flip
     setState(() => _watchlisted = !_watchlisted);
     _svc.toggleWatchlist();
   }
 
+  // ---- NEW: robust closer that works inside sheets/slivers on iOS too ----
+  Future<void> _handleClose() async {
+    // 1) Try any ChatGPTBottomSheetWrapper up the tree
+    final wrapper = context.findAncestorStateOfType<ChatGPTBottomSheetWrapperState>();
+    if (wrapper != null && wrapper.isSheetOpen) {
+      await wrapper.closeSheet();
+      return;
+    }
+
+    // 2) Use the callback provided by the parent (HomeScreen’s _closeSheet or similar)
+    try {
+      widget.onClose();
+      return;
+    } catch (_) {}
+
+    // 3) Final fallback: pop the current route if possible
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).maybePop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 60,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // 🔹 Center title always centered regardless of sides
-          Text(
-            _title.isNotEmpty ? _title : widget.fallbackTitle,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-              fontFamily: "DM Sans",
-            ),
-          ),
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
-          // 🔹 Left and Right controls positioned exactly
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return SafeArea( // ensure not under the notch
+      top: false,
+      bottom: false,
+      child: Container(
+        height: 60,
+        decoration: BoxDecoration(
+          color: theme.background,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Stack(
             children: [
-              const SizedBox(width: 18),
-              GestureDetector(
-                onTap: widget.onClose,
-                child: Image.asset(
-                  "assets/images/cancel.png",
-                  width: 30,
-                  height: 30,
-                  color: widget.accentColor,
+              // CENTER title first so buttons paint on top (no accidental overlay)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 80),
+                  child: Text(
+                    _title.isNotEmpty ? _title : widget.fallbackTitle,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: theme.text,
+                      fontFamily: "Inter",
+                      height: 1.0,
+                      letterSpacing: 0.0,
+                    ),
+                  ),
                 ),
               ),
-              const Spacer(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      Icons.notifications_outlined,
-                      color: widget.accentColor,
-                      size: 24,
+
+              // LEFT close button (now always tappable, bigger hit area, on top)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: InkWell(
+                      onTap: _handleClose,
+                      borderRadius: BorderRadius.circular(28),
+                      child: SizedBox(
+
+                        child: Center(
+                          child: Image.asset(
+                            "assets/images/cancel.png",
+                            height: 32,
+                            color: theme.icon,
+                          ),
+                        ),
+                      ),
                     ),
-                    padding: EdgeInsets.zero, // Remove default padding
-                    constraints: const BoxConstraints(), // Remove default constraints
-                    onPressed: () {
-                      // TODO: hook your alerts/notifications sheet here
-                    },
                   ),
-                  const SizedBox(width: 4), // Reduced spacing between icons
-                  IconButton(
-                    icon: Icon(
-                      _watchlisted ? Icons.bookmark : Icons.bookmark_border,
-                      color: widget.accentColor,
-                      size: 24,
-                    ),
-                    padding: EdgeInsets.zero, // Remove default padding
-                    constraints: const BoxConstraints(), // Remove default constraints
-                    onPressed: _toggleWatchlist,
+                ),
+              ),
+
+              // RIGHT icons
+              Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Material(
+                        type: MaterialType.transparency,
+                        child: InkWell(
+                          onTap: () {
+                            // TODO: open alerts/notifications sheet
+                          },
+                          borderRadius: BorderRadius.circular(28),
+                          child: const SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: Icon(Icons.notifications_outlined, size: 22),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Material(
+                        type: MaterialType.transparency,
+                        child: InkWell(
+                          onTap: _toggleWatchlist,
+                          borderRadius: BorderRadius.circular(28),
+                          child: SizedBox(
+                            width: 44, height: 44,
+                            child: Icon(
+                              _watchlisted ? Icons.bookmark : Icons.bookmark_border,
+                              size: 22,
+                              color: theme.icon,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
+
 
 
 class StockPortfolioCard extends StatelessWidget {
@@ -176,10 +236,11 @@ class StockPortfolioCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.box,
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
@@ -212,10 +273,10 @@ class StockPortfolioCard extends StatelessWidget {
                     Text(
                       '$shares Shares',
                       style: TextStyle(
-                        fontFamily: 'DM Sans',
+                        fontFamily: 'SF Pro',
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black,
+                        color: theme.text,
                         height: 1.2,
                       ),
                     ),
@@ -223,10 +284,10 @@ class StockPortfolioCard extends StatelessWidget {
                     Text(
                       'Avg price ₹${avgPrice.toStringAsFixed(2)}',
                       style: TextStyle(
-                        fontFamily: 'DM Sans',
+                        fontFamily: 'SF Pro',
                         fontSize: 10,
                         fontWeight: FontWeight.w400,
-                        color: Color(0xFF6B7280),
+                        color: theme.text,
                         height: 1.2,
                       ),
                     ),
@@ -240,10 +301,10 @@ class StockPortfolioCard extends StatelessWidget {
                     Text(
                       '₹${currentValue.toStringAsFixed(2)}',
                       style: TextStyle(
-                        fontFamily: 'DM Sans',
+                        fontFamily: 'SF Pro',
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black,
+                        color: theme.text,
                         height: 1.2,
                       ),
                     ),
@@ -264,7 +325,7 @@ class StockPortfolioCard extends StatelessWidget {
                         Text(
                           '${changePercent.toStringAsFixed(0)}% (+${changeAmount.toStringAsFixed(1)})',
                           style: TextStyle(
-                            fontFamily: 'DM Sans',
+                            fontFamily: 'SF Pro',
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
                             color:
@@ -302,15 +363,15 @@ class StockPortfolioCard extends StatelessWidget {
                     Text(
                       'Go to your broker',
                       style: TextStyle(
-                        fontFamily: 'DM Sans',
+                        fontFamily: 'SF Pro',
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        color: Colors.black,
+                        color: theme.text,
                         height: 1.2,
                       ),
                     ),
                     SizedBox(width: 4),
-                    Icon(Icons.chevron_right, color: Colors.black, size: 18),
+                    Icon(Icons.chevron_right, color: theme.icon, size: 18),
                   ],
                 ),
               ],

@@ -31,7 +31,7 @@ class EndPointService {
 
   // Base URL
   final String _baseUrl = 'https://fastapi-app-130321581049.asia-south1.run.app';
- //final String _baseUrl = "http://localhost:8000";
+  //final String _baseUrl = "http://localhost:8000";
   // final String _baseUrl = 'http://127.0.0.1:8000';
 
   String? _lastEndpoint;
@@ -97,13 +97,13 @@ class EndPointService {
   void _showNetworkStatusToast(NetworkStatus status) {
     switch (status) {
       case NetworkStatus.connected:
-        Fluttertoast.showToast(msg: "✅ Back online", gravity: ToastGravity.TOP);
+       // Fluttertoast.showToast(msg: "✅ Back online", gravity: ToastGravity.TOP);
         break;
       case NetworkStatus.slow:
-        Fluttertoast.showToast(msg: "⚠️ Internet is slow", gravity: ToastGravity.TOP);
+       // Fluttertoast.showToast(msg: "⚠️ Internet is slow", gravity: ToastGravity.TOP);
         break;
       case NetworkStatus.noInternet:
-        Fluttertoast.showToast(msg: "❌ No internet connection", gravity: ToastGravity.TOP);
+       // Fluttertoast.showToast(msg: "❌ No internet connection", gravity: ToastGravity.TOP);
         break;
     }
   }

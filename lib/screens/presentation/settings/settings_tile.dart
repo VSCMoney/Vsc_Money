@@ -110,7 +110,7 @@ class _SettingsTileState extends State<SettingsTile> {
             child: Text(
               widget.title,
               style: TextStyle(
-                fontFamily: 'SF Pro Text',
+                fontFamily: 'SF Pro',
                 fontSize: 16,
                 color: theme.text,
                 fontWeight: FontWeight.w500,
@@ -123,7 +123,7 @@ class _SettingsTileState extends State<SettingsTile> {
                 Text(
                   widget.trailingText!,
                   style: TextStyle(
-                    fontFamily: 'SF Pro Text',
+                    fontFamily: 'SF Pro',
                     fontSize: 14,
                     color: theme.text,
                     fontWeight: FontWeight.w500,

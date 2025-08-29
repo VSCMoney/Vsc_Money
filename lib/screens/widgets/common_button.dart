@@ -36,7 +36,7 @@ class CommonButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: screenWidth * 0.045, // Responsive font size
                 color: Colors.white,
-                fontFamily: 'SF Pro Text'
+                fontFamily: 'SF Pro'
               ),
             ),
       ),

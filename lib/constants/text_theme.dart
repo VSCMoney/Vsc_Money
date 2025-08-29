@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 TextTheme buildAppTextTheme(Color color) {
-  const String fontFamily = 'SF Pro Text';
+  const String fontFamily = 'SF Pro';
 
   return TextTheme(
     displayLarge: TextStyle(

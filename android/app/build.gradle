@@ -17,7 +17,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace 'com.vitty.ai'
+    namespace 'com.ai.vitty'
     compileSdk 35
     ndkVersion '27.0.12077973'
 
@@ -28,11 +28,11 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.vitty.ai"
+        applicationId "com.ai.vitty"
         minSdk 24
         targetSdk 35
-        versionCode 1
-        versionName "1.0"
+        versionCode 6
+        versionName "1.0.12"
 
         // Your CMake/native config
         externalNativeBuild {

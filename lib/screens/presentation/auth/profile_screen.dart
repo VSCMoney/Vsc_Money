@@ -99,15 +99,27 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
           child: Column(
             children: [
               SizedBox(height: screenHeight * 0.05),
-              Hero(
-                tag: 'penny_logo',
-                child: Image.asset(
-                  'assets/images/auth.png',
-                  width: screenWidth * 0.2,
-                  height: screenHeight * 0.1,
-                ),
+              Column(
+                children: [
+                  Hero(
+                    tag: 'penny_logo',
+                    child: Image.asset(
+                      'assets/images/ying yang.png',
+                      width: screenWidth * 0.4,
+                      height: screenHeight * 0.09,
+                    ),
+                  ),
+                  Hero(
+                    tag: 'penny_logo',
+                    child: Image.asset(
+                      'assets/images/Vitty.ai2.png',
+                      width: screenWidth * 0.2,
+                      height: screenHeight * 0.1,
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(height: screenHeight * 0.15),
+              SizedBox(height: screenHeight * 0.10),
               Row(
                 children: [
                   Text(
@@ -115,7 +127,7 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
                     style: TextStyle(
                       fontSize: screenWidth * 0.042,
                       fontWeight: FontWeight.w400,
-                      fontFamily: 'SF Pro Text',
+                      fontFamily: 'SF Pro',
                       color: theme.text,
                     ),
                   ),
@@ -133,11 +145,11 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(5),
-                    borderSide:  BorderSide(color: Colors.black26, width: 2),
+                    borderSide:  BorderSide(color: theme.border, width: 2),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(5),
-                    borderSide: BorderSide(color: Colors.black26, width: 1.5),
+                    borderSide: BorderSide(color: theme.border, width: 1.5),
                   ),
                   contentPadding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
                   filled: true,
@@ -162,7 +174,7 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
                     style: TextStyle(
                       fontSize: screenWidth * 0.045,
                       color: Colors.white,
-                      fontFamily: "SF Pro Text",
+                      fontFamily: "SF Pro",
                       fontWeight: FontWeight.w500,
                     ),
                   ),

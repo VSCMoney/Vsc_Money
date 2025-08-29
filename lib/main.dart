@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vscmoney/controllers/session_manager.dart';
 
 // Local imports
+import 'constants/colors.dart';
 import 'core/helpers/themes.dart';
 import 'firebase_options.dart';
 import 'routes/AppRoutes.dart';
@@ -88,17 +89,32 @@ class AppInitializer {
       await _loadUserPreferences();
 
       // ✅ Edge-to-edge & show status bar with safe defaults (dark icons on light bg)
-      await SystemChrome.setEnabledSystemUIMode(
-        SystemUiMode.edgeToEdge,
-        overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
-      );
+      // await SystemChrome.setEnabledSystemUIMode(
+      //   SystemUiMode.edgeToEdge,
+      //   overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
+      // );
+      // SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      //   statusBarColor: Colors.transparent,
+      //   statusBarBrightness: Brightness.light,   // iOS: dark glyphs
+      //   statusBarIconBrightness: Brightness.dark, // Android: dark glyphs
+      //   systemNavigationBarColor: Colors.transparent,
+      //   systemNavigationBarIconBrightness: Brightness.dark,
+      // ));
+
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
       SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarBrightness: Brightness.light,   // iOS: dark glyphs
-        statusBarIconBrightness: Brightness.dark, // Android: dark glyphs
+        statusBarBrightness: Brightness.light,
+        statusBarIconBrightness: Brightness.dark,
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        // 👇 kills the black strip on Android 10+
+        systemNavigationBarContrastEnforced: false,
+        systemStatusBarContrastEnforced: false,
       ));
+
 
       // Allow UI to render
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -225,6 +241,8 @@ class MyApp extends StatelessWidget {
           statusBarIconBrightness: isLight ? Brightness.dark : Brightness.light, // Android
           systemNavigationBarColor: Colors.transparent,
           systemNavigationBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
+          systemNavigationBarContrastEnforced: false,   // 👈
+          systemStatusBarContrastEnforced: false,
         );
 
         return HeroControllerScope(
@@ -246,6 +264,15 @@ class MyApp extends StatelessWidget {
 
   ThemeData _buildThemeData(AppTheme appTheme, SystemUiOverlayStyle overlay) {
     final isLight = appTheme == AppTheme.light;
+
+    // Start from the base scheme, then override brand colors
+    final baseScheme = isLight
+        ? const ColorScheme.light()
+        : const ColorScheme.dark();
+
+    // Your brand color (you likely already use this elsewhere)
+    final brandPrimary = AppColors.primary; // e.g. Color(0xFFF66A00)
+
     return ThemeData(
       scaffoldBackgroundColor: appTheme.bottombackground,
       appBarTheme: AppBarTheme(
@@ -256,7 +283,6 @@ class MyApp extends StatelessWidget {
           fontSize: 18,
           fontWeight: FontWeight.bold,
         ),
-        // ✅ Make sure any AppBar page also drives correct status bar glyphs
         systemOverlayStyle: overlay,
         elevation: 0,
       ),
@@ -270,13 +296,23 @@ class MyApp extends StatelessWidget {
         titleMedium: TextStyle(color: appTheme.text),
         titleSmall: TextStyle(color: appTheme.text),
       ),
-      // (optional) transparent bottom nav for edge-to-edge
       bottomAppBarTheme: const BottomAppBarTheme(color: Colors.transparent, elevation: 0),
-      colorScheme: isLight
-          ? const ColorScheme.light()
-          : const ColorScheme.dark(),
+
+      // 🔶 Ensure spinners/“typing” use your brand (not purple)
+      colorScheme: baseScheme.copyWith(
+        primary: brandPrimary,
+        secondary: brandPrimary,
+        surface: appTheme.background,
+        onSurface: appTheme.text,
+        background: appTheme.background,
+        onBackground: appTheme.text,
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: brandPrimary,
+      ),
     );
   }
+
 }
 
 /// Reactive theme builder widget
@@ -328,6 +364,8 @@ class _AppThemeBuilderState extends State<AppThemeBuilder> {
       statusBarIconBrightness: isLight ? Brightness.dark : Brightness.light, // Android glyph color
       systemNavigationBarColor: Colors.transparent,
       systemNavigationBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
+      systemNavigationBarContrastEnforced: false,   // 👈
+      systemStatusBarContrastEnforced: false,
     ));
   }
 

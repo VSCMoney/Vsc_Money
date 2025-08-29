@@ -46,14 +46,14 @@ class AddShortcutCard extends StatelessWidget {
                 SizedBox(width: 6),
                 Text(
                   "Add Shortcut",
-                  style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white,fontSize: 16,fontFamily: 'SF Pro Text'),
+                  style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white,fontSize: 16,fontFamily: 'SF Pro'),
                 ),
               ],
             ),
             SizedBox(height: 2),
             Text(
               " Create your own quick prompt",
-              style: TextStyle(fontSize: 14, color: Colors.white,fontFamily: "SF Pro Text"),
+              style: TextStyle(fontSize: 14, color: Colors.white,fontFamily: "SF Pro"),
             ),
           ],
         ),

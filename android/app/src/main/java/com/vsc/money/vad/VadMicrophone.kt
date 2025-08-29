@@ -1,12 +1,12 @@
-//package com.vitty.ai.vad
+//package com.ai.vitty.vad
 //
 //import android.media.AudioFormat
 //import android.media.AudioRecord
 //import android.media.MediaRecorder
 //import android.content.Context
-//import com.vitty.ai.vad.config.FrameSize
-//import com.vitty.ai.vad.config.Mode
-//import com.vitty.ai.vad.config.SampleRate
+//import com.ai.vitty.vad.config.FrameSize
+//import com.ai.vitty.vad.config.Mode
+//import com.ai.vitty.vad.config.SampleRate
 //import io.flutter.plugin.common.EventChannel
 //import kotlinx.coroutines.*
 //
@@ -73,15 +73,15 @@
 
 
 
-package com.vitty.ai.vad
+package com.ai.vitty.vad
 
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.content.Context
-import com.vitty.ai.vad.config.FrameSize
-import com.vitty.ai.vad.config.Mode
-import com.vitty.ai.vad.config.SampleRate
+import com.ai.vitty.vad.config.FrameSize
+import com.ai.vitty.vad.config.Mode
+import com.ai.vitty.vad.config.SampleRate
 import io.flutter.plugin.common.EventChannel
 import kotlinx.coroutines.*
 import kotlin.math.pow

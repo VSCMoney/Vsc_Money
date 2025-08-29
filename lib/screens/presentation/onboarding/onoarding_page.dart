@@ -1,18 +1,154 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
-
+import 'dart:ui' show lerpDouble;
+import '../../../constants/colors.dart';
 import '../../../constants/mesh_background.dart';
 import '../../widgets/common_button.dart';
 import '../../widgets/dot_indicator.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/locator.dart';
-import '../auth/auth_screen.dart';
-import 'onboarding_page_3.dart';
-import 'onboarding_screen_1.dart';
-import 'onboarding_screen_2.dart';
+
+
+import 'dart:ui' show lerpDouble;
+import 'package:flutter/material.dart';
+
+class TransitioningCopy extends StatelessWidget {
+  final PageController controller;
+  final List<String> titles;
+  final List<String> subtitles;
+  final TextStyle titleStyle;
+  final TextStyle subtitleStyle;
+  final double titleHeight;
+
+  const TransitioningCopy({
+    super.key,
+    required this.controller,
+    required this.titles,
+    required this.subtitles,
+    required this.titleStyle,
+    required this.subtitleStyle,
+    this.titleHeight = 116,
+  }) : assert(titles.length == subtitles.length);
+
+  double get _page {
+    if (controller.hasClients && controller.position.haveDimensions) {
+      return controller.page ?? controller.initialPage.toDouble();
+    }
+    return controller.initialPage.toDouble();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (_, __) {
+        final page = _page;
+        final base = page.floor().clamp(0, titles.length - 1);
+        final frac = (page - base).abs().clamp(0.0, 1.0);
+        final neighbor = (base + 1).clamp(0, titles.length - 1);
+
+        // Two-phase animation: fade first (0.0 to 0.5), then slide (0.5 to 1.0)
+        final fadePhase = (frac * 2).clamp(0.0, 1.0); // 0-0.5 becomes 0-1
+        final slidePhase = ((frac - 0.5) * 2).clamp(0.0, 1.0); // 0.5-1.0 becomes 0-1
+
+        final isInFadePhase = frac <= 0.5;
+        final isInSlidePhase = frac > 0.5;
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title with two-phase animation: fade then slide
+            SizedBox(
+              height: titleHeight,
+              child: ClipRect(
+                child: Stack(
+                  children: [
+                    // Current title - fades out in first phase
+                    if (frac < 0.001 || isInFadePhase)
+                      Opacity(
+                        opacity: frac < 0.001 ? 1.0 : (1.0 - Curves.easeInQuart.transform(fadePhase)).clamp(0.0, 1.0),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            titles[base],
+                            textAlign: TextAlign.left,
+                            style: titleStyle,
+                          ),
+                        ),
+                      ),
+
+                    // Next title - slides in from left to right during second phase
+                    if (isInSlidePhase && base < titles.length - 1)
+                      Transform.translate(
+                        offset: Offset(
+                          -(1 - slidePhase) * MediaQuery.of(context).size.width,
+                          0,
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            titles[neighbor],
+                            textAlign: TextAlign.left,
+                            style: titleStyle,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Subtitle with fade and slide (separate from title)
+            SizedBox(
+              height: subtitleStyle.fontSize! * (subtitleStyle.height ?? 1.5) * 3,
+              child: frac < 0.001
+                  ? Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  subtitles[base],
+                  textAlign: TextAlign.left,
+                  style: subtitleStyle,
+                ),
+              )
+                  : Stack(
+                alignment: Alignment.centerLeft,
+                children: [
+                  // Current subtitle fading out
+                  Opacity(
+                    opacity: (1.0 - frac).clamp(0.0, 1.0),
+                    child: Text(
+                      subtitles[base],
+                      textAlign: TextAlign.left,
+                      style: subtitleStyle,
+                    ),
+                  ),
+                  // Next subtitle sliding in
+                  if (base < titles.length - 1)
+                    Opacity(
+                      opacity: frac.clamp(0.0, 1.0),
+                      child: Transform.translate(
+                        offset: Offset(0, (1 - frac) * 28),
+                        child: Text(
+                          subtitles[neighbor],
+                          textAlign: TextAlign.left,
+                          style: subtitleStyle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -24,21 +160,28 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage> {
   final PageController _controller = PageController();
   final AuthService _authService = locator<AuthService>();
+
   int _currentPage = 0;
   bool _isLoading = false;
-  bool _imagesPreloaded = false;
-  bool _onboardingMarkedComplete = false;
+  bool _preloaded = false;
+  bool _marked = false;
 
-  final List<List<Color>> gradientColors = [
-    [const Color(0xFF7F00FF), const Color(0xFFE100FF)], // Page 0
-    [const Color(0xFF00C9FF), const Color(0xFF92FE9D)], // Page 1
-    [const Color(0xFF2193b0), const Color(0xFF6dd5ed)], // Page 2
+  final _bgImages = const [
+    'assets/images/new_mesh.png',
+    'assets/images/red_mesh.png',
+    'assets/images/purple.png',
   ];
 
-  final List<String> backgroundImages = [
-    'assets/images/onboard_animate.png',
-    'assets/images/green_bag.png',
-    'assets/images/pink.png',
+  final _titles = const [
+    'Super\nIntelligent',
+    'Bias\nFree',
+    'Always\nAvailable',
+  ];
+
+  final _subtitles = const [
+    'Thinks faster, learns deeper, and\nplans smarter—so you don\'t have to.',
+    'No commissions. No agenda.\nJust advice that puts you first.',
+    'On, alert, and responsive\nwhenever you need financial clarity.',
   ];
 
   @override
@@ -50,49 +193,38 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_imagesPreloaded) {
-      _preloadImages();
-      _imagesPreloaded = true;
+    if (!_preloaded) {
+      for (final p in _bgImages) {
+        precacheImage(AssetImage(p), context);
+      }
+      _preloaded = true;
     }
   }
 
   Future<void> _markOnboardingAsStarted() async {
-    if (!_onboardingMarkedComplete) {
-      await _authService.markOnboardingCompleted();
-      _onboardingMarkedComplete = true;
-      debugPrint('✅ Onboarding marked as completed (early)');
-    }
-  }
-
-  void _preloadImages() {
-    for (final imagePath in backgroundImages) {
-      precacheImage(AssetImage(imagePath), context);
-    }
+    if (_marked) return;
+    await _authService.markOnboardingCompleted();
+    _marked = true;
   }
 
   Future<void> _handleContinue() async {
-    if (_currentPage < 2) {
-      // Navigate to next onboarding page
+    if (_currentPage < _titles.length - 1) {
       await _controller.animateToPage(
         _currentPage + 1,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOutCubic,
       );
     } else {
-      // Complete onboarding and navigate to auth
       await _completeOnboarding();
     }
   }
 
   Future<void> _completeOnboarding() async {
     if (_isLoading) return;
-
     setState(() => _isLoading = true);
-
     try {
       await _authService.completeOnboarding((flow) {
         if (!mounted) return;
-
         switch (flow) {
           case AuthFlow.login:
             context.go('/phone_otp');
@@ -104,138 +236,138 @@ class _OnboardingPageState extends State<OnboardingPage> {
             context.go('/home');
             break;
           case AuthFlow.onboarding:
-          // Should never happen since we already marked it complete
-            debugPrint('⚠️ Unexpected onboarding flow');
             context.go('/phone_otp');
             break;
         }
       });
-    } catch (e) {
-      debugPrint('❌ Error completing onboarding: $e');
-      // Fallback to auth screen
-      if (mounted) {
-        context.go('/phone_otp');
-      }
+    } catch (_) {
+      if (mounted) context.go('/phone_otp');
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
+    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Smooth background transition
+          // Background mesh
           Positioned.fill(
-            child: MeltImageBackground(
-              imagePaths: backgroundImages,
-              page: _currentPage,
-            ),
+            child: MeltImageBackground(imagePaths: _bgImages, page: _currentPage),
           ),
 
-          // Subtle lottie animation overlay
+          // Subtle overlay
           Positioned.fill(
             child: IgnorePointer(
               ignoring: true,
               child: Opacity(
                 opacity: 0.01,
-                child: Lottie.asset(
-                  'assets/images/onboard.json',
-                  fit: BoxFit.cover,
-                  animate: true,
-                ),
+                child: Lottie.asset('assets/images/onboard.json', fit: BoxFit.cover),
               ),
             ),
           ),
 
-          // Main content
-          Column(
-            children: [
-              Expanded(
-                child: PageView.builder(
-                  controller: _controller,
-                  itemCount: 3,
-                  onPageChanged: (index) {
-                    setState(() => _currentPage = index);
-                  },
-                  itemBuilder: (context, index) {
-                    return AnimatedBuilder(
-                      animation: _controller,
-                      builder: (context, child) {
-                        double opacity = 1.0;
-
-                        if (_controller.position.haveDimensions) {
-                          num difference = (_controller.page ?? _controller.initialPage) - index;
-                          opacity = (1.0 - difference.abs()).clamp(0.0, 1.0);
-                        }
-
-                        return Opacity(
-                          opacity: opacity,
-                          child: child,
-                        );
-                      },
-                      child: _buildPage(index),
-                    );
-                  },
-                ),
-              ),
-
-              // Dots indicator
-              DotsIndicator(currentPage: _currentPage),
-              const SizedBox(height: 30),
-
-              // Continue button
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: CommonButton(
-                  label: _currentPage < 2 ? 'Continue' : 'Get Started',
-                  onPressed: _isLoading ? null : _handleContinue,
-                  child: _isLoading
-                      ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                      : null,
-                ),
-              ),
-
-              const SizedBox(height: 82),
-            ],
-          ),
-
-          // Hero logo
-          Positioned(
-            top: 90,
-            left: screenWidth / 2 - (screenWidth * 0.09),
+          SafeArea(
             child: Column(
               children: [
-                Hero(
-                  tag: 'penny_logo',
-                  child: Image.asset(
-                    'assets/images/new_app_logo.png',
-                    width: screenWidth * 0.2,
-                    height: screenHeight * 0.06,
+                SizedBox(height: size.height * 0.06),
+
+                // Logo section
+                Center(
+                  child: Column(
+                    children: [
+                      Hero(
+                        tag: 'penny_logo',
+                        child: Image.asset(
+                          'assets/images/ying yang.png',
+                          width: size.width * 0.18,
+                          height: size.height * 0.055,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Hero(
+                        tag: 'sub_logo',
+                        child: Image.asset(
+                          'assets/images/Vitty.ai2.png',
+                          width: size.width * 0.2,
+                          height: size.height * 0.045,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Hero(
-                  tag: 'sub_logo',
-                  child: Image.asset(
-                    'assets/images/Vitty.ai.png',
-                    width: screenWidth * 0.2,
-                    height: screenHeight * 0.05,
+
+                // Main content area
+                Expanded(
+                  child: Stack(
+                    children: [
+                      // Single PageView for gesture handling
+                      PageView.builder(
+                        controller: _controller,
+                        itemCount: _titles.length,
+                        onPageChanged: (i) => setState(() => _currentPage = i),
+                        itemBuilder: (_, __) => const SizedBox.shrink(),
+                      ),
+
+                      // Text content positioned on left
+                      Positioned(
+                        left: 28,
+                        right: 28,
+                        top: size.height * 0.12,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: size.width * 0.72,
+                          ),
+                          child: TransitioningCopy(
+                            controller: _controller,
+                            titles: _titles,
+                            subtitles: _subtitles,
+                            titleHeight: 120,
+                            titleStyle: const TextStyle(
+                              fontSize: 45,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              height: 1.2,
+                            ),
+                            subtitleStyle: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.white70,
+                              fontWeight: FontWeight.w400,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+
+                // Bottom section
+                DotsIndicator(currentPage: _currentPage),
+                const SizedBox(height: 28),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: CommonButton(
+                    label: _currentPage < _titles.length - 1 ? 'Continue' : 'Get Started',
+                    onPressed: _isLoading ? null : _handleContinue,
+                    child: _isLoading
+                        ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 32),
               ],
             ),
           ),
@@ -244,19 +376,355 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  Widget _buildPage(int index) {
-    if (index == 0) return const InvestmentPlanScreen();
-    if (index == 1) return const GoalsOnbording();
-    if (index == 2) return const OnboardingScreen();
-    return const SizedBox.shrink();
-  }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 }
+
+class DotsIndicator extends StatelessWidget {
+  final int currentPage;
+
+  const DotsIndicator({
+    Key? key,
+    required this.currentPage,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(3, (index) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          height: 8,
+          width: currentPage == index ? 24 : 8,
+          decoration: BoxDecoration(
+            color: currentPage == index ? AppColors.primary : Colors.white.withOpacity(0.4),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// class PageTextAnimator extends StatelessWidget {
+//   final PageController controller;
+//   final int pageIndex;
+//   final Widget title;
+//   final Widget subtitle;
+//   final double subtitleSlide;
+//   final Curve curve;
+//
+//   const PageTextAnimator({
+//     super.key,
+//     required this.controller,
+//     required this.pageIndex,
+//     required this.title,
+//     required this.subtitle,
+//     this.subtitleSlide = 28,
+//     this.curve = Curves.easeInOut,
+//   });
+//
+//   double _pageValue() {
+//     if (controller.hasClients && controller.position.haveDimensions) {
+//       return controller.page ?? controller.initialPage.toDouble();
+//     }
+//     return controller.initialPage.toDouble();
+//   }
+//
+//   // 0.0 => focused page | 1.0 => one page away
+//   double _progress() => (_pageValue() - pageIndex).abs().clamp(0.0, 1.0);
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return AnimatedBuilder(
+//       animation: controller,
+//       builder: (_, __) {
+//         final p = _progress();               // 0→1
+//         final titleOpacity = (1.0 - p);      // fades out as you leave
+//         final eased = curve.transform(1.0 - p);
+//         final subOpacity = eased;            // fades in as page becomes focused
+//         final slideDy = lerpDouble(subtitleSlide, 0.0, eased) ?? 0.0;
+//
+//         return IgnorePointer(
+//           ignoring: true,
+//           child: Column(
+//             mainAxisSize: MainAxisSize.min,
+//             children: [
+//               Opacity(opacity: titleOpacity.clamp(0, 1).toDouble(), child: title),
+//               const SizedBox(height: 12),
+//               Opacity(
+//                 opacity: subOpacity.clamp(0, 1).toDouble(),
+//                 child: Transform.translate(
+//                   offset: Offset(0, slideDy),
+//                   child: subtitle,
+//                 ),
+//               ),
+//             ],
+//           ),
+//         );
+//       },
+//     );
+//   }
+// }
+//
+// // ---------- single onboarding ----------
+// class OnboardingPage extends StatefulWidget {
+//   const OnboardingPage({super.key});
+//   @override
+//   State<OnboardingPage> createState() => _OnboardingPageState();
+// }
+//
+// class _OnboardingPageState extends State<OnboardingPage> {
+//   final PageController _controller = PageController();
+//   final AuthService _authService = locator<AuthService>();
+//
+//   int _currentPage = 0;
+//   bool _isLoading = false;
+//   bool _imagesPreloaded = false;
+//   bool _onboardingMarkedComplete = false;
+//
+//   final List<String> bgImages = [
+//     'assets/images/new_mesh.png',
+//     'assets/images/new_mesh.png',
+//     'assets/images/new_mesh.png',
+//   ];
+//
+//   // Centered copy
+//   final List<String> titles = const [
+//     'Super intelligent',
+//     'Goals that stick',
+//     'Learn. Track. Grow.',
+//   ];
+//   final List<String> subtitles = const [
+//     'Thinks faster, learns deeper, and plans smarter—so you don’t have to.',
+//     'From Emergency to Travel to Wealth—build step-by-step plans you’ll follow.',
+//     'Simple insights and gentle nudges that keep your money on course.',
+//   ];
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _markOnboardingAsStarted();
+//   }
+//
+//   @override
+//   void didChangeDependencies() {
+//     super.didChangeDependencies();
+//     if (!_imagesPreloaded) {
+//       for (final p in bgImages) precacheImage(AssetImage(p), context);
+//       _imagesPreloaded = true;
+//     }
+//   }
+//
+//   Future<void> _markOnboardingAsStarted() async {
+//     if (_onboardingMarkedComplete) return;
+//     await _authService.markOnboardingCompleted();
+//     _onboardingMarkedComplete = true;
+//     debugPrint('✅ Onboarding marked complete (early)');
+//   }
+//
+//   Future<void> _handleContinue() async {
+//     if (_currentPage < titles.length - 1) {
+//       await _controller.animateToPage(
+//         _currentPage + 1,
+//         duration: const Duration(milliseconds: 420),
+//         curve: Curves.easeInOut,
+//       );
+//     } else {
+//       await _completeOnboarding();
+//     }
+//   }
+//
+//   Future<void> _completeOnboarding() async {
+//     if (_isLoading) return;
+//     setState(() => _isLoading = true);
+//     try {
+//       await _authService.completeOnboarding((flow) {
+//         if (!mounted) return;
+//         switch (flow) {
+//           case AuthFlow.login:
+//             context.go('/phone_otp'); break;
+//           case AuthFlow.nameEntry:
+//             context.go('/enter_name'); break;
+//           case AuthFlow.home:
+//             context.go('/home'); break;
+//           case AuthFlow.onboarding:
+//             context.go('/phone_otp'); break;
+//         }
+//       });
+//     } catch (_) {
+//       if (mounted) context.go('/phone_otp');
+//     } finally {
+//       if (mounted) setState(() => _isLoading = false);
+//     }
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final size = MediaQuery.of(context).size;
+//
+//     return Scaffold(
+//       backgroundColor: Colors.black,
+//       body: Stack(
+//         children: [
+//           // background
+//           Positioned.fill(
+//             child: MeltImageBackground(imagePaths: bgImages, page: _currentPage),
+//           ),
+//           Positioned.fill(
+//             child: IgnorePointer(
+//               ignoring: true,
+//               child: Opacity(
+//                 opacity: 0.01,
+//                 child: Lottie.asset('assets/images/onboard.json', fit: BoxFit.cover),
+//               ),
+//             ),
+//           ),
+//
+//           // content
+//           Column(
+//             children: [
+//               SizedBox(height: size.height * 0.08),
+//               // top logo row
+//               Center(
+//                 child: Column(
+//                   children: [
+//                     Hero(
+//                       tag: 'penny_logo',
+//                       child: Image.asset(
+//                         'assets/images/ying yang.png',
+//                         width: size.width * 0.18,
+//                         height: size.height * 0.055,
+//                       ),
+//                     ),
+//                     const SizedBox(height: 6),
+//                     Hero(
+//                       tag: 'sub_logo',
+//                       child: Image.asset(
+//                         'assets/images/Vitty.ai2.png',
+//                         width: size.width * 0.2,
+//                         height: size.height * 0.045,
+//                       ),
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//
+//               // center stack: page driver + centered animated text
+//               Expanded(
+//                 child: Stack(
+//                   alignment: Alignment.center,
+//                   children: [
+//                     // page driver (enables swipe + progress)
+//                     PageView.builder(
+//                       controller: _controller,
+//                       itemCount: titles.length,
+//                       onPageChanged: (i) => setState(() => _currentPage = i),
+//                       itemBuilder: (_, __) => const SizedBox.shrink(),
+//                     ),
+//
+//                     // centered text (same position across pages)
+//                     LayoutBuilder(
+//                       builder: (context, c) {
+//                         final maxTextWidth = c.maxWidth * 0.82;
+//                         return ConstrainedBox(
+//                           constraints: BoxConstraints(maxWidth: maxTextWidth),
+//                           child: Column(
+//                             mainAxisSize: MainAxisSize.min,
+//                             children: [
+//                               for (int i = 0; i < titles.length; i++)
+//                                 PageTextAnimator(
+//                                   controller: _controller,
+//                                   pageIndex: i,
+//                                   title: Text(
+//                                     titles[i],
+//                                     textAlign: TextAlign.center,
+//                                     style: const TextStyle(
+//                                       color: Colors.white,
+//                                       fontSize: 36,
+//                                       height: 1.05,
+//                                       fontWeight: FontWeight.w800,
+//                                       letterSpacing: -0.5,
+//                                     ),
+//                                   ),
+//                                   subtitle: Text(
+//                                     subtitles[i],
+//                                     textAlign: TextAlign.center,
+//                                     style: const TextStyle(
+//                                       color: Colors.white70,
+//                                       fontSize: 16,
+//                                       height: 1.45,
+//                                       fontWeight: FontWeight.w500,
+//                                     ),
+//                                   ),
+//                                   subtitleSlide: 28,
+//                                   curve: Curves.easeInOut,
+//                                 ),
+//                             ],
+//                           ),
+//                         );
+//                       },
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//
+//               // dots + button
+//               DotsIndicator(currentPage: _currentPage),
+//               const SizedBox(height: 28),
+//
+//               Padding(
+//                 padding: const EdgeInsets.symmetric(horizontal: 24),
+//                 child: CommonButton(
+//                   label: _currentPage < titles.length - 1 ? 'Continue' : 'Get Started',
+//                   onPressed: _isLoading ? null : _handleContinue,
+//                   child: _isLoading
+//                       ? const SizedBox(
+//                     height: 20, width: 20,
+//                     child: CircularProgressIndicator(
+//                       strokeWidth: 2,
+//                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+//                     ),
+//                   )
+//                       : null,
+//                 ),
+//               ),
+//               const SizedBox(height: 82),
+//             ],
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   @override
+//   void dispose() {
+//     _controller.dispose();
+//     super.dispose();
+//   }
+// }
+
+
 
 // App startup coordinator
 class AppStartupCoordinator extends StatefulWidget {

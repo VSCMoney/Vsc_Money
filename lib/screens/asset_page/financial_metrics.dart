@@ -78,7 +78,7 @@ class FinancialMetricsWidget extends StatelessWidget {
               Text(
                 leftLabel,
                 style: TextStyle(
-                  fontFamily: 'DM Sans',
+                  fontFamily: 'SF Pro',
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
                   color: Color(0xFF7E7E7E), // Gray color
@@ -89,7 +89,7 @@ class FinancialMetricsWidget extends StatelessWidget {
               Text(
                 leftValue,
                 style: TextStyle(
-                  fontFamily: 'DM Sans',
+                  fontFamily: 'SF Pro',
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppColors.black,
@@ -110,7 +110,7 @@ class FinancialMetricsWidget extends StatelessWidget {
               Text(
                 rightLabel,
                 style: TextStyle(
-                  fontFamily: 'DM Sans',
+                  fontFamily: 'SF Pro',
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
                   color: Color(0xFF7E7E7E), // Gray color
@@ -121,7 +121,7 @@ class FinancialMetricsWidget extends StatelessWidget {
               Text(
                 rightValue,
                 style: TextStyle(
-                  fontFamily: 'DM Sans',
+                  fontFamily: 'SF Pro',
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: Colors.black,

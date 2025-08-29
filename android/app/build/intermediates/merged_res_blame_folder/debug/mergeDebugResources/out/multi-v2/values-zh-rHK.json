@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.vitty.ai.app-mergeDebugResources-67:/values-zh-rHK/values-zh-rHK.xml",
+            "outputFile": "com.ai.vitty.app-mergeDebugResources-67:/values-zh-rHK/values-zh-rHK.xml",
             "map": [
                 {
                     "source": "/Users/piyushgoyal/.gradle/caches/8.9/transforms/6b1bcbb09e06d65fa007baff857ce368/transformed/biometric-1.1.0/res/values-zh-rHK/values-zh-rHK.xml",

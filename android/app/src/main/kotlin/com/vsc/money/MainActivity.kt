@@ -1,9 +1,9 @@
 //
 //
-//package com.vitty.ai
+//package com.ai.vitty
 //
 //import android.os.Bundle
-//import com.vitty.ai.vad.VadMicrophone
+//import com.ai.vitty.vad.VadMicrophone
 //import io.flutter.embedding.android.FlutterActivity
 //import io.flutter.embedding.engine.FlutterEngine
 //import io.flutter.plugin.common.MethodChannel
@@ -55,10 +55,10 @@
 //}
 
 
-package com.vitty.ai
+package com.ai.vitty
 
 import android.os.Bundle
-import com.vitty.ai.vad.VadMicrophone
+import com.ai.vitty.vad.VadMicrophone
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel

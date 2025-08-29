@@ -47,6 +47,40 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _closeSheet() async {
+    debugPrint('🧹 _closeSheet() called');
+
+    // 1) Prefer the wrapper (works for your custom in-app sheets)
+    final wrapper = _sheetKey.currentState
+        ?? context.findAncestorStateOfType<ChatGPTBottomSheetWrapperState>();
+    if (wrapper != null && wrapper.isSheetOpen) {
+      debugPrint('🧹 closing via wrapper.closeSheet()');
+      try { HapticFeedback.heavyImpact(); } catch (_) {}
+      await wrapper.closeSheet();
+      return;
+    }
+
+    // 2) Page navigator
+    final nav = Navigator.maybeOf(context);
+    if (nav != null && nav.canPop()) {
+      debugPrint('🧹 closing via Navigator.of(context).pop()');
+      try { HapticFeedback.heavyImpact(); } catch (_) {}
+      nav.pop();
+      return;
+    }
+
+    // 3) Root navigator (iOS modal sheets often live here)
+    final rootNav = Navigator.of(context, rootNavigator: true);
+    if (rootNav.canPop()) {
+      debugPrint('🧹 closing via rootNavigator.pop()');
+      try { HapticFeedback.heavyImpact(); } catch (_) {}
+      rootNav.pop();
+      return;
+    }
+
+    debugPrint('🧹 nothing to close');
+  }
+
   Future<void> _createNewChat() async {
     try {
       showDialog(
@@ -102,16 +136,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openSettingsSheet() {
     final settingsSheet = BottomSheetManager.buildSettingsSheet(
-      onTap: () => _sheetKey.currentState?.closeSheet(),
+      onTap: () async => await _sheetKey.currentState?.closeSheet(),
     );
     _sheetKey.currentState?.openSheet(settingsSheet);
   }
+
 
   void _openStockDetailSheet(String assetId) {
     print(assetId);
     final stockSheet = BottomSheetManager.buildStockDetailSheet(
       assetId: assetId,
-      onTap: () => _sheetKey.currentState?.closeSheet(),
+      onTap: _closeSheet
     );
     _sheetKey.currentState?.openSheet(stockSheet);
   }
@@ -197,73 +232,78 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildContent(Color backgroundColor) {
     return Scaffold(
-      backgroundColor: backgroundColor,
-      resizeToAvoidBottomInset: false,
-      key: const ValueKey('dashboard'),
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(100),
-        child: Builder(
-          builder: (context) {
-            return appBar(
-              context,
-              _getAppBarTitle(),
-              _createNewChat,
-              true,
-              showNewChatButton: _chatService.showNewChatButton,
-            );
-          },
+        backgroundColor: backgroundColor,
+        resizeToAvoidBottomInset: true,
+        extendBody: true,
+        key: const ValueKey('dashboard'),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(100),
+          child: Builder(
+            builder: (context) {
+              return appBar(
+                context,
+                _getAppBarTitle(),
+                _createNewChat,
+                true,
+                showNewChatButton: _chatService.showNewChatButton,
+              );
+            },
+          ),
         ),
-      ),
-      onDrawerChanged: (isOpened) {
-        if (isOpened) {
-          FocusManager.instance.primaryFocus?.unfocus();
-        }
-      },
-      drawer: _chatService.isInitialized
-          ? CustomDrawer(
-        onTap: _openSettingsSheet,
-        onCreateNewChat: _createNewChat,
-        chatService: _chatService,
-        onSessionTap: _switchToSession,
-      )
-          : null,
-      // body: _chatService.currentSession != null
-      //     ? ChatScreen(
-      //   key: ValueKey(_chatService.currentSession!.id),
-      //   session: _chatService.currentSession!,
-      //   chatService: _chatService,
-      //   onFirstMessageComplete: (bool isComplete) {  // ✅ UNCOMMENT AND FIX THIS
-      //     if (isComplete) {
-      //       print("📲 First message completed, showing new chat button");
-      //       setState(() {}); // ✅ Trigger rebuild to show new chat button
-      //     }
-      //   },
-      //   onStockTap: _openStockDetailSheet,
-      //   onAskVitty: _openAskVittySheet,
-      // )
-      //     : Container(
-      //   color: backgroundColor,
-      //   child: const Center(
-      //     child: CircularProgressIndicator(
-      //       color: Color(0xFFF66A00),
-      //     ),
-      //   ),
-      // ),
-      body: _chatService.isInitialized
-          ? ChatScreen(
-        key: const ValueKey('chat-screen'),     // <- stable
-        session: _chatService.currentSession,   // <- nullable allowed
-        chatService: _chatService,
-        onFirstMessageComplete: (isComplete) { if (isComplete) setState(() {}); },
-        onStockTap: _openStockDetailSheet,
-        onAskVitty: _openAskVittySheet,
-      )
-          : Container(
-        color: backgroundColor,
-        child: const Center(
-          child: CircularProgressIndicator(color: Color(0xFFF66A00)),
-        ),
-      ),
+        onDrawerChanged: (isOpened) {
+          if (isOpened) {
+            FocusManager.instance.primaryFocus?.unfocus();
+          }else{
+            HapticFeedback.heavyImpact();
+          }
+        },
+        drawer: _chatService.isInitialized
+            ? CustomDrawer(
+          onTap: _openSettingsSheet,
+          onCreateNewChat: _createNewChat,
+          chatService: _chatService,
+          onSessionTap: _switchToSession,
+        )
+            : null,
+        // body: _chatService.currentSession != null
+        //     ? ChatScreen(
+        //   key: ValueKey(_chatService.currentSession!.id),
+        //   session: _chatService.currentSession!,
+        //   chatService: _chatService,
+        //   onFirstMessageComplete: (bool isComplete) {  // ✅ UNCOMMENT AND FIX THIS
+        //     if (isComplete) {
+        //       print("📲 First message completed, showing new chat button");
+        //       setState(() {}); // ✅ Trigger rebuild to show new chat button
+        //     }
+        //   },
+        //   onStockTap: _openStockDetailSheet,
+        //   onAskVitty: _openAskVittySheet,
+        // )
+        //     : Container(
+        //   color: backgroundColor,
+        //   child: const Center(
+        //     child: CircularProgressIndicator(
+        //       color: Color(0xFFF66A00),
+        //     ),
+        //   ),
+        // ),
+        body: _chatService.isInitialized
+            ? ChatScreen(
+          key: const ValueKey('chat-screen'),     // <- stable
+          session: _chatService.currentSession,   // <- nullable allowed
+          chatService: _chatService,
+          onFirstMessageComplete: (isComplete) { if (isComplete) setState(() {}); },
+          onStockTap: _openStockDetailSheet,
+          onAskVitty: _openAskVittySheet,
+        )
+            :
+        // Container(
+        //   color: backgroundColor,
+        //   child: const Center(
+        //     child: CircularProgressIndicator(color: Color(0xFFF66A00)),
+        //   ),
+        // ),
+        SizedBox.shrink()
 
     );
   }

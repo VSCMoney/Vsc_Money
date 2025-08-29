@@ -26,13 +26,10 @@ class _DrawerFooterState extends State<DrawerFooter> {
   @override
   void initState() {
     super.initState();
-
-    _initializeUserData();      // set from current snapshot
-    _subscribeToAuthChanges();  // react to future updates
-
-    // If user is null but we’re logged in, kick off a background fetch once.
+    _initializeUserData();
+    _subscribeToAuthChanges();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _authService.ensureProfileLoaded(); // implemented below
+      await _authService.ensureProfileLoaded();
     });
   }
 
@@ -79,6 +76,8 @@ class _DrawerFooterState extends State<DrawerFooter> {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
     return Container(
+      // Add margin to lift the footer higher from bottom
+      margin: const EdgeInsets.only(bottom: 20), // Adjust this value
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
@@ -94,7 +93,7 @@ class _DrawerFooterState extends State<DrawerFooter> {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               _fullName,
@@ -102,7 +101,7 @@ class _DrawerFooterState extends State<DrawerFooter> {
                 color: theme.text,
                 fontWeight: FontWeight.w500,
                 fontSize: 16,
-                fontFamily: 'SF Pro Text',
+                fontFamily: 'SF Pro',
               ),
               overflow: TextOverflow.ellipsis,
             ),

@@ -58,27 +58,31 @@ class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
   }
 
   // Method to open sheet with specific content and height
-  void openSheet(Widget bottomSheetContent, {double heightFactor = 0.93}) {
-    if (!_isSheetOpen) {
-      setState(() {
-        _isSheetOpen = true;
-        _currentBottomSheet = bottomSheetContent;
-        _currentSheetHeight = heightFactor;
-      });
-      _controller.forward();
-    } else {
-      // If sheet is already open, just update the content
+  Future<void> openSheet(Widget bottomSheetContent, {double heightFactor = 0.93}) async {
+    if (_isSheetOpen) {
+      // If already open, just swap content/height without restarting anim
       setState(() {
         _currentBottomSheet = bottomSheetContent;
         _currentSheetHeight = heightFactor;
       });
+      return;
+    }
+    setState(() {
+      _isSheetOpen = true;
+      _currentBottomSheet = bottomSheetContent;
+      _currentSheetHeight = heightFactor;
+    });
+    if (!_controller.isAnimating) {
+      await _controller.forward();
     }
   }
 
-  // Method to close sheet
-  void closeSheet() async {
-    if (_isSheetOpen) {
+  Future<void> closeSheet() async {  // <-- was void
+    if (!_isSheetOpen) return;
+    if (_controller.isAnimating) return;
+    try {
       await _controller.reverse();
+    } finally {
       if (mounted) {
         setState(() {
           _isSheetOpen = false;
@@ -87,6 +91,8 @@ class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
       }
     }
   }
+
+
 
   // Method to check if sheet is open
   bool get isSheetOpen => _isSheetOpen;

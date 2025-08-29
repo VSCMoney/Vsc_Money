@@ -1,4 +1,4 @@
-package com.vitty.ai
+package com.ai.vitty
 
 import android.Manifest
 import android.app.Activity

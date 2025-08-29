@@ -252,35 +252,42 @@ class AssetService {
 
 
   /// Calculate available periods based on ALL data span
+  /// Calculate available periods based on actual data availability
+  /// Calculate available periods based on actual data availability
   List<String> getAvailablePeriods() {
-    final all = _rawData?.chartData.getDataForPeriod('ALL') ?? const <models.ChartPoint>[];
-    if (all.length < 2) return ['ALL'];
+    final ts = _rawData?.chartData.timeSeriesData ?? const <String, List<models.ChartPoint>>{};
 
-    final totalDays = all.last.timestamp.difference(all.first.timestamp).inDays;
-    final availablePeriods = <String>[];
+    // Helper function to check if a period has actual usable data
+    bool hasUsableData(String period) {
+      final data = ts[period] ?? const <models.ChartPoint>[];
+      return data.isNotEmpty && data.length >= 2;
+    }
 
-    // Always show short-term periods since we can generate realistic data
-    availablePeriods.add('1D');
-    availablePeriods.add('1W');
-    availablePeriods.add('1M');
+    final out = <String>[];
 
-    // Add longer periods based on actual data availability
-    if (totalDays >= 365) availablePeriods.add('1Y');
+    // Check standard periods in order of preference
+    final standardPeriods = ['1D', '1W', '1M', '1Y', '5Y'];
 
-    // Calculate dynamic long period (e.g., 3Y, 5Y based on available data)
-    final years = (totalDays / 365).clamp(1, 50).round();
-    if (years > 1 && years < 50) {
-      _longPeriodLabel = '${years}Y';
-      if (!availablePeriods.contains(_longPeriodLabel)) {
-        availablePeriods.add(_longPeriodLabel);
+    for (final period in standardPeriods) {
+      if (hasUsableData(period)) {
+        out.add(period);
       }
     }
 
-    // Always add ALL at the end
-    availablePeriods.add('ALL');
+    // Add ALL if it has data
+    if (hasUsableData('ALL')) {
+      out.add('ALL');
+    }
 
-    return availablePeriods;
+    // If no periods are available, return a minimal set
+    if (out.isEmpty) {
+      return ['1W', '1M', 'ALL'];
+    }
+
+    //print("📊 Available periods: $out");
+    return out;
   }
+
 
   // --------- Optional local optimistic mutations (no server yet) ---------
 
@@ -533,57 +540,83 @@ class AssetService {
 
   // --- Chart helpers ---
   List<models.ChartPoint> _buildChartForPeriod(models.AssetData data, String period) {
-    final ts = data.chartData.timeSeriesData;
+    print("🔍 Building chart for period: $period");
 
-    // 1) Choose a reliable base series
-    List<models.ChartPoint> base =
-        ts['ALL'] ?? _longestSeries(ts) ?? const <models.ChartPoint>[];
-    base = _sanitizeAndSort(base);
-    if (base.length < 2) return base;
+    // First, try to get data for the specific period requested
+    List<models.ChartPoint>? requestedData = data.chartData.getDataForPeriod(period);
+    print("📊 Requested period '$period' data points: ${requestedData?.length ?? 0}");
 
-    // 2) If VM provides a direct series for the period AND it actually fits, prefer it
-    final direct = ts[period];
-    if (period != 'ALL' && direct != null && direct.isNotEmpty) {
-      final cleaned = _sanitizeAndSort(direct);
-      if (_seriesFitsPeriod(cleaned, period)) {
-        // Still slice by cutoff (keeps behavior consistent and trims any small drift)
-        final anchor = cleaned.last.timestamp;
-        final cutoff = _calculateCutoffDate(anchor, period);
-        final sliced = cleaned.where((p) =>
-        p.timestamp.isAfter(cutoff) || p.timestamp.isAtSameMomentAs(cutoff)
-        ).toList();
-
-        if (sliced.length >= 10) return _densify(sliced, target: 120);
-        if (sliced.length >= 2)  return _enhanceSparsePeriodData(sliced, cleaned, period);
-        return _generateRealisticDataForPeriod(base, period, anchor);
+    if (requestedData != null && requestedData.isNotEmpty) {
+      final sanitized = _sanitizeAndSort(requestedData);
+      if (sanitized.length >= 2) {
+        print("✅ Using requested period data: ${sanitized.length} points");
+        return _densify(sanitized, target: 120);
       }
-      // If it doesn't fit, we’ll ignore and fall through to base slice.
     }
 
-    // 3) ALL → just densify the base
-    if (period == 'ALL') {
-      return _densify(base, target: 120);
+    // If requested period is empty, try to find the best available data
+    List<models.ChartPoint>? fallbackData;
+
+    // Priority order for fallback data
+    final fallbackPriorities = ['1Y', '1M', '1W', '5Y', 'ALL'];
+
+    for (final fallbackPeriod in fallbackPriorities) {
+      if (fallbackPeriod == period) continue; // Skip the one we already tried
+
+      fallbackData = data.chartData.getDataForPeriod(fallbackPeriod);
+      print("📊 Trying fallback period '$fallbackPeriod': ${fallbackData?.length ?? 0} points");
+
+      if (fallbackData != null && fallbackData.isNotEmpty) {
+        final sanitized = _sanitizeAndSort(fallbackData);
+        if (sanitized.length >= 2) {
+          print("✅ Using fallback data from '$fallbackPeriod': ${sanitized.length} points");
+
+          // If we have good fallback data, slice it to match the requested period
+          if (period != 'ALL') {
+            final sliced = _sliceDataForPeriod(sanitized, period);
+            if (sliced.length >= 2) {
+              return _densify(sliced, target: 120);
+            }
+          }
+
+          return _densify(sanitized, target: 120);
+        }
+      }
     }
 
-    // 4) Slice base by cutoff for requested period
-    final anchor = base.last.timestamp;
-    final cutoff = _calculateCutoffDate(anchor, period);
-    final filtered = base.where((p) =>
-    p.timestamp.isAfter(cutoff) || p.timestamp.isAtSameMomentAs(cutoff)
-    ).toList();
-
-    if (filtered.length < 2) {
-      // Not enough points → synthesize realistic short-period curve
-      return _generateRealisticDataForPeriod(base, period, anchor);
-    }
-    if (filtered.length < 10) {
-      // Some points but sparse → enhance with interpolated points
-      return _enhanceSparsePeriodData(filtered, base, period);
-    }
-
-    return _densify(filtered, target: 120);
+    print("❌ No usable chart data found for any period");
+    return const <models.ChartPoint>[];
   }
 
+
+  List<models.ChartPoint> _sliceDataForPeriod(List<models.ChartPoint> data, String period) {
+    if (data.isEmpty || period == 'ALL') return data;
+
+    final anchor = _parseTimestamp(data.last.timestamp);
+    final cutoff = _calculateCutoffDate(anchor, period);
+
+    final filtered = data.where((p) {
+      final pointTime = _parseTimestamp(p.timestamp);
+      return pointTime.isAfter(cutoff) || pointTime.isAtSameMomentAs(cutoff);
+    }).toList();
+
+    print("🔍 Sliced ${data.length} points to ${filtered.length} for period $period");
+    return filtered;
+  }
+
+  // ADD THIS NEW METHOD to AssetService:
+  DateTime _parseTimestamp(dynamic timestamp) {
+    if (timestamp is DateTime) return timestamp;
+    if (timestamp is String) {
+      try {
+        return DateTime.parse(timestamp).toUtc();
+      } catch (e) {
+        print("❌ Error parsing timestamp: $timestamp");
+        return DateTime.now().toUtc();
+      }
+    }
+    return DateTime.now().toUtc();
+  }
 
   /// Sort, drop duplicate timestamps (keep last)
   List<models.ChartPoint> _sanitizeAndSort(List<models.ChartPoint> pts) {
@@ -871,8 +904,9 @@ class AssetService {
 
   String _validatePeriod(String period) {
     final available = getAvailablePeriods();
-    return available.contains(period) ? period : 'ALL';
+    return available.contains(period) ? period : (available.isNotEmpty ? available.first : 'ALL');
   }
+
 
 
 
@@ -880,12 +914,19 @@ class AssetService {
   String getDefaultPeriod() {
     final available = getAvailablePeriods();
 
-    // Prefer reasonable defaults based on available data
-    if (available.contains('1Y')) return '1Y';
-    if (available.contains('1M')) return '1M';
-    if (available.contains('1W')) return '1W';
-    return 'ALL';
+    // Prefer periods with actual data, in this order
+    final preferredOrder = ['1W', '1M', '1Y', '5Y', 'ALL'];
+
+    for (final period in preferredOrder) {
+      if (available.contains(period)) {
+        return period;
+      }
+    }
+
+    // Fallback to first available or 1W
+    return available.isNotEmpty ? available.first : '1W';
   }
+
 
 
 
@@ -943,15 +984,22 @@ class AssetService {
       events: d.events,
       futuresOptions: d.futuresOptions,
       additionalData: newAdditional,
+
+      // ✅ keep existing tiles returned by VM
+      expandableTiles: d.expandableTiles,
     );
+
     _rawData = updated;
 
+    // keep additional_data in the backing JSON too (as you do)
     _rawJson!['additional_data'] = _additionalToJson(newAdditional);
 
     _cacheJsonByAsset[_assetId] = Map<String, dynamic>.from(_rawJson!);
+
     final chart = _buildChartForPeriod(updated, _period);
     _state$.add(AssetViewState.data(data: updated, period: _period, chart: chart));
   }
+
 
   Map<String, dynamic> _additionalToJson(models.AdditionalData a) {
     return {

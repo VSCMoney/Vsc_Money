@@ -93,7 +93,7 @@
 //                       message,
 //                       style: TextStyle(
 //                         height: 1.9,
-//                         fontFamily: 'DM Sans',
+//                         fontFamily: 'SF Pro',
 //                         fontSize: 16,
 //                         fontWeight: FontWeight.w500,
 //                         color: theme.text,
@@ -223,7 +223,7 @@ class MessageBubble extends StatelessWidget {
                       message,
                       style: TextStyle(
                         height: 1.9,
-                        fontFamily: 'DM Sans',
+                        fontFamily: 'SF Pro',
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                         color: theme.text,

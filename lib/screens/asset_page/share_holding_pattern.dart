@@ -5,7 +5,8 @@ import 'package:get_it/get_it.dart';
 import '../../constants/colors.dart';
 import '../../services/asset_service.dart';        // <- adjust path if needed
 import '../../models/asset_model.dart' as models;
-import '../../services/locator.dart';  // <- adjust path if needed
+import '../../services/locator.dart';
+import '../../services/theme_service.dart';  // <- adjust path if needed
 
 class ShareholdingPatternWidget extends StatefulWidget {
   const ShareholdingPatternWidget({Key? key}) : super(key: key);
@@ -40,31 +41,34 @@ class _ShareholdingPatternWidgetState extends State<ShareholdingPatternWidget> {
   }
 
   void _pullFromService(AssetViewState s) {
-    final data = s.data;
-    if (data == null) return;
+    final d = s.data;
+    if (d == null) return;
 
-    final shp = data.performanceData.expandableTiles?.shareholdingPattern;
+    // ✅ expandableTiles is on AssetData (root), not under performanceData
+    final shp = d.expandableTiles?.shareholdingPattern;
     if (shp == null) return;
 
-    // Parse time periods
-    final periods = List<String>.from(shp.timePeriods ?? const <String>[]);
-    // Parse series list (each entry is a map of holder -> fraction [0..1])
+    // Use model types if you have them; otherwise keep this tolerant parsing.
+    final periods = (shp.timePeriods ?? const <String>[])
+        .where((e) => (e).toString().trim().isNotEmpty)
+        .toList();
+
+    // Expecting a list of maps like [{ "Promoters": 0.46, "FII": 0.12, ... }, ...]
     final rawList = shp.shareholdingData ?? const <Map<String, dynamic>>[];
 
     final parsedList = <Map<String, double>>[];
     for (final m in rawList) {
       final row = <String, double>{};
       m.forEach((k, v) {
-        final val = (v is num) ? v.toDouble() : 0.0;
+        final val = v is num ? v.toDouble() : double.tryParse('$v') ?? 0.0;
         row[k] = val.clamp(0.0, 1.0);
       });
-      parsedList.add(row);
+      if (row.isNotEmpty) parsedList.add(row);
     }
 
     if (periods.isEmpty || parsedList.isEmpty) return;
 
-    final defIndex = (shp.defaultSelectedIndex ?? 0)
-        .clamp(0, periods.length - 1);
+    final defIndex = (shp.defaultSelectedIndex ?? 0).clamp(0, periods.length - 1);
 
     setState(() {
       _timePeriods = periods;
@@ -73,8 +77,11 @@ class _ShareholdingPatternWidgetState extends State<ShareholdingPatternWidget> {
     });
   }
 
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     if (_timePeriods.isEmpty || _seriesByPeriod.isEmpty) {
       // Graceful fallback if API hasn’t provided shareholding yet
       return Column(
@@ -84,7 +91,7 @@ class _ShareholdingPatternWidgetState extends State<ShareholdingPatternWidget> {
           Text(
             'Shareholding pattern',
             style: TextStyle(
-              fontFamily: 'DM Sans',
+              fontFamily: 'SF Pro',
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: AppColors.black,
@@ -95,7 +102,7 @@ class _ShareholdingPatternWidgetState extends State<ShareholdingPatternWidget> {
           Text(
             'No shareholding data available',
             style: TextStyle(
-              fontFamily: 'DM Sans',
+              fontFamily: 'SF Pro',
               fontSize: 12,
               color: Color(0xFF9CA3AF),
             ),
@@ -118,6 +125,8 @@ class _ShareholdingPatternWidgetState extends State<ShareholdingPatternWidget> {
   }
 
   Widget _buildDateSelector() {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     return Row(
       children: List.generate(_timePeriods.length, (index) {
         final isSelected = _selectedIndex == index;
@@ -134,9 +143,9 @@ class _ShareholdingPatternWidgetState extends State<ShareholdingPatternWidget> {
               child: Text(
                 _timePeriods[index],
                 style: TextStyle(
-                  color: isSelected ? const Color(0xFFFB8C00) : const Color(0xFF7E7E7E),
+                  color: isSelected ? const Color(0xFFFB8C00) : theme.text,
                   fontWeight: FontWeight.w500,
-                  fontFamily: 'DM Sans',
+                  fontFamily: 'SF Pro',
                   fontSize: 10,
                 ),
               ),
@@ -148,6 +157,8 @@ class _ShareholdingPatternWidgetState extends State<ShareholdingPatternWidget> {
   }
 
   Widget _buildShareholdingRow(String label, double fraction) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     final pct = (fraction * 100).clamp(0, 100);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -164,9 +175,9 @@ class _ShareholdingPatternWidgetState extends State<ShareholdingPatternWidget> {
                   padding: const EdgeInsets.only(left: 8.0, bottom: 4.0),
                   child: Text(
                     label,
-                    style: const TextStyle(
+                    style:  TextStyle(
                       fontSize: 15,
-                      color: Colors.black87,
+                      color: theme.text,
                     ),
                   ),
                 ),
@@ -176,7 +187,7 @@ class _ShareholdingPatternWidgetState extends State<ShareholdingPatternWidget> {
                     Container(
                       height: 8,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF3F3F3),
+                        color: theme.box,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -200,9 +211,9 @@ class _ShareholdingPatternWidgetState extends State<ShareholdingPatternWidget> {
             padding: const EdgeInsets.only(top: 20),
             child: Text(
               '${pct.toStringAsFixed(2)}%',
-              style: const TextStyle(
+              style:  TextStyle(
                 fontSize: 15,
-                color: Colors.black87,
+                color: theme.text,
               ),
             ),
           ),

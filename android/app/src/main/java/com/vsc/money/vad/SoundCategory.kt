@@ -1,4 +1,4 @@
-package com.vitty.ai.vad
+package com.ai.vitty.vad
 
 /**
  * Created by Georgiy Konovalov on 6/1/2023.

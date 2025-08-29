@@ -24,12 +24,7 @@ class CustomDrawer extends StatefulWidget {
   final Function(ChatSession)? onSessionTap;
   final VoidCallback? onCreateNewChat;
   final String selectedRoute;
-
-  /// Optional: if you already have a ChatGPTBottomSheetWrapper on the page,
-  /// pass its key so the drawer can open the same bottom sheet.
   final GlobalKey<ChatGPTBottomSheetWrapperState>? sheetKey;
-
-  /// Optional explicit handler (e.g., HomeScreen’s `_openSettingsSheet`).
   final VoidCallback? onTap;
 
   const CustomDrawer({
@@ -69,12 +64,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
   }
 
   String _getCurrentRoute() {
-    final currentRoute = GoRouter.of(context).routeInformationProvider.value.uri.path;
-    switch (currentRoute) {
+    final p = GoRouter.of(context).routeInformationProvider.value.uri.path;
+    switch (p) {
       case '/home':
         return 'Vitty';
-      // case '/portfolio':
-      //   return 'Portfolio';
       case '/goals':
         return 'Goals';
       case '/conversations':
@@ -93,234 +86,217 @@ class _CustomDrawerState extends State<CustomDrawer> {
       });
     }
 
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+    final w = MediaQuery.of(context).size.width;
+    final h = MediaQuery.of(context).size.height;
 
     return Drawer(
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       backgroundColor: theme.background,
       child: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            SizedBox(height: screenWidth * 0.04),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const StockSearchScreen()),
-                  );
-                },
-                child: Container(
-                  height: screenHeight * 0.053,
-                  decoration: BoxDecoration(
-                    color: theme.searchBox,
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
-                  child: Row(
-                    children: [
-                      Icon(Icons.search, color: theme.icon, size: screenWidth * 0.05),
-                      const SizedBox(width: 8),
-                      Text('Search', style: TextStyle(color: theme.text, fontSize: screenWidth * 0.042)),
-                    ],
+        child: Padding(
+          padding: EdgeInsets.only(top: w * 0.04),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // --- Search pill (tappable) ---
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: w * 0.04),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const StockSearchScreen()),
+                    );
+                  },
+                  child: Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: theme.searchBox,
+                      borderRadius: BorderRadius.circular(15), // was 14 → more rectangular
+                      border: Border.all(
+                        color: theme.box, // subtle edge
+                        width: 1,
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        Icon(Icons.search, color: theme.icon, size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Search',
+                          style: TextStyle(
+                            color: theme.text.withOpacity(.55),
+                            fontSize: 16,
+                            fontFamily: 'SF Pro',
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Divider(color: Color(0XFFE8E8E8)),
-            const SizedBox(height: 16),
 
-            _buildDrawerItem(
-              icon: 'assets/images/vitty.png',
-              title: 'Vitty',
-              isActive: _selectedItem == 'Vitty',
-              onTap: () {
-                if (_selectedItem == 'Vitty') {
-                  Navigator.pop(context);
-                } else {
-                  _handleTap('Vitty', () {
+
+              const SizedBox(height: 18),
+              const Divider(color: Color(0xFFE8E8E8), height: 1),
+              const SizedBox(height: 12),
+
+              // --- Items (ChatGPT-style “pill” active row) ---
+              _drawerItem(
+                icon: 'assets/images/ying yang.png',
+                title: 'Vitty',
+                isActive: _selectedItem == 'Vitty',
+                onTap: () {
+                  if (_selectedItem == 'Vitty') {
                     Navigator.pop(context);
-                    Future.delayed(const Duration(milliseconds: 200), () {
-                      context.go('/home');
+                  } else {
+                    _handleTap('Vitty', () {
+                      Navigator.pop(context);
+                      Future.delayed(const Duration(milliseconds: 180), () {
+                        context.go('/home');
+                      });
                     });
-                  });
-                }
-              },
-            ),
+                  }
+                },
+              ),
 
-            // _buildDrawerItem(
-            //   icon: "assets/images/port.png",
-            //   title: 'Portfolio',
-            //   isActive: _selectedItem == 'Portfolio',
-            //   onTap: () => _handleTap('Portfolio', () {
-            //     Navigator.pop(context);
-            //     Future.delayed(const Duration(milliseconds: 250), () {
-            //       context.go('/portfolio');
-            //     });
-            //   }),
-            // ),
-
-            _buildDrawerItem(
-              icon: "assets/images/Vector.svg",
-              title: 'Goals',
-              isActive: _selectedItem == 'Goals',
-              onTap: () => _handleTap('Goals', () {
-                Navigator.pop(context);
-                Future.delayed(const Duration(milliseconds: 200), () {
-                  context.go('/goals');
-                });
-              }),
-            ),
-
-            _buildDrawerItem(
-              icon: "assets/images/Vector.png",
-              title: 'Conversations',
-              isActive: _selectedItem == 'Conversations',
-              onTap: () {
-                _handleTap('Conversations', () {
+              _drawerItem(
+                icon: 'assets/images/Vector.svg',
+                title: 'Goals',
+                isActive: _selectedItem == 'Goals',
+                onTap: () => _handleTap('Goals', () {
                   Navigator.pop(context);
-                  Future.delayed(const Duration(milliseconds: 250), () {
+                  Future.delayed(const Duration(milliseconds: 180), () {
+                    context.go('/goals');
+                  });
+                }),
+              ),
+
+              _drawerItem(
+                icon: 'assets/images/Vector.png',
+                title: 'Conversations',
+                isActive: _selectedItem == 'Conversations',
+                onTap: () => _handleTap('Conversations', () {
+                  Navigator.pop(context);
+                  Future.delayed(const Duration(milliseconds: 200), () {
                     context.goNamed('conversations', extra: widget.onSessionTap);
                   });
-                });
-              },
-            ),
+                }),
+              ),
 
-            const Spacer(),
+              const Spacer(),
 
-            // Footer now always opens settings via (onTap) -> sheetKey -> fallback modal
-            DrawerFooter(
-              onTap: () {
-                debugPrint("🔧 DrawerFooter tapped! Current route: ${_getCurrentRoute()}");
-                debugPrint("🔧 onTap callback: ${widget.onTap}");
-
-                // 1) Prefer explicit callback if provided (HomeScreen case)
-                if (widget.onTap != null) {
-                  widget.onTap!.call();
-                  return;
-                }
-
-                // 2) If we have a sheetKey, open via the shared ChatGPTBottomSheetWrapper
-                final key = widget.sheetKey;
-                if (key?.currentState != null) {
-                  final sheet = BottomSheetManager.buildSettingsSheet(
-                    onTap: () => key!.currentState?.closeSheet(),
-                  );
-                  key!.currentState?.openSheet(sheet);
-                  return;
-                }
-
-                // 3) Fallback: show a modal bottom sheet (works on any page)
-                final theme = Theme.of(context).extension<AppThemeExtension>()?.theme;
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: theme?.background ?? Colors.white,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
-                  ),
-                  builder: (_) {
-                    return SafeArea(
+              // --- Footer (settings) ---
+              DrawerFooter(
+                onTap: () {
+                  if (widget.onTap != null) {
+                    widget.onTap!.call();
+                    return;
+                  }
+                  final key = widget.sheetKey;
+                  if (key?.currentState != null) {
+                    final sheet = BottomSheetManager.buildSettingsSheet(
+                      onTap: () => key!.currentState?.closeSheet(),
+                    );
+                    key!.currentState?.openSheet(sheet);
+                    return;
+                  }
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: theme.background,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+                    ),
+                    builder: (_) => SafeArea(
                       top: false,
                       child: BottomSheetManager.buildSettingsSheet(
                         onTap: () => Navigator.of(context).pop(),
                       ),
-                    );
-                  },
-                );
-              },
-            ),
-          ],
+                    ),
+                  );
+                },
+              ),
+              SizedBox(height: h * 0.02),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildDrawerItem({
+  // --- ChatGPT-style row ---
+  Widget _drawerItem({
     required String icon,
     required String title,
     required bool isActive,
     required VoidCallback onTap,
   }) {
-    final isSvg = icon.toLowerCase().endsWith('.svg');
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
-    final bool preserveOriginalColor = title == 'Vitty';
+    final w = MediaQuery.of(context).size.width;
+    final isSvg = icon.toLowerCase().endsWith('.svg');
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      margin: const EdgeInsets.symmetric(vertical: 1),
+    final row = Row(
+      children: [
+        // icon
+        Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: isSvg
+              ? SvgPicture.asset(
+            icon,
+            height: 22,
+            width: 22,
+            color: title == 'Vitty' ? null : theme.icon,
+          )
+              : Image.asset(
+            icon,
+            height: 22,
+            width: 22,
+            color: title == 'Vitty' ? null : theme.icon,
+          ),
+        ),
+        const SizedBox(width: 12),
+        // label
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'SF Pro',
+              fontWeight: FontWeight.w700,
+              fontSize: w * 0.045,
+              color: theme.text,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: w * 0.04, vertical: 6),
       child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Row(
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: 6,
-              height: screenHeight * 0.085,
-              decoration: BoxDecoration(
-                color: isActive ? AppColors.primary : Colors.transparent,
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(4),
-                  bottomRight: Radius.circular(4),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: screenWidth * 0.05,
-                  vertical: screenHeight * 0.005,
-                ),
-                child: Row(
-                  children: [
-                    isSvg
-                        ? SvgPicture.asset(
-                      icon,
-                      height: screenWidth * 0.055,
-                      width: screenWidth * 0.055,
-                      color: preserveOriginalColor
-                          ? null
-                          : (isActive ? AppColors.primary : theme.icon),
-                    )
-                        : Image.asset(
-                      icon,
-                      height: screenWidth * 0.06,
-                      width: screenWidth * 0.06,
-                      color: preserveOriginalColor
-                          ? null
-                          : (isActive ? AppColors.primary : theme.icon),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          fontFamily: 'SF Pro Text',
-                          fontSize: screenWidth * 0.045,
-                          fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                          color: isActive ? AppColors.primary : theme.text,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          decoration: BoxDecoration(
+            color: isActive ? theme.searchBox : Colors.transparent, // pill highlight
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: row,
         ),
       ),
     );
   }
 }
+
 
 
 // class CustomDrawer extends StatefulWidget {
@@ -574,7 +550,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
 //                       child: Text(
 //                         title,
 //                         style: TextStyle(
-//                           fontFamily: 'SF Pro Text',
+//                           fontFamily: 'SF Pro',
 //                           fontSize: screenWidth * 0.045,
 //                           fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
 //                           color: isActive ? AppColors.primary : theme.text,

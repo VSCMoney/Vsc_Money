@@ -79,6 +79,8 @@ class _ChatScreenState extends State<ChatScreen>
 
   // ✅ NEW: Track user message heights by index for stability
   final Map<int, double> _userMessageHeights = {};
+  // At the top of _ChatScreenState class
+  double get _layoutGutter => MediaQuery.of(context).size.width * 0.06;
 
   // Subscriptions to ChatService streams
   late StreamSubscription _messagesSubscription;
@@ -192,6 +194,7 @@ class _ChatScreenState extends State<ChatScreen>
 
     // ✅ Null id allowed — ChatService create karega aur apni state update karega
     await widget.chatService.sendMessage(widget.session?.id, messageText);
+    await Future.delayed(Duration(milliseconds: 100));
 
     ChatScrollHelper.scrollToLatestLikeChatPage(
       scrollController: _scrollController,
@@ -235,6 +238,10 @@ class _ChatScreenState extends State<ChatScreen>
         setState(() {
           _latestUserMessageHeight = latestHeight;
         });
+        ChatScrollHelper.scrollToLatestLikeChatPage(
+          scrollController: _scrollController,
+          chatHeight: _chatHeight,
+        );
         print("📏 Updated latest user message height: $latestHeight");
       }
     }
@@ -298,6 +305,7 @@ class _ChatScreenState extends State<ChatScreen>
         (blankStart || (widget.chatService.hasLoadedMessages && noUserMsgYet));
 
     return Scaffold(
+      extendBody: true,
       resizeToAvoidBottomInset: true,
       backgroundColor: theme.background,
       body: Stack(
@@ -325,7 +333,7 @@ class _ChatScreenState extends State<ChatScreen>
                         ListView.builder(
                           controller: _scrollController,
                           reverse: false,
-                          padding: const EdgeInsets.all(20),
+                          padding: EdgeInsets.symmetric(horizontal: _layoutGutter, vertical: 20), // ✅ Changed from const EdgeInsets.all(20)
                           itemCount: widget.chatService.messages.length + 1,
                           itemBuilder: (context, index) {
                             if (index == widget.chatService.messages.length) {

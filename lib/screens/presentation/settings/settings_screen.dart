@@ -5,6 +5,7 @@ import 'package:vscmoney/screens/presentation/settings/section_header.dart';
 import 'package:vscmoney/screens/presentation/settings/settings_group.dart';
 import 'package:vscmoney/screens/presentation/settings/settings_tile.dart';
 
+import '../../../constants/bottomsheet.dart';
 import '../../../routes/AppRoutes.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/locator.dart';
@@ -26,17 +27,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
 
   Future<void> _closeSheet() async {
-    // 1) Ask the wrapper to close (what you passed in from HomeScreen)
+    // Prefer closing the actual wrapper ancestor (robust on iOS)
+    final wrapper = context.findAncestorStateOfType<ChatGPTBottomSheetWrapperState>();
+    if (wrapper != null && wrapper.isSheetOpen) {
+      await wrapper.closeSheet(); // now returns Future<void>
+      return;
+    }
+
+    // Fallback: use the callback you passed from HomeScreen
     try {
       widget.onTap();
     } catch (_) {}
 
-    // 2) Fallback: if this sheet was presented via a route/modal, pop it
+    // Final fallback: pop if this sheet was presented as a route
     await Future<void>.delayed(const Duration(milliseconds: 10));
     if (mounted && Navigator.of(context).canPop()) {
       Navigator.of(context).maybePop();
     }
   }
+
 
   void _confirmLogout(BuildContext context) {
     showDialog(
@@ -55,25 +64,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'Log Out',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  fontFamily: 'SF Pro Text',
+                  fontFamily: 'SF Pro',
                 ),
               ),
             ],
           ),
           content: const Text(
             'Are you sure you want to log out?',
-            style: TextStyle(fontSize: 15, fontFamily: 'SF Pro Text'),
+            style: TextStyle(fontSize: 15, fontFamily: 'SF Pro'),
           ),
           actionsPadding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(fontFamily: 'SF Pro Text')),
+              child: const Text('Cancel', style: TextStyle(fontFamily: 'SF Pro')),
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.logout, size: 18),
-              label: const Text('Logout', style: TextStyle(fontFamily: 'SF Pro Text')),
+              label: const Text('Logout', style: TextStyle(fontFamily: 'SF Pro')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -113,17 +122,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             // Top Bar
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              //mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                GestureDetector(
-                  onTap: _closeSheet,
-                    child: Image.asset("assets/images/cancel.png",height: 30,)),
+              Container(
+                //color: Colors.black,
+                child: GestureDetector(
+                behavior: HitTestBehavior.opaque,        // <-- ensure taps register
+                onTap: _closeSheet,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),   // <-- comfy hit area
+                  child: Image.asset(
+                    "assets/images/cancel.png",
+                    height: 30,
+                    color: theme.icon,
+                  ),
+                ),
+                            ),
+              ),
 
-
+                SizedBox(width: 108),
                 Text(
                   "Settings",
                   style: TextStyle(
-                    fontFamily: 'SF Pro Text',
+                    fontFamily: 'SF Pro',
                     fontSize: 20,
                     fontWeight: FontWeight.w500,
                     color: theme.text,
@@ -155,7 +176,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Text("RGB",
                             style: TextStyle(
-                              fontFamily: 'SF Pro Text',
+                              fontFamily: 'SF Pro',
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
                               color: theme.text,
@@ -164,7 +185,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Text("+91 94XXXXXX32",
                             style: TextStyle(
                               fontWeight: FontWeight.w400,
-                              fontFamily: 'SF Pro Text',
+                              fontFamily: 'SF Pro',
                               fontSize: 14,
                               color: theme.text,
                             )),
@@ -233,7 +254,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Text(
                       "Logout",
                       style: TextStyle(
-                        fontFamily: 'SF Pro Text',
+                        fontFamily: 'SF Pro',
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                         color: theme.text,
@@ -243,8 +264,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
-
-            const SizedBox(height: 20),
           ],
         ),
       ),

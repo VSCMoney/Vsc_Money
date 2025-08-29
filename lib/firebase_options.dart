@@ -65,7 +65,7 @@ class DefaultFirebaseOptions {
     storageBucket: 'mystic-primacy-455711-q3.firebasestorage.app',
     androidClientId: '717280964807-a8nn2mrc40rgror2k16vq245j1su9ill.apps.googleusercontent.com',
     iosClientId: '717280964807-tb0as8l7bun9n349gjftd6vdu7341ndi.apps.googleusercontent.com',
-    iosBundleId: 'com.vitty.ai',
+    iosBundleId: 'com.ai.vitty',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -76,7 +76,7 @@ class DefaultFirebaseOptions {
     storageBucket: 'mystic-primacy-455711-q3.firebasestorage.app',
     androidClientId: '717280964807-a8nn2mrc40rgror2k16vq245j1su9ill.apps.googleusercontent.com',
     iosClientId: '717280964807-tb0as8l7bun9n349gjftd6vdu7341ndi.apps.googleusercontent.com',
-    iosBundleId: 'com.vitty.ai',
+    iosBundleId: 'com.ai.vitty',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

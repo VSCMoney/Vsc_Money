@@ -69,7 +69,7 @@ class SuggestionsWidget extends StatelessWidget {
                   title,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontFamily: 'DM Sans',
+                    fontFamily: 'SF Pro',
                     color: theme.text,
                     fontSize: 16,
                   ),
@@ -104,7 +104,7 @@ class SuggestionsWidget extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     color: theme.text,
-                    fontFamily: "SF Pro Text",
+                    fontFamily: "SF Pro",
                     fontWeight: FontWeight.w500,
                   ),
                 ),

@@ -13,7 +13,7 @@ class InvestmentPlanScreen extends StatelessWidget {
     return
       SafeArea(
         child: AnimatedOnboardingText(
-          title: 'Always\nAvailable',
+          title: 'Super\nIntelligent',
           subtitle: 'On, alert, and responsive\nwhenever you need financial clarity.',
         ),
       );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../constants/colors.dart';
+import '../../services/theme_service.dart';
 import '../../testpage.dart';
 
 
@@ -17,6 +18,7 @@ class ForYouCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return Container(
       margin: EdgeInsets.all(16),
       padding: EdgeInsets.all(20),
@@ -68,7 +70,7 @@ class ForYouCard extends StatelessWidget {
               Text(
                 title,
                 style: TextStyle(
-                  fontFamily: 'DM Sans',
+                  fontFamily: 'SF Pro',
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF734012), // Warm brown color
@@ -82,7 +84,7 @@ class ForYouCard extends StatelessWidget {
               Text(
                 content,
                 style: TextStyle(
-                  fontFamily: 'DM Sans',
+                  fontFamily: 'SF Pro',
                   fontSize: 11,
                   fontWeight: FontWeight.w400,
                   color: AppColors.black, // Dark gray for readability

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../constants/colors.dart';
+import '../../services/theme_service.dart';
 
 
 class PerformanceSection extends StatelessWidget {
@@ -31,11 +32,12 @@ class PerformanceSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.background,
         borderRadius: BorderRadius.circular(0), // No border radius for full width
       ),
       child: Column(
@@ -45,10 +47,10 @@ class PerformanceSection extends StatelessWidget {
           Text(
             'Performance',
             style: TextStyle(
-              fontFamily: 'DM Sans',
+              fontFamily: 'SF Pro',
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: AppColors.black,
+              color: theme.text,
             ),
           ),
 
@@ -61,6 +63,7 @@ class PerformanceSection extends StatelessWidget {
             todayLow,
             todayHigh,
             currentPrice,
+            context
           ),
 
           SizedBox(height: 40),
@@ -72,6 +75,7 @@ class PerformanceSection extends StatelessWidget {
             weekLow52,
             weekHigh52,
             currentPrice,
+            context
           ),
 
           SizedBox(height: 40),
@@ -82,9 +86,9 @@ class PerformanceSection extends StatelessWidget {
               // First Row
               Row(
                 children: [
-                  _buildDataItem("Open Price", openPrice.toStringAsFixed(2)),
-                  _buildDataItem("Prev. close", prevClose.toStringAsFixed(2)),
-                  _buildDataItem("Volume", volume),
+                  _buildDataItem("Open Price", openPrice.toStringAsFixed(2),context),
+                  _buildDataItem("Prev. close", prevClose.toStringAsFixed(2),context),
+                  _buildDataItem("Volume", volume,context),
                 ],
               ),
 
@@ -93,8 +97,8 @@ class PerformanceSection extends StatelessWidget {
               // Second Row
               Row(
                 children: [
-                  _buildDataItem("Lower circuit", lowerCircuit.toStringAsFixed(2)),
-                  _buildDataItem("Upper circuit", upperCircuit.toStringAsFixed(2)),
+                  _buildDataItem("Lower circuit", lowerCircuit.toStringAsFixed(2),context),
+                  _buildDataItem("Upper circuit", upperCircuit.toStringAsFixed(2),context),
                   Expanded(child: SizedBox()), // Empty space for alignment
                 ],
               ),
@@ -111,9 +115,11 @@ class PerformanceSection extends StatelessWidget {
       double lowValue,
       double highValue,
       double currentValue,
+      BuildContext context,
       ) {
     double progress = (currentValue - lowValue) / ((highValue - lowValue).abs() < 1e-9 ? 1 : (highValue - lowValue));
     progress = progress.clamp(0.0, 1.0);
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
     const indicatorWidth = 12.0;
 
@@ -127,36 +133,36 @@ class PerformanceSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(lowLabel,
-                    style: const TextStyle(
-                        fontFamily: 'DM Sans',
+                    style:  TextStyle(
+                        fontFamily: 'SF Pro',
                         fontSize: 10,
                         fontWeight: FontWeight.w400,
-                        color: Color(0xFF7E7E7E))),
+                        color: theme.text)),
                 const SizedBox(height: 8),
                 Text(lowValue.toStringAsFixed(2),
-                    style: const TextStyle(
-                        fontFamily: 'DM Sans',
+                    style:  TextStyle(
+                        fontFamily: 'SF Pro',
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.black)),
+                        color: theme.text)),
               ],
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(highLabel,
-                    style: const TextStyle(
-                        fontFamily: 'DM Sans',
+                    style:  TextStyle(
+                        fontFamily: 'SF Pro',
                         fontSize: 10,
                         fontWeight: FontWeight.w400,
-                        color: Color(0xFF7E7E7E))),
+                        color: theme.text)),
                 const SizedBox(height: 8),
                 Text(highValue.toStringAsFixed(2),
-                    style: const TextStyle(
-                        fontFamily: 'DM Sans',
+                    style:  TextStyle(
+                        fontFamily: 'SF Pro',
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.black)),
+                        color: theme.text)),
               ],
             ),
           ],
@@ -201,7 +207,8 @@ class PerformanceSection extends StatelessWidget {
     );
   }
 
-  Widget _buildDataItem(String label, String value) {
+  Widget _buildDataItem(String label, String value,BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,10 +216,10 @@ class PerformanceSection extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontFamily: 'DM Sans',
+              fontFamily: 'SF Pro',
               fontSize: 12,
               fontWeight: FontWeight.w400,
-              color: Color(0xFF7E7E7E),
+              color: theme.text,
               height: 1.2,
             ),
           ),
@@ -220,10 +227,10 @@ class PerformanceSection extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              fontFamily: 'DM Sans',
+              fontFamily: 'SF Pro',
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Colors.black,
+              color: theme.text,
               height: 1.2,
             ),
           ),

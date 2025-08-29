@@ -35,7 +35,6 @@ class Conversations extends StatefulWidget {
 }
 
 class _ConversationsState extends State<Conversations> {
-  final ChatService _chatService = locator<ChatService>();
   final ConversationsService _conversationsService = locator<ConversationsService>();
   final ChatService chat = locator<ChatService>();
   final TextEditingController _searchController = TextEditingController();
@@ -43,7 +42,6 @@ class _ConversationsState extends State<Conversations> {
   final GlobalKey<ChatGPTBottomSheetWrapperState> _sheetKey =
   GlobalKey(debugLabel: 'BottomSheetWrapper');
 
-  // ✅ NEW: Track to prevent duplicate navigation
   bool _isNavigating = false;
 
   @override
@@ -75,72 +73,30 @@ class _ConversationsState extends State<Conversations> {
     _sheetKey.currentState?.openSheet(settingsSheet);
   }
 
-  // ✅ NEW: Better session tap handling with debouncing
-  // void _onSessionTap(ChatSession session) async {
-  //   if (_isNavigating) return; // Prevent duplicate taps
-  //
-  //   _isNavigating = true;
-  //   debugPrint("🔍 CONVERSATIONS: Session tapped: ${session.id}");
-  //
-  //   try {
-  //     // ✅ Method 1: Pass session ID only (recommended)
-  //     await context.push('/home?sessionId=${session.id}');
-  //
-  //     // ✅ Alternative Method 2: Use onSessionTap callback if needed
-  //     // widget.onSessionTap?.call(session);
-  //
-  //   } catch (e) {
-  //     debugPrint("❌ Navigation error: $e");
-  //   } finally {
-  //     if (mounted) {
-  //       _isNavigating = false;
-  //     }
-  //   }
-  // }
-
-
-  // 5. Update Conversations navigation to use sessionId only
-  void _onSessionTap(ChatSession session) async {
+  void _onSessionTap(ChatSession session) {
     if (_isNavigating) return;
-
     _isNavigating = true;
-    debugPrint("🔍 CONVERSATIONS: Session tapped: ${session.id}");
 
-    try {
-      // ✅ FIX: Use pushReplacement instead of push to avoid navigation stack issues
-      await context.push('/home?sessionId=${session.id}');
-
-      // ✅ Alternative: Use go instead of push
-      // context.go('/home?sessionId=${session.id}');
-
-    } catch (e) {
-      debugPrint("❌ Navigation error: $e");
-    } finally {
-      if (mounted) {
-        _isNavigating = false;
-      }
-    }
+    final future = context.push('/home?sessionId=${session.id}');
+    future.whenComplete(() {
+      if (mounted) _isNavigating = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _isNavigating = false;
+    });
   }
 
-
-  // ✅ NEW: Better new chat handling
-  void _createNewChat() async {
+  /// ✅ FAB just goes to Home. No chat creation here.
+  void _onNewChatFabPressed() {
     if (_isNavigating) return;
-
     _isNavigating = true;
-    debugPrint("🆕 CONVERSATIONS: Creating new chat");
 
-    try {
-      // Create new session and navigate
-      await chat.createNewChatSession();
-      await context.push('/home'); // Navigate to new session
-    } catch (e) {
-      debugPrint("❌ New chat error: $e");
-    } finally {
-      if (mounted) {
-        _isNavigating = false;
-      }
-    }
+    FocusManager.instance.primaryFocus?.unfocus();
+    context.go('/home');
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _isNavigating = false;
+    });
   }
 
   @override
@@ -158,7 +114,7 @@ class _ConversationsState extends State<Conversations> {
         child: Scaffold(
           drawer: CustomDrawer(
             onTap: _openSettingsSheet,
-            chatService: _chatService,
+            chatService: chat,
             onSessionTap: widget.onSessionTap,
             selectedRoute: "Conversations",
           ),
@@ -166,18 +122,26 @@ class _ConversationsState extends State<Conversations> {
           appBar: PreferredSize(
             preferredSize: const Size.fromHeight(100),
             child: Builder(
-              builder: (context) => appBar(context, "Conversations", () {}, false, showNewChatButton: false),
+              builder: (context) => appBar(
+                context,
+                "Conversations",
+                    () {}, // no AppBar new-chat button here
+                false,
+                showNewChatButton: false,
+              ),
             ),
           ),
+
           floatingActionButton: FloatingActionButton(
-            onPressed: _createNewChat, // ✅ Use optimized method
+            onPressed: _onNewChatFabPressed,
             backgroundColor: AppColors.primary,
             child: Image.asset('assets/images/newChat.png', height: 20),
             shape: const CircleBorder(),
             elevation: 4,
           ),
+
           body: state.isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
               : SafeArea(
             child: RefreshIndicator(
               onRefresh: _conversationsService.loadSessions,
@@ -193,20 +157,20 @@ class _ConversationsState extends State<Conversations> {
                       child: Container(
                         height: 40,
                         decoration: BoxDecoration(
-                          color: theme.shadow,
+                          color: theme.searchBox,
                           borderRadius: BorderRadius.circular(22),
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: Row(
                           children: [
-                            Icon(Icons.search, color: Color(0xFF7E7E7E), size: 22),
+                            const Icon(Icons.search, color: Color(0xFF7E7E7E), size: 22),
                             const SizedBox(width: 8),
                             Expanded(
                               child: TextField(
                                 controller: _searchController,
                                 style: TextStyle(
                                   fontSize: 16,
-                                  fontFamily: 'DM Sans',
+                                  fontFamily: 'SF Pro',
                                   color: theme.text,
                                 ),
                                 decoration: const InputDecoration(
@@ -215,7 +179,7 @@ class _ConversationsState extends State<Conversations> {
                                     color: Color(0xFF7E7E7E),
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
-                                    fontFamily: 'DM Sans',
+                                    fontFamily: 'SF Pro',
                                   ),
                                   border: InputBorder.none,
                                   contentPadding: EdgeInsets.symmetric(vertical: 10.5),
@@ -235,7 +199,7 @@ class _ConversationsState extends State<Conversations> {
                           style: TextStyle(
                             fontSize: 16,
                             color: theme.text,
-                            fontFamily: 'DM Sans',
+                            fontFamily: 'SF Pro',
                           ),
                         ),
                       ),
@@ -253,15 +217,15 @@ class _ConversationsState extends State<Conversations> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 16, bottom: 8),
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 16, bottom: 8),
                                   child: Text(
-                                    entry.key,
+                                    "Recent",
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w700,
                                       color: Color(0xff7E7E7E),
-                                      fontFamily: 'DM Sans',
+                                      fontFamily: 'SF Pro',
                                     ),
                                   ),
                                 ),
@@ -285,31 +249,26 @@ class _ConversationsState extends State<Conversations> {
   Widget _buildConversationItem(ChatSession session) {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
-    return Builder(
-      builder: (innerContext) => InkWell(
-        onTap: () {
-          print("🖱️ Conversation item tapped: ${session.id} - ${session.title}");
-          _onSessionTap(session);
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  session.title.trim().isEmpty ? "Untitled Chat" : session.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    color: theme.text,
-                    fontFamily: 'DM Sans',
-                  ),
+    return InkWell(
+      onTap: () => _onSessionTap(session),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                session.title.trim().isEmpty ? "Untitled Chat" : session.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  color: theme.text,
+                  fontFamily: 'SF Pro',
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

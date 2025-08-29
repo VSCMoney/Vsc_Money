@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.vitty.ai.app-mergeDebugResources-67:/values-bs/values-bs.xml",
+            "outputFile": "com.ai.vitty.app-mergeDebugResources-67:/values-bs/values-bs.xml",
             "map": [
                 {
                     "source": "/Users/piyushgoyal/.gradle/caches/8.9/transforms/8ed5d35f7975f7008e45d356a7fecc7b/transformed/core-1.16.0/res/values-bs/values-bs.xml",
