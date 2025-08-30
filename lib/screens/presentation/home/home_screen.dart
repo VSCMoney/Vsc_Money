@@ -61,38 +61,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
+
   Future<void> _createNewChat() async {
     try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => SizedBox.shrink(),
-      );
+      print("Creating new chat - clearing UI state");
 
-      await _chatService.createNewChatSession();
+      // Use the public method to reset state
+      _chatService.resetForNewChat();
 
       if (!mounted) return;
-      Navigator.of(context).pop();
+      setState(() {
+        _currentIndex = 0; // Switch to chat tab
+      });
 
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      if (mounted) {
-        setState(() {
-          _currentIndex = 0;
-        });
-      }
+      print("New chat state ready - session will be created on first message");
     } catch (e) {
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Failed to create chat: $e"),
-            backgroundColor: Colors.red.shade600,
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to start a new chat: $e"),
+          backgroundColor: Colors.red.shade600,
+        ),
+      );
     }
   }
+
 
   Future<void> _switchToSession(ChatSession session) async {
     try {

@@ -10,6 +10,8 @@ import 'bot_message.dart';
 import 'message_bubble.dart';
 
 
+import 'package:flutter/material.dart';
+
 class MessageRowWidget extends StatelessWidget {
   final Map<String, dynamic> message;
   final bool isLatest;
@@ -18,7 +20,7 @@ class MessageRowWidget extends StatelessWidget {
   final VoidCallback? onHeightMeasured;
   final Function(double)? onHeightMeasuredWithValue;
   final VoidCallback? onBotRenderComplete;
-  final Function(String)? onRetryMessage; // NEW: Retry callback
+  final Function(String)? onRetryMessage;
 
   const MessageRowWidget({
     Key? key,
@@ -29,100 +31,119 @@ class MessageRowWidget extends StatelessWidget {
     this.onHeightMeasured,
     this.onHeightMeasuredWithValue,
     this.onBotRenderComplete,
-    this.onRetryMessage, // NEW
+    this.onRetryMessage,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final bool isUser = message['role'] == 'user';
+    final String messageText =
+    (message['content']?.toString() ?? message['msg']?.toString() ?? '');
 
-    final String messageText = (message['content']?.toString() ??
-        message['msg']?.toString() ?? '');
+    // Conservative completion: latest message should still typewriter even if backendComplete flipped.
+    final bool backendComplete = message['backendComplete'] == true;
+    final bool userComplete    = message['isComplete'] == true;
+    final bool forceStop       = message['forceStop'] == true;
+    final bool isComplete      = forceStop || (!isLatest && (backendComplete || userComplete));
 
-    final bool isComplete = message['isComplete'] == true;
     final bool isHistorical = message['isHistorical'] == true;
-    final String? currentStatus = message['currentStatus'] as String?;
-    final GlobalKey? bubbleKey = message['key'] as GlobalKey?;
-    final bool? forceStop = message['forceStop'] as bool?;
-    final String? stopTs = message['stopTs'] as String?;
 
-    // Check if this is a retry message
+    String? currentStatus = message['currentStatus']?.toString();
+    if (currentStatus == 'null' || currentStatus == 'undefined' || currentStatus?.isEmpty == true) {
+      currentStatus = null;
+    }
+
+    final GlobalKey? bubbleKey = message['key'] as GlobalKey?;
+    final String? stopTs       = message['stopTs'] as String?;
     final bool shouldShowRetry = message['retry'] == true;
     final String originalMessage = message['originalMessage']?.toString() ?? '';
-
-    // Check if this is in connecting state
     final bool isConnecting = message['isConnecting'] == true;
+
+    // Build a stable row id for keys (prefer real backend ids if present)
+    final String rowId =
+        message['id']?.toString() ??
+            message['messageId']?.toString() ??
+            message['ts']?.toString() ??
+            'h${(message['content'] ?? message['msg'] ?? '').hashCode}';
 
     // USER BUBBLE
     if (isUser) {
-      return MessageBubble(
-        message: messageText,
-        isUser: true,
-        bubbleKey: bubbleKey,
-        isLatest: isLatest,
-        onHeightMeasured: onHeightMeasured,
-        onHeightMeasuredWithValue: onHeightMeasuredWithValue,
-      );
-    }
-
-    // STOCKS HANDLING (separate widget)
-    if (message['type'] == 'stocks' && message['stocks'] is List) {
-      final List<dynamic> stocks = message['stocks'] as List<dynamic>;
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: StockTileWidget(
-          stocks: stocks,
-          onStockTap: onStockTap,
+      return KeyedSubtree(
+        key: ValueKey('row_$rowId'),
+        child: MessageBubble(
+          message: messageText,
+          isUser: true,
+          bubbleKey: bubbleKey,
+          isLatest: isLatest,
+          onHeightMeasured: onHeightMeasured,
+          onHeightMeasuredWithValue: onHeightMeasuredWithValue,
         ),
       );
     }
 
-    final String? messageType = message['type'] as String?;
+    // STOCKS HANDLING
+    if (message['type'] == 'stocks' && message['stocks'] is List) {
+      final List<dynamic> stocks = message['stocks'] as List<dynamic>;
+      return KeyedSubtree(
+        key: ValueKey('row_$rowId'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: StockTileWidget(
+            stocks: stocks,
+            onStockTap: onStockTap,
+          ),
+        ),
+      );
+    }
+
     final Map<String, dynamic>? tableData =
     (message['tableData'] is Map) ? (message['tableData'] as Map).cast<String, dynamic>() : null;
 
-    final bool shouldShowTypingDots =
-    (messageText.isEmpty && currentStatus == null && !isComplete && tableData == null && !shouldShowRetry);
+    final bool shouldShowTypingDots = messageText.isEmpty &&
+        currentStatus == null &&
+        !isComplete &&
+        tableData == null &&
+        !shouldShowRetry &&
+        !isHistorical;
 
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          shouldShowTypingDots
-              ? const TypingIndicatorWidget()
-              : BotMessageWidget(
-            message: messageText,
-            isComplete: isComplete,
-            isLatest: isLatest,
-            isHistorical: isHistorical,
-            currentStatus: currentStatus,
-            onAskVitty: onAskVitty,
-            tableData: tableData,
-            onRenderComplete: onBotRenderComplete,
-            forceStop: forceStop,
-            stopTs: stopTs,
-            onStockTap: onStockTap,
-          ),
-
-          // Show retry button if needed, but not while connecting
-          if (shouldShowRetry && originalMessage.isNotEmpty && !isConnecting)
-            _buildRetrySection(context, originalMessage),
-        ],
+    return KeyedSubtree(
+      key: ValueKey('row_$rowId'),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            shouldShowTypingDots
+                ? const TypingIndicatorWidget()
+                : BotMessageWidget(
+              key: ValueKey('bot_$rowId'),
+              message: messageText,
+              isComplete: isComplete,
+              isLatest: isLatest,
+              isHistorical: isHistorical,
+              currentStatus: currentStatus,
+              onAskVitty: onAskVitty,
+              tableData: tableData,
+              onRenderComplete: onBotRenderComplete,
+              forceStop: forceStop,
+              stopTs: stopTs,
+              onStockTap: onStockTap,
+            ),
+            if (shouldShowRetry && originalMessage.isNotEmpty && !isConnecting)
+              _buildRetrySection(context, originalMessage),
+          ],
+        ),
       ),
     );
   }
 
-  // NEW: Build retry section
   Widget _buildRetrySection(BuildContext context, String originalMessage) {
     return Padding(
       padding: const EdgeInsets.only(top: 12.0, bottom: 8.0),
       child: Row(
         children: [
           ElevatedButton.icon(
-            onPressed: () {
-              onRetryMessage?.call(originalMessage);
-            },
+            onPressed: () => onRetryMessage?.call(originalMessage),
             icon: const Icon(Icons.refresh, size: 16),
             label: const Text('Try Again'),
             style: ElevatedButton.styleFrom(

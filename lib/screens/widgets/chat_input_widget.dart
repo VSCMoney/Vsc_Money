@@ -29,7 +29,7 @@ import 'input_actions_widget.dart';
 
 
 
-//
+
 // class ChatInputWidget extends StatefulWidget {
 //   final TextEditingController controller;
 //   final FocusNode focusNode;
@@ -173,7 +173,7 @@ import 'input_actions_widget.dart';
 //             duration: const Duration(milliseconds: 180),
 //             curve: Curves.easeOut,
 //             constraints: BoxConstraints(
-//               minHeight: showRecorder ? 0 : 55, // keep roomy like screenshot
+//               minHeight: showRecorder ? 0 : 50, // keep roomy like screenshot
 //               maxHeight: showRecorder ? 0 : 190,
 //             ),
 //             child: showRecorder
@@ -205,7 +205,7 @@ import 'input_actions_widget.dart';
 //                   height: 1.25,
 //                 ),
 //                 border: InputBorder.none,
-//                 contentPadding: EdgeInsets.zero,
+//                 contentPadding: EdgeInsets.only(top: 5),
 //               ),
 //             ),
 //           ),
@@ -582,12 +582,11 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
                 decoration: InputDecoration(
                   hintStyle: TextStyle(
                     fontWeight: FontWeight.w400,
-                    fontFamily: "SF Pro",
                     color: Colors.grey.shade600,
                   ),
                   hintText: 'Ask anything',
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.only(bottom: 8.0, top: 12.0),
+                  contentPadding: const EdgeInsets.only(bottom: 8.0, top: 12.0,left:5),
                   isDense: true,
                 ),
                 onChanged: (_) => widget.onTextChanged(),
@@ -605,29 +604,32 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
           ),
 
           // Actions / Recorder
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 150),
-            switchInCurve: Curves.easeOut,
-            switchOutCurve: Curves.easeIn,
-            transitionBuilder: (child, animation) =>
-                FadeTransition(opacity: animation, child: child),
-            child: showRecorder
-                ? VoiceRecorderWidget(
-              key: const ValueKey('recorder'),
-              audioService: widget.audioService,
-              onCancel: _onRecordingCancel,
-              onComplete: _onRecordingComplete,
-              // (Optional) you can show a tiny "preparing…" state inside the widget using _preparing
-            )
-                : InputActionsBarWidget(
-              key: const ValueKey('actions'),
-              isTyping: widget.isTyping,
-              hasText: widget.controller.text.isNotEmpty,
-              isTranscribing: isTranscribing,
-              onStartRecording: _startRecording,
-              onSendMessage: widget.onSendMessage,
-              onStopResponse: widget.onStopResponse,
-              theme: theme,
+          Padding(
+            padding: EdgeInsets.only(bottom: 0.0, top: 5.0,left:10),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
+              child: showRecorder
+                  ? VoiceRecorderWidget(
+                key: const ValueKey('recorder'),
+                audioService: widget.audioService,
+                onCancel: _onRecordingCancel,
+                onComplete: _onRecordingComplete,
+                // (Optional) you can show a tiny "preparing…" state inside the widget using _preparing
+              )
+                  : InputActionsBarWidget(
+                key: const ValueKey('actions'),
+                isTyping: widget.isTyping,
+                hasText: widget.controller.text.isNotEmpty,
+                isTranscribing: isTranscribing,
+                onStartRecording: _startRecording,
+                onSendMessage: widget.onSendMessage,
+                onStopResponse: widget.onStopResponse,
+                theme: theme,
+              ),
             ),
           ),
           SizedBox(height: widget.keyboardInset > 0 ? 0 : 16),

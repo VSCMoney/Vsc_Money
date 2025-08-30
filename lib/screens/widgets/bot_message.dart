@@ -10,431 +10,19 @@ import '../../models/chat_message.dart';
 import '../../services/locator.dart';
 import '../../services/theme_service.dart';
 
-// class BotMessageWidget extends StatefulWidget {
-//   final String message;
-//   final bool isComplete;
-//   final bool isLatest;
-//   final String? currentStatus;
-//   final Function(String)? onAskVitty;
-//
-//   const BotMessageWidget({
-//     Key? key,
-//     required this.message,
-//     required this.isComplete,
-//     this.isLatest = false,
-//     this.currentStatus,
-//     this.onAskVitty,
-//   }) : super(key: key);
-//
-//   @override
-//   State<BotMessageWidget> createState() => _BotMessageWidgetState();
-// }
-//
-// class _BotMessageWidgetState extends State<BotMessageWidget> {
-//   String _displayedText = '';
-//   String _fullReceivedText = '';
-//   bool _isTyping = false;
-//   Timer? _typingTimer;
-//
-//   // Typing speed: characters per second
-//   static const int _typingSpeed = 30; // Adjust this to make it faster or slower
-//   static const int _typingIntervalMs = 1000 ~/ _typingSpeed; // milliseconds between each character
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     print("🚀 BotMessageWidget initState:");
-//     print("   - initial message: '${widget.message}'");
-//     print("   - initial status: '${widget.currentStatus}'");
-//
-//     _fullReceivedText = widget.message;
-//     _startTypingEffect();
-//   }
-//
-//   @override
-//   void didUpdateWidget(BotMessageWidget oldWidget) {
-//     super.didUpdateWidget(oldWidget);
-//
-//     // Debug status changes
-//     if (widget.currentStatus != oldWidget.currentStatus) {
-//       print("🔄 Status changed: '${oldWidget.currentStatus}' → '${widget.currentStatus}'");
-//     }
-//
-//     // When new message content arrives
-//     if (widget.message != oldWidget.message) {
-//       print("📝 Message changed: '${oldWidget.message}' → '${widget.message}'");
-//       _fullReceivedText = widget.message;
-//
-//       // If we're not currently typing and have actual content, start the typing effect
-//       if (!_isTyping && widget.message.isNotEmpty) {
-//         _startTypingEffect();
-//       }
-//       // If we are typing, the timer will automatically pick up the new content
-//     }
-//
-//     // Handle status changes - when status appears, stop typing temporarily
-//     if (widget.currentStatus != oldWidget.currentStatus) {
-//       if (widget.currentStatus != null) {
-//         // Status appeared - pause typing effect
-//         print("⏸️ Pausing typing for status: ${widget.currentStatus}");
-//         _pauseTypingForStatus();
-//       } else if (oldWidget.currentStatus != null && widget.currentStatus == null) {
-//         // Status cleared - resume or start typing effect
-//         print("▶️ Status cleared, resuming typing effect");
-//         if (_fullReceivedText.isNotEmpty && !_isTyping) {
-//           _startTypingEffect();
-//         }
-//       }
-//       setState(() {});
-//     }
-//   }
-//
-//   void _startTypingEffect() {
-//     if (_fullReceivedText.isEmpty || _isTyping || widget.currentStatus != null) {
-//       print("❌ Cannot start typing: receivedText empty: ${_fullReceivedText.isEmpty}, isTyping: $_isTyping, hasStatus: ${widget.currentStatus != null}");
-//       return;
-//     }
-//
-//     print("▶️ Starting typing effect for: '${_fullReceivedText.substring(0, _fullReceivedText.length.clamp(0, 50))}...'");
-//     _isTyping = true;
-//
-//     _typingTimer = Timer.periodic(
-//       Duration(milliseconds: _typingIntervalMs),
-//           (timer) {
-//         if (!mounted) {
-//           timer.cancel();
-//           return;
-//         }
-//
-//         // If there's a status update, pause typing
-//         if (widget.currentStatus != null) {
-//           print("⏸️ Pausing typing due to status: ${widget.currentStatus}");
-//           timer.cancel();
-//           _isTyping = false;
-//           return;
-//         }
-//
-//         // If we've displayed all available text
-//         if (_displayedText.length >= _fullReceivedText.length) {
-//           // If the message is complete from backend, stop typing
-//           if (widget.isComplete) {
-//             print("✅ Typing complete");
-//             timer.cancel();
-//             _isTyping = false;
-//             setState(() {
-//               _displayedText = _fullReceivedText; // Ensure we show the complete text
-//             });
-//           }
-//           // If not complete, just wait for more content (timer keeps running)
-//           return;
-//         }
-//
-//         // Add next character
-//         setState(() {
-//           _displayedText = _fullReceivedText.substring(0, _displayedText.length + 1);
-//         });
-//       },
-//     );
-//   }
-//
-//   void _pauseTypingForStatus() {
-//     print("⏸️ Pausing typing for status");
-//     _typingTimer?.cancel();
-//     _isTyping = false;
-//   }
-//
-//   @override
-//   void dispose() {
-//     _typingTimer?.cancel();
-//     super.dispose();
-//   }
-//
-//   List<TextSpan> _processTextWithFormatting(String text, TextStyle baseStyle) {
-//     final regexBold = RegExp(r"\*\*(.+?)\*\*");
-//     List<TextSpan> spans = [];
-//     int lastMatchEnd = 0;
-//
-//     for (var match in regexBold.allMatches(text)) {
-//       if (match.start > lastMatchEnd) {
-//         spans.add(
-//           TextSpan(
-//             text: text.substring(lastMatchEnd, match.start),
-//             style: baseStyle,
-//           ),
-//         );
-//       }
-//
-//       spans.add(
-//         TextSpan(
-//           text: match.group(1),
-//           style: baseStyle.copyWith(
-//             fontWeight: FontWeight.w700,
-//             height: 1.5,
-//             fontFamily: "SF Pro",
-//           ),
-//         ),
-//       );
-//
-//       lastMatchEnd = match.end;
-//     }
-//
-//     if (lastMatchEnd < text.length) {
-//       spans.add(TextSpan(text: text.substring(lastMatchEnd), style: baseStyle));
-//     }
-//
-//     return spans;
-//   }
-//
-//   List<TextSpan> _buildFormattedSpans(String fullText, TextStyle baseStyle) {
-//     // During streaming, show simple formatting
-//     if (!widget.isComplete || _isTyping) {
-//       return _processTextWithFormatting(fullText, baseStyle);
-//     }
-//
-//     // Apply full formatting when complete
-//     final lines = fullText.trim().split('\n');
-//     List<TextSpan> spans = [];
-//
-//     for (int i = 0; i < lines.length; i++) {
-//       final line = lines[i];
-//
-//       if (line.trim().isEmpty) {
-//         spans.add(const TextSpan(text: '\n'));
-//         continue;
-//       }
-//
-//       // Add emoji based on line content
-//       String emoji = '';
-//       if (line.trim().startsWith(RegExp(r"^(\*|•|-|\d+\.)\s"))) {
-//         emoji = '👉 ';
-//       } else if (line.contains('Tip') || line.contains('Note')) {
-//         emoji = '💡 ';
-//       } else if (line.contains('Save') || line.contains('budget')) {
-//         emoji = '💰 ';
-//       }
-//
-//       // Add newline only if not the first line
-//       if (i > 0) {
-//         spans.add(TextSpan(text: '\n$emoji'));
-//       } else if (emoji.isNotEmpty) {
-//         spans.add(TextSpan(text: emoji));
-//       }
-//
-//       spans.addAll(_processTextWithFormatting(line, baseStyle));
-//     }
-//
-//     return spans;
-//   }
-//
-//   Widget _buildStatusIndicator() {
-//     if (widget.currentStatus == null) return const SizedBox.shrink();
-//
-//     return PremiumShimmerWidget(
-//       text: widget.currentStatus!,
-//       isComplete: false, // Always animate for status
-//       baseColor: const Color(0xFF9CA3AF),
-//       highlightColor: const Color(0xFF6B7280),
-//     );
-//   }
-//
-//
-//   Widget _buildTypewriterCursor() {
-//     // Show cursor when typing or when there's more content to display
-//     final showCursor = _isTyping || (!widget.isComplete && _displayedText.length < _fullReceivedText.length);
-//
-//     if (!showCursor) return const SizedBox.shrink();
-//
-//     return TweenAnimationBuilder<double>(
-//       tween: Tween(begin: 0.0, end: 1.0),
-//       duration: const Duration(milliseconds: 500),
-//       builder: (context, value, child) {
-//         return Opacity(
-//           opacity: (value * 2) % 1.0 > 0.5 ? 1.0 : 0.3,
-//           child: Container(
-//             width: 2,
-//             height: 20,
-//             decoration: BoxDecoration(
-//               color: Colors.grey.shade600,
-//               borderRadius: BorderRadius.circular(1),
-//             ),
-//           ),
-//         );
-//       },
-//     );
-//   }
-//
-//   Widget _buildContextMenu(BuildContext context, EditableTextState editableTextState) {
-//     final value = editableTextState.textEditingValue;
-//     final selection = value.selection;
-//
-//     if (!selection.isValid || selection.isCollapsed) {
-//       return const SizedBox.shrink();
-//     }
-//
-//     final selectedText = value.text.substring(selection.start, selection.end);
-//
-//     return AdaptiveTextSelectionToolbar(
-//       anchors: editableTextState.contextMenuAnchors,
-//       children: [
-//         if (widget.onAskVitty != null)
-//           TextButton(
-//             onPressed: () {
-//               widget.onAskVitty!(selectedText);
-//               ContextMenuController.removeAny();
-//             },
-//             style: TextButton.styleFrom(
-//               foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
-//               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-//             ),
-//             child: Row(
-//               mainAxisSize: MainAxisSize.min,
-//               children: [
-//                 const Text('Ask Vitty'),
-//                 const SizedBox(width: 8),
-//                 Image.asset(
-//                   'assets/images/vitty.png',
-//                   width: 20,
-//                   height: 20,
-//                 ),
-//               ],
-//             ),
-//           ),
-//         TextButton(
-//           onPressed: () {
-//             Clipboard.setData(ClipboardData(text: selectedText));
-//             ScaffoldMessenger.of(context).showSnackBar(
-//               const SnackBar(content: Text('Copied!')),
-//             );
-//             ContextMenuController.removeAny();
-//           },
-//           child: const Text('Copy', style: TextStyle(color: Colors.black)),
-//         ),
-//       ],
-//     );
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final theme = locator<ThemeService>().currentTheme;
-//
-//     final style = TextStyle(
-//       fontFamily: 'SF Pro',
-//       fontSize: 16,
-//       fontWeight: FontWeight.w500,
-//       height: 1.75,
-//       color: theme.text,
-//     );
-//
-//     // Always use displayed text for typewriter effect
-//     final textToShow = _displayedText;
-//     final spans = _buildFormattedSpans(textToShow, style);
-//
-//     // // Debug widget state
-//     // print("🎨 BotMessageWidget build:");
-//     // print("   - currentStatus: '${widget.currentStatus}'");
-//     // print("   - message: '${widget.message.length > 50 ? widget.message.substring(0, 50) + '...' : widget.message}'");
-//     // print("   - displayedText: '${_displayedText.length > 50 ? _displayedText.substring(0, 50) + '...' : _displayedText}'");
-//     // print("   - isTyping: $_isTyping");
-//     // print("   - isComplete: ${widget.isComplete}");
-//
-//     return Padding(
-//       padding: const EdgeInsets.only(bottom: 4, top: 20),
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           // Status indicator
-//           _buildStatusIndicator(),
-//
-//           // Main content with typewriter effect
-//           if (textToShow.isNotEmpty || _isTyping || widget.currentStatus != null)
-//             Row(
-//               crossAxisAlignment: CrossAxisAlignment.end,
-//               children: [
-//                 Expanded(
-//                   child: widget.currentStatus != null
-//                       ? const SizedBox.shrink() // Hide text content when showing status
-//                       : SelectableText.rich(
-//                     TextSpan(style: style, children: spans),
-//                     contextMenuBuilder: _buildContextMenu,
-//                   ),
-//                 ),
-//                 // Show typewriter cursor only when actually typing text (not during status)
-//                 if (widget.currentStatus == null) _buildTypewriterCursor(),
-//               ],
-//             ),
-//
-//           const SizedBox(height: 15),
-//           _buildActionButtons(),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   Widget _buildActionButtons() {
-//     return Row(
-//       children: [
-//         _AnimatedActionButton(
-//           icon: Icons.copy,
-//           size: 14,
-//           isVisible: widget.isComplete && !_isTyping,
-//         ),
-//         const SizedBox(width: 12),
-//         _AnimatedActionButton(
-//           icon: Icons.thumb_up_alt_outlined,
-//           size: 16,
-//           isVisible: widget.isComplete && !_isTyping,
-//         ),
-//         const SizedBox(width: 12),
-//         _AnimatedActionButton(
-//           icon: Icons.thumb_down_alt_outlined,
-//           size: 16,
-//           isVisible: widget.isComplete && !_isTyping,
-//         ),
-//       ],
-//     );
-//   }
-// }
-//
-//
-//
-// class _AnimatedActionButton extends StatelessWidget {
-//   final IconData icon;
-//   final double size;
-//   final bool isVisible;
-//
-//   const _AnimatedActionButton({
-//     required this.icon,
-//     required this.size,
-//     required this.isVisible,
-//   });
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Visibility(
-//       visible: true,
-//       maintainSize: true,
-//       maintainAnimation: true,
-//       maintainState: true,
-//       child: AnimatedOpacity(
-//         duration: const Duration(milliseconds: 300),
-//         opacity: isVisible ? 1 : 0,
-//         child: Icon(
-//           icon,
-//           size: size,
-//           color: Colors.grey,
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-
 
 
 import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import 'dart:async';
+import 'dart:math';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class BotMessageWidget extends StatefulWidget {
   final String message;
@@ -446,8 +34,6 @@ class BotMessageWidget extends StatefulWidget {
   final Map<String, dynamic>? tableData;
   final Function(String)? onStockTap;
   final VoidCallback? onRenderComplete;
-
-  // Handle force stop from chat service
   final bool? forceStop;
   final String? stopTs;
 
@@ -470,9 +56,10 @@ class BotMessageWidget extends StatefulWidget {
   State<BotMessageWidget> createState() => _BotMessageWidgetState();
 }
 
-class _BotMessageWidgetState extends State<BotMessageWidget> {
+class _BotMessageWidgetState extends State<BotMessageWidget>
+    with AutomaticKeepAliveClientMixin {
   static const _kPlaceholder = '___TABLE_PLACEHOLDER___';
-  static const int _cps = 28;
+  static const int _cps = 130;
   static const int _postHoldMs = 900;
 
   Timer? _timer;
@@ -491,14 +78,12 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
   bool _shouldShowTable = false;
   bool _postDelayApplied = false;
 
-  // ✅ CRITICAL: Track state to prevent reinitialization
-  bool _hasInitialized = false;
-  String _lastProcessedMessage = '';
-  String _lastStopTs = '';
-
-  // ✅ CRITICAL: Global static map to track streaming states across widget rebuilds
+  // Stable state by message content (+ historical flag). DO NOT include isLatest.
   static final Map<String, _StreamingState> _streamingStates = {};
-  String get _stateKey => '${widget.message.hashCode}_${widget.isLatest}';
+  String get _stateKey {
+    final base = widget.message.hashCode;
+    return '${base}_${widget.isHistorical}';
+  }
 
   int get _intervalMs => 1000 ~/ _cps;
   String get _preDisplay => _preFull.substring(0, _preShown.clamp(0, _preFull.length));
@@ -506,9 +91,12 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
   bool get _reachedPlaceholder => _preShown >= _preFull.length;
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   void initState() {
     super.initState();
-    print("🎬 BotMessage: initState called");
+    debugPrint("🎬 BotMessage: initState message hash: ${widget.message.hashCode}");
     _initializeWidget();
   }
 
@@ -516,45 +104,39 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
     _recomputeSegments(widget.message);
     _updateTableData();
 
-    // ✅ CRITICAL: Check if we have existing streaming state for this message
-    final existingState = _streamingStates[_stateKey];
-    if (existingState != null && !existingState.wasCompleted) {
-      print("🔄 BotMessage: Restoring streaming state from position ${existingState.preShown}");
-      _restoreStreamingState(existingState);
+    final shouldRestoreState = _streamingStates.containsKey(_stateKey) &&
+        !_streamingStates[_stateKey]!.wasCompleted &&
+        !_streamingStates[_stateKey]!.wasForceStopped;
+
+    if (shouldRestoreState) {
+      debugPrint("🔄 BotMessage: Restoring existing state for key: $_stateKey");
+      _restoreStreamingState(_streamingStates[_stateKey]!);
       return;
     }
 
-    // Check if already stopped/completed
-    final wasAlreadyStopped = widget.forceStop == true ||
-        widget.isComplete ||
-        widget.isHistorical;
+    if (_streamingStates.containsKey(_stateKey) &&
+        (_streamingStates[_stateKey]!.wasCompleted ||
+            _streamingStates[_stateKey]!.wasForceStopped)) {
+      _streamingStates.remove(_stateKey);
+    }
 
-    if (wasAlreadyStopped) {
-      print("📄 BotMessage: Already stopped/completed - showing instantly");
+    // Show instantly only if historical or explicitly force-stopped
+    if (widget.forceStop == true || widget.isHistorical) {
+      debugPrint("🚀 BotMessage: Showing instantly (historical/forceStop)");
       _showInstantly();
-    } else if (!widget.isHistorical && !widget.isComplete) {
-      print("⌨️ BotMessage: Starting continuous streaming animation");
+      return;
+    }
+
+    // Latest message always typewriters (even if isComplete already true)
+    if (widget.isLatest) {
+      debugPrint("🚀 BotMessage: Starting streaming for latest message");
       _startContinuousStreaming();
-    } else {
-      _showInstantly();
+      return;
     }
 
-    _hasInitialized = true;
-  }
-
-  void _restoreStreamingState(_StreamingState state) {
-    _preShown = state.preShown;
-    _postShown = state.postShown;
-    _shouldShowTable = state.shouldShowTable;
-    _postDelayApplied = state.postDelayApplied;
-    _hasCompletedTyping = state.wasCompleted;
-    _wasForceStopped = state.wasForceStopped;
-
-    if (!_hasCompletedTyping && !_wasForceStopped) {
-      _isTyping = true;
-      _timer = Timer.periodic(Duration(milliseconds: _intervalMs), _continuousStreamingTick);
-      print("▶️ BotMessage: Resumed continuous streaming from position $_preShown");
-    }
+    // Non-latest messages render instantly
+    debugPrint("🚀 BotMessage: Showing instantly (non-latest)");
+    _showInstantly();
   }
 
   void _saveStreamingState() {
@@ -568,6 +150,23 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
     );
   }
 
+  void _restoreStreamingState(_StreamingState s) {
+    _preShown = s.preShown;
+    _postShown = s.postShown;
+    _shouldShowTable = s.shouldShowTable;
+    _postDelayApplied = s.postDelayApplied;
+    _hasCompletedTyping = s.wasCompleted;
+    _wasForceStopped = s.wasForceStopped;
+
+    if (!_hasCompletedTyping && !_wasForceStopped) {
+      _isTyping = true;
+      _timer = Timer.periodic(Duration(milliseconds: _intervalMs), _continuousStreamingTick);
+      debugPrint("🔄 BotMessage: Resumed streaming from $_preShown");
+    } else {
+      setState(() {});
+    }
+  }
+
   void _showInstantly() {
     _preShown = _preFull.length;
     _postShown = _postFull.length;
@@ -578,44 +177,36 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
     _saveStreamingState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      widget.onRenderComplete?.call();
+      if (mounted) widget.onRenderComplete?.call();
     });
   }
 
   void _recomputeSegments(String full) {
     final parts = full.split(_kPlaceholder);
-    final newPreFull = parts.isNotEmpty ? parts.first : '';
-    final newPostFull = parts.length > 1 ? parts.sublist(1).join(_kPlaceholder) : '';
+    final newPre = parts.isNotEmpty ? parts.first : '';
+    final newPost = parts.length > 1 ? parts.sublist(1).join(_kPlaceholder) : '';
 
-    // Handle message content updates during streaming
-    if (_preFull != newPreFull || _postFull != newPostFull) {
-      final oldPreLength = _preFull.length;
-      final newPreLength = newPreFull.length;
+    if (_preFull == newPre && _postFull == newPost) return;
 
-      if (newPreLength >= oldPreLength && newPreFull.startsWith(_preFull)) {
-        // Message was extended - keep current position and continue streaming
-        print("📈 BotMessage: Message extended from $oldPreLength to $newPreLength chars");
-        _preFull = newPreFull;
-        _postFull = newPostFull;
-        // _preShown stays the same - animation continues from current position
-      } else {
-        // Completely different message content
-        print("🔄 BotMessage: Message content completely changed");
-        _preFull = newPreFull;
-        _postFull = newPostFull;
-        _preShown = _preShown.clamp(0, _preFull.length);
-        _postShown = _postShown.clamp(0, _postFull.length);
-      }
+    final oldPreLen = _preFull.length;
+    _preFull = newPre;
+    _postFull = newPost;
+
+    if (_preFull.length >= oldPreLen &&
+        oldPreLen > 0 &&
+        _preFull.startsWith(_preFull.substring(0, oldPreLen.clamp(0, _preFull.length)))) {
+      _preShown = _preShown.clamp(0, _preFull.length);
+    } else {
+      _preShown = _preShown.clamp(0, _preFull.length);
+      _postShown = _postShown.clamp(0, _postFull.length);
     }
   }
 
   void _updateTableData() {
     if (widget.tableData != null) {
       final rowsRaw = (widget.tableData!['rows'] as List?) ?? const [];
-      _availableTableRows = rowsRaw
-          .whereType<Map>()
-          .map((e) => e.cast<String, dynamic>())
-          .toList();
+      _availableTableRows =
+          rowsRaw.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
       _availableTableHeading = widget.tableData!['heading']?.toString();
       _hasTableDataAvailable = _availableTableRows.isNotEmpty;
     } else {
@@ -626,87 +217,113 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
     }
   }
 
-  void _handleForceStop() {
-    print("🛑 Force stop detected - stopping continuous streaming");
+  // Ignore isLatest flips; they shouldn't trigger rebuild
+  bool _shouldRebuild(BotMessageWidget oldWidget) {
+    if (widget.message == oldWidget.message &&
+        widget.isComplete == oldWidget.isComplete &&
+        /* isLatest intentionally ignored */
+        widget.isHistorical == oldWidget.isHistorical &&
+        widget.forceStop == oldWidget.forceStop &&
+        widget.tableData == oldWidget.tableData &&
+        widget.currentStatus == oldWidget.currentStatus) {
+      return false;
+    }
+    return true;
+  }
 
+  @override
+  void didUpdateWidget(BotMessageWidget old) {
+    super.didUpdateWidget(old);
+    if (!_shouldRebuild(old)) {
+      debugPrint("⏭️ BotMessage: Skipping unnecessary update");
+      return;
+    }
+
+    // Demotion guard: when last bubble stops being latest, freeze current view.
+    if (old.isLatest && !widget.isLatest) {
+      debugPrint("🧍 BotMessage: Demoted from latest → non-latest, freezing state");
+      _timer?.cancel();
+      _isTyping = false;
+      if (widget.isComplete && !_hasCompletedTyping) {
+        _finishStreaming();
+        return;
+      }
+      _saveStreamingState();
+      setState(() {});
+      return;
+    }
+
+    debugPrint(
+        "🔄 UPDATE - Key: $_stateKey, Message changed: ${widget.message != old.message}, Complete changed: ${widget.isComplete != old.isComplete}");
+
+    if (widget.message != old.message) {
+      debugPrint("📝 BotMessage: Message content updated during streaming");
+      _recomputeSegments(widget.message);
+
+      if (!_hasCompletedTyping && !_wasForceStopped && !_isTyping) {
+        final hasAnyContent =
+            _preFull.isNotEmpty || _postFull.isNotEmpty || _hasTableDataAvailable;
+        if (hasAnyContent && widget.isLatest && !widget.isHistorical) {
+          _startContinuousStreaming();
+        }
+      }
+      _saveStreamingState();
+      setState(() {});
+    }
+
+    if (widget.tableData != old.tableData) {
+      _updateTableData();
+      if (_reachedPlaceholder && _hasTableDataAvailable && !_shouldShowTable) {
+        _shouldShowTable = true;
+      }
+      setState(() {});
+    }
+
+    if (widget.currentStatus != old.currentStatus) {
+      if (!_hasCompletedTyping) {
+        if (widget.currentStatus != null && widget.currentStatus!.isNotEmpty) {
+          _pauseForStatus();
+        } else if (!_wasForceStopped) {
+          _resumeFromStatus();
+        }
+      }
+      setState(() {});
+    }
+
+    // Force stop
+    final stopTsChanged = widget.stopTs != old.stopTs && widget.stopTs != null;
+    if ((widget.forceStop == true && old.forceStop != true) || stopTsChanged) {
+      _handleForceStop();
+      return;
+    }
+
+    // Completion flips: finish whatever is left right now.
+    if (widget.isComplete && !old.isComplete && !_hasCompletedTyping) {
+      _finishStreaming();
+    }
+  }
+
+  void _handleForceStop() {
+    debugPrint("🛑 Force stop detected");
     _timer?.cancel();
     _isTyping = false;
     _wasForceStopped = true;
     _hasCompletedTyping = true;
-
-    if (_hasTableDataAvailable && _reachedPlaceholder) {
-      _shouldShowTable = true;
-    }
-
+    if (_hasTableDataAvailable && _reachedPlaceholder) _shouldShowTable = true;
     _saveStreamingState();
     setState(() {});
     widget.onRenderComplete?.call();
   }
 
-  @override
-  void didUpdateWidget(BotMessageWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // Handle force stop or completion changes
-    final stopTsChanged = widget.stopTs != oldWidget.stopTs && widget.stopTs != null;
-    if ((widget.forceStop == true && oldWidget.forceStop != true) || stopTsChanged) {
-      _lastStopTs = widget.stopTs ?? '';
-      _handleForceStop();
-      return;
-    }
-
-    // Handle completion state changes
-    if (widget.isComplete && !oldWidget.isComplete && !_hasCompletedTyping) {
-      print("✅ BotMessage: Message completed - finishing streaming");
-      _finishStreaming();
-      return;
-    }
-
-    // Handle message content updates during streaming
-    if (widget.message != oldWidget.message) {
-      print("📝 BotMessage: Message content updated during streaming");
-      _recomputeSegments(widget.message);
-      // Don't restart animation, just update content and continue
-      if (mounted) {
-        _saveStreamingState();
-        setState(() {});
-      }
-    }
-
-    // Handle status changes (pause/resume only for status, not for scrolling)
-    if (widget.currentStatus != oldWidget.currentStatus) {
-      if (widget.currentStatus != null && widget.currentStatus!.isNotEmpty) {
-        print("⏸️ BotMessage: Status active - pausing for status");
-        _pauseForStatus();
-      } else if (!_hasCompletedTyping && !_wasForceStopped) {
-        print("▶️ BotMessage: Status cleared - resuming streaming");
-        _resumeFromStatus();
-      }
-      setState(() {});
-    }
-
-    // Update table data if changed
-    if (widget.tableData != oldWidget.tableData) {
-      _updateTableData();
-      setState(() {});
-    }
-  }
-
   void _startContinuousStreaming() {
-    if (_hasCompletedTyping || _wasForceStopped) {
-      print("🚫 BotMessage: Already completed/stopped - not starting streaming");
-      return;
-    }
+    if (_hasCompletedTyping || _wasForceStopped || widget.forceStop == true) return;
 
-    if (widget.forceStop == true) return;
-    if (widget.isHistorical || widget.isComplete) return;
+    final hasAnyContent =
+        _preFull.isNotEmpty || _postFull.isNotEmpty || _hasTableDataAvailable;
+    if (!hasAnyContent) return;
+    if (_isTyping) return;
 
-    if (_isTyping) {
-      print("🔄 BotMessage: Already streaming - continuing");
-      return;
-    }
-
-    print("🚀 BotMessage: Starting continuous streaming (scroll-resistant)");
+    debugPrint("🚀 BotMessage: Starting continuous streaming");
     _isTyping = true;
     _timer?.cancel();
     _timer = Timer.periodic(Duration(milliseconds: _intervalMs), _continuousStreamingTick);
@@ -717,38 +334,41 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
       _timer?.cancel();
       _isTyping = false;
       _saveStreamingState();
-      print("⏸️ BotMessage: Paused for status (saving state)");
+      debugPrint("⏸️ BotMessage: Paused for status");
     }
   }
 
   void _resumeFromStatus() {
     if (!_hasCompletedTyping && !_wasForceStopped && !_isTyping) {
-      print("▶️ BotMessage: Resuming from status pause");
+      debugPrint("▶️ BotMessage: Resuming from status pause");
       _startContinuousStreaming();
     }
   }
 
   void _finishStreaming() {
-    print("✅ BotMessage: Finishing continuous streaming");
+    debugPrint("✅ BotMessage: Finishing streaming");
+
+    _recomputeSegments(widget.message);
+    _updateTableData();
+
+    _preShown = _preFull.length;
+    if (_hasTableDataAvailable) _shouldShowTable = true;
+    _postShown = _postFull.length;
+
     _timer?.cancel();
     _isTyping = false;
     _hasCompletedTyping = true;
 
     _saveStreamingState();
-    setState(() {});
-
-    if (!_wasForceStopped) {
-      widget.onRenderComplete?.call();
-    }
+    if (mounted) setState(() {});
+    if (!_wasForceStopped) widget.onRenderComplete?.call();
   }
 
   void _applyPostDelayOnce() {
     if (_postDelayApplied || _wasForceStopped) return;
     _postDelayApplied = true;
-
     Future.delayed(const Duration(milliseconds: _postHoldMs), () {
       if (!mounted || _hasCompletedTyping || _wasForceStopped) return;
-      print("📋 BotMessage: Post-table delay completed, continuing stream");
     });
   }
 
@@ -757,73 +377,64 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
       t.cancel();
       return;
     }
-
-    // Only stop for force stop, not for scrolling
     if (widget.forceStop == true || _wasForceStopped) {
       _handleForceStop();
       return;
     }
-
-    // Only pause for status, not for scrolling
     if (widget.currentStatus != null && widget.currentStatus!.isNotEmpty) {
       _pauseForStatus();
       return;
     }
 
-    // Continue streaming animation regardless of scroll position
     if (_preShown < _preFull.length) {
-      if (mounted) {
-        setState(() => _preShown++);
-        _saveStreamingState(); // Save progress periodically
-      }
+      setState(() => _preShown++);
+      _saveStreamingState();
       return;
     }
 
     if (_reachedPlaceholder && _hasTableDataAvailable && !_shouldShowTable) {
-      if (mounted) setState(() => _shouldShowTable = true);
+      setState(() => _shouldShowTable = true);
       _applyPostDelayOnce();
+      _saveStreamingState();
       return;
     }
 
-    // Continue to post text after delay without stopping
     if (_postDelayApplied && _postShown < _postFull.length) {
-      if (mounted) {
-        setState(() => _postShown++);
-        _saveStreamingState();
-      }
+      setState(() => _postShown++);
+      _saveStreamingState();
       return;
     }
 
-    // Check if we've completed everything
-    if (_preShown >= _preFull.length &&
-        (_postFull.isEmpty || _postShown >= _postFull.length) &&
-        (!_hasTableDataAvailable || _shouldShowTable)) {
+    final allPreDone = _preShown >= _preFull.length;
+    final allPostDone = _postFull.isEmpty || _postShown >= _postFull.length;
+    final tableOk = !_hasTableDataAvailable || _shouldShowTable;
+
+    if (allPreDone && allPostDone && tableOk) {
       _finishStreaming();
     }
   }
 
   @override
   void dispose() {
-    print("🧹 BotMessage: Disposing and cleaning up timer");
+    debugPrint("🧹 BotMessage: Disposing timer");
     _timer?.cancel();
-
-    // Clean up state if widget is being permanently disposed
+    // Clean up completed states to prevent memory leaks
     if (_hasCompletedTyping || _wasForceStopped) {
       _streamingStates.remove(_stateKey);
     }
-
     super.dispose();
   }
 
-  // UI methods remain the same...
   Widget _buildStatusIndicator() {
-    if (widget.currentStatus == null || widget.currentStatus!.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    final status = widget.currentStatus;
+    final hasValidStatus =
+        status != null && status.isNotEmpty && status != 'null' && status != 'undefined';
+    if (!hasValidStatus) return const SizedBox.shrink();
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: PremiumShimmerWidget(
-        text: widget.currentStatus!,
+        text: status,
         isComplete: false,
         baseColor: const Color(0xFF9CA3AF),
         highlightColor: const Color(0xFF6B7280),
@@ -832,13 +443,12 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
   }
 
   Widget _buildTypewriterCursor() {
-    final showCursor = _isTyping &&
+    final show = _isTyping &&
         !_hasCompletedTyping &&
         !_wasForceStopped &&
         !widget.isHistorical &&
         !widget.isComplete;
-
-    if (!showCursor) return const SizedBox.shrink();
+    if (!show) return const SizedBox.shrink();
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
@@ -859,38 +469,31 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
     );
   }
 
-  List<TextSpan> _buildFormattedSpans(String text, TextStyle baseStyle) {
-    final regexBold = RegExp(r"\*\*(.+?)\*\*");
+  List<TextSpan> _buildFormattedSpans(String text, TextStyle base) {
     final spans = <TextSpan>[];
-    int lastMatchEnd = 0;
-
-    for (final match in regexBold.allMatches(text)) {
-      if (match.start > lastMatchEnd) {
-        spans.add(TextSpan(text: text.substring(lastMatchEnd, match.start), style: baseStyle));
+    final bold = RegExp(r"\*\*(.+?)\*\*");
+    int last = 0;
+    for (final m in bold.allMatches(text)) {
+      if (m.start > last) {
+        spans.add(TextSpan(text: text.substring(last, m.start), style: base));
       }
       spans.add(TextSpan(
-        text: match.group(1),
-        style: baseStyle.copyWith(
-          fontWeight: FontWeight.w700,
-          height: 1.5,
-          fontFamily: "SF Pro",
-        ),
+        text: m.group(1),
+        style: base.copyWith(fontWeight: FontWeight.w700, height: 1.5, fontFamily: "SF Pro"),
       ));
-      lastMatchEnd = match.end;
+      last = m.end;
     }
-
-    if (lastMatchEnd < text.length) {
-      spans.add(TextSpan(text: text.substring(lastMatchEnd), style: baseStyle));
+    if (last < text.length) {
+      spans.add(TextSpan(text: text.substring(last), style: base));
     }
-
     return spans;
   }
 
   Widget _buildContextMenu(BuildContext context, EditableTextState s) {
     final value = s.textEditingValue;
-    final selection = value.selection;
-    if (!selection.isValid || selection.isCollapsed) return const SizedBox.shrink();
-    final selectedText = value.text.substring(selection.start, selection.end);
+    final sel = value.selection;
+    if (!sel.isValid || sel.isCollapsed) return const SizedBox.shrink();
+    final selected = value.text.substring(sel.start, sel.end);
 
     return AdaptiveTextSelectionToolbar(
       anchors: s.contextMenuAnchors,
@@ -898,7 +501,7 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
         if (widget.onAskVitty != null)
           TextButton(
             onPressed: () {
-              widget.onAskVitty!(selectedText);
+              widget.onAskVitty!(selected);
               ContextMenuController.removeAny();
             },
             child: Row(
@@ -912,8 +515,9 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
           ),
         TextButton(
           onPressed: () {
-            Clipboard.setData(ClipboardData(text: selectedText));
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied!')));
+            Clipboard.setData(ClipboardData(text: selected));
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('Copied!')));
             ContextMenuController.removeAny();
           },
           child: const Text('Copy', style: TextStyle(color: Colors.black)),
@@ -922,8 +526,43 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
     );
   }
 
+  Widget _buildTableWidget() {
+    if (widget.tableData == null || _availableTableRows.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final dataType = (widget.tableData!['type']?.toString().toLowerCase() ?? '').trim();
+
+    if (dataType == 'tables' || dataType == 'table') {
+      return ComparisonTableWidget(
+        heading: _availableTableHeading,
+        rows: _availableTableRows,
+        onRowTap: widget.onStockTap,
+      );
+    }
+    return KeyValueTableWidget(
+      heading: _availableTableHeading,
+      rows: _availableTableRows,
+      columnOrder: widget.tableData?['columnOrder']?.cast<String>(),
+      onCardTap: widget.onStockTap,
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: const [
+        _AnimatedActionButton(icon: Icons.copy, size: 14, isVisible: true),
+        SizedBox(width: 12),
+        _AnimatedActionButton(icon: Icons.thumb_up_alt_outlined, size: 16, isVisible: true),
+        SizedBox(width: 12),
+        _AnimatedActionButton(icon: Icons.thumb_down_alt_outlined, size: 16, isVisible: true),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    super.build(context); // important for keep-alive
     final textColor = Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black;
     final style = TextStyle(
       fontFamily: 'SF Pro',
@@ -958,15 +597,7 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
               ],
             ),
 
-          if (_shouldShowTable && _availableTableRows.isNotEmpty) ...[
-            // KeyValueTableWidget(
-            //   heading: _availableTableHeading,
-            //   rows: _availableTableRows,
-            //   columnOrder: widget.tableData?['columnOrder']?.cast<String>(),
-            //   onCardTap: widget.onStockTap,
-            // ),
-            _buildTableWidget()
-          ],
+          if (_shouldShowTable && _availableTableRows.isNotEmpty) _buildTableWidget(),
 
           if (hasPostText)
             Row(
@@ -978,7 +609,11 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
                     contextMenuBuilder: _buildContextMenu,
                   ),
                 ),
-                if (_shouldShowTable && _isTyping && !_hasCompletedTyping && !_wasForceStopped && _postShown < _postFull.length)
+                if (_shouldShowTable &&
+                    _isTyping &&
+                    !_hasCompletedTyping &&
+                    !_wasForceStopped &&
+                    _postShown < _postFull.length)
                   _buildTypewriterCursor(),
               ],
             ),
@@ -991,65 +626,8 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
       ),
     );
   }
-
-
-  Widget _buildTableWidget() {
-    if (widget.tableData == null || _availableTableRows.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final dataType = (widget.tableData!['type']?.toString().toLowerCase() ?? '').trim();
-
-    print("🎯 _buildTableWidget: dataType='$dataType'");
-    print("🎯 _buildTableWidget: rows count=${_availableTableRows.length}");
-
-    // Show ComparisonTableWidget for table/tables type
-    if (dataType == 'tables' || dataType == 'table') {
-      print("📊 Rendering as COMPARISON TABLE widget");
-      return ComparisonTableWidget(
-        heading: _availableTableHeading,
-        rows: _availableTableRows,
-        onRowTap: widget.onStockTap,
-      );
-    }
-
-    // Show KeyValueTableWidget for card/cards type (or as fallback)
-    if (dataType == 'cards' || dataType == 'card' || dataType == '') {
-      print("🎴 Rendering as KEY-VALUE CARDS widget");
-      return KeyValueTableWidget(
-        heading: _availableTableHeading,
-        rows: _availableTableRows,
-        columnOrder: widget.tableData?['columnOrder']?.cast<String>(),
-        onCardTap: widget.onStockTap,
-      );
-    }
-
-    // Fallback to cards for unknown types
-    print("⚠️ Unknown table type: '$dataType', falling back to cards");
-    return KeyValueTableWidget(
-      heading: _availableTableHeading,
-      rows: _availableTableRows,
-      columnOrder: widget.tableData?['columnOrder']?.cast<String>(),
-      onCardTap: widget.onStockTap,
-    );
-  }
-
-
-
-  Widget _buildActionButtons() {
-    return Row(
-      children: const [
-        _AnimatedActionButton(icon: Icons.copy, size: 14, isVisible: true),
-        SizedBox(width: 12),
-        _AnimatedActionButton(icon: Icons.thumb_up_alt_outlined, size: 16, isVisible: true),
-        SizedBox(width: 12),
-        _AnimatedActionButton(icon: Icons.thumb_down_alt_outlined, size: 16, isVisible: true),
-      ],
-    );
-  }
 }
 
-// ✅ Helper class to store streaming state
 class _StreamingState {
   final int preShown;
   final int postShown;
@@ -1068,7 +646,6 @@ class _StreamingState {
   });
 }
 
-
 class _AnimatedActionButton extends StatelessWidget {
   final IconData icon;
   final double size;
@@ -1083,17 +660,642 @@ class _AnimatedActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Visibility(
-      visible: true,
-      maintainSize: true,
-      maintainAnimation: true,
-      maintainState: true,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 300),
-        opacity: isVisible ? 1 : 0,
-        child: Icon(icon, size: size, color: Colors.grey),
-      ),
+    return AnimatedOpacity(
+      opacity: isVisible ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 300),
+      child: Icon(icon, size: size, color: Colors.grey.shade600),
     );
   }
 }
+
+
+// class BotMessageWidget extends StatefulWidget {
+//   final String message;                   // full message with ___TABLE_PLACEHOLDER___
+//   final bool isComplete;                  // backend finished
+//   final bool isLatest;                    // last bubble
+//   final bool isHistorical;                // loaded from history
+//   final String? currentStatus;            // live status text (optional)
+//   final Function(String)? onAskVitty;     // context menu action (optional)
+//   final Map<String, dynamic>? tableData;  // {heading, rows, type, columnOrder?}
+//   final Function(String)? onStockTap;     // tap handler for rows/cards
+//   final VoidCallback? onRenderComplete;   // notify ChatService when fully painted
+//
+//   // Force-stop support from ChatService
+//   final bool? forceStop;
+//   final String? stopTs;
+//
+//   const BotMessageWidget({
+//     Key? key,
+//     required this.message,
+//     required this.isComplete,
+//     this.isLatest = false,
+//     this.isHistorical = false,
+//     this.currentStatus,
+//     this.onAskVitty,
+//     this.tableData,
+//     this.onStockTap,
+//     this.onRenderComplete,
+//     this.forceStop,
+//     this.stopTs,
+//   }) : super(key: key);
+//
+//   @override
+//   State<BotMessageWidget> createState() => _BotMessageWidgetState();
+// }
+//
+// class _BotMessageWidgetState extends State<BotMessageWidget> {
+//   // ——— config ———
+//   static const _kPlaceholder = '___TABLE_PLACEHOLDER___';
+//   static const int _cps = 90;         // characters per second
+//   static const int _postHoldMs = 900; // small pause after table shows
+//
+//   // ——— runtime state ———
+//   Timer? _timer;
+//   bool _isTyping = false;
+//   bool _hasCompletedTyping = false;
+//   bool _wasForceStopped = false;
+//
+//   String _preFull = '';
+//   String _postFull = '';
+//   int _preShown = 0;
+//   int _postShown = 0;
+//
+//   List<Map<String, dynamic>> _availableTableRows = [];
+//   String? _availableTableHeading;
+//   bool _hasTableDataAvailable = false;
+//   bool _shouldShowTable = false;
+//   bool _postDelayApplied = false;
+//
+//   // resume across rebuilds
+//   static final Map<String, _StreamingState> _streamingStates = {};
+//   String get _stateKey => '${widget.message.hashCode}_${widget.isLatest}';
+//
+//   int get _intervalMs => 1000 ~/ _cps;
+//   String get _preDisplay => _preFull.substring(0, _preShown.clamp(0, _preFull.length));
+//   String get _postDisplay => _postFull.substring(0, _postShown.clamp(0, _postFull.length));
+//   bool get _reachedPlaceholder => _preShown >= _preFull.length;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     debugPrint("🎬 BotMessage: initState called");
+//     _initializeWidget();
+//   }
+//
+//
+//   void _initializeWidget() {
+//     _recomputeSegments(widget.message);
+//     _updateTableData();
+//
+//     // try resume
+//     final existing = _streamingStates[_stateKey];
+//     if (existing != null && !existing.wasCompleted) {
+//       _restoreStreamingState(existing);
+//       return;
+//     }
+//
+//     final shouldInstant =
+//         widget.forceStop == true || widget.isComplete || widget.isHistorical;
+//
+//     if (shouldInstant) {
+//       _showInstantly();
+//       return;
+//     }
+//
+//     // FIXED: Always start streaming for latest non-complete messages
+//     // Don't wait for content - start immediately for live messages
+//     if (widget.isLatest && !widget.isComplete && !widget.isHistorical) {
+//       debugPrint("🚀 BotMessage: Starting streaming for latest message");
+//       _startContinuousStreaming();
+//     } else {
+//       // Historical or complete messages show instantly
+//       _showInstantly();
+//     }
+//   }
+//
+//   void _restoreStreamingState(_StreamingState s) {
+//     _preShown = s.preShown;
+//     _postShown = s.postShown;
+//     _shouldShowTable = s.shouldShowTable;
+//     _postDelayApplied = s.postDelayApplied;
+//     _hasCompletedTyping = s.wasCompleted;
+//     _wasForceStopped = s.wasForceStopped;
+//
+//     if (!_hasCompletedTyping && !_wasForceStopped) {
+//       _isTyping = true;
+//       _timer = Timer.periodic(Duration(milliseconds: _intervalMs), _continuousStreamingTick);
+//       debugPrint("🔄 BotMessage: Resumed streaming from $_preShown");
+//     } else {
+//       setState(() {});
+//     }
+//   }
+//
+//   void _saveStreamingState() {
+//     _streamingStates[_stateKey] = _StreamingState(
+//       preShown: _preShown,
+//       postShown: _postShown,
+//       shouldShowTable: _shouldShowTable,
+//       postDelayApplied: _postDelayApplied,
+//       wasCompleted: _hasCompletedTyping,
+//       wasForceStopped: _wasForceStopped,
+//     );
+//   }
+//
+//   void _showInstantly() {
+//     _preShown = _preFull.length;
+//     _postShown = _postFull.length;
+//     _hasCompletedTyping = true;
+//     _shouldShowTable = _hasTableDataAvailable;
+//     _wasForceStopped = widget.forceStop == true;
+//     _saveStreamingState();
+//     WidgetsBinding.instance.addPostFrameCallback((_) {
+//       if (mounted) widget.onRenderComplete?.call();
+//     });
+//   }
+//
+//   void _recomputeSegments(String full) {
+//     final parts = full.split(_kPlaceholder);
+//     final newPre = parts.isNotEmpty ? parts.first : '';
+//     final newPost = parts.length > 1 ? parts.sublist(1).join(_kPlaceholder) : '';
+//
+//     if (_preFull == newPre && _postFull == newPost) return;
+//
+//     final oldPreLen = _preFull.length;
+//     _preFull = newPre;
+//     _postFull = newPost;
+//
+//     // if text extended forward, keep current progress
+//     if (_preFull.length >= oldPreLen && _preFull.startsWith(full.substring(0, oldPreLen))) {
+//       _preShown = _preShown.clamp(0, _preFull.length);
+//     } else {
+//       _preShown = _preShown.clamp(0, _preFull.length);
+//       _postShown = _postShown.clamp(0, _postFull.length);
+//     }
+//   }
+//
+//   void _updateTableData() {
+//     if (widget.tableData != null) {
+//       final rowsRaw = (widget.tableData!['rows'] as List?) ?? const [];
+//       _availableTableRows = rowsRaw.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+//       _availableTableHeading = widget.tableData!['heading']?.toString();
+//       _hasTableDataAvailable = _availableTableRows.isNotEmpty;
+//     } else {
+//       _availableTableRows = [];
+//       _availableTableHeading = null;
+//       _hasTableDataAvailable = false;
+//       _shouldShowTable = false;
+//     }
+//   }
+//
+//
+//
+//   @override
+//   void didUpdateWidget(BotMessageWidget old) {
+//     super.didUpdateWidget(old);
+//
+//     // message text updates
+//     if (widget.message != old.message) {
+//       debugPrint("📝 BotMessage: Message content updated during streaming");
+//       _recomputeSegments(widget.message);
+//
+//       // if we were waiting for first content, start now
+//       final hasAnyContent = _preFull.isNotEmpty || _postFull.isNotEmpty || _hasTableDataAvailable;
+//       if (!_isTyping &&
+//           !_hasCompletedTyping &&
+//           !_wasForceStopped &&
+//           hasAnyContent) {
+//         _startContinuousStreaming();
+//       }
+//       _saveStreamingState();
+//       setState(() {});
+//     }
+//
+//     // table updates
+//     if (widget.tableData != old.tableData) {
+//       _updateTableData();
+//       if (_reachedPlaceholder && _hasTableDataAvailable) {
+//         _shouldShowTable = true;
+//       }
+//       setState(() {});
+//     }
+//
+//     // status pause/resume (do not tie to scroll)
+//     if (widget.currentStatus != old.currentStatus) {
+//       if (widget.currentStatus != null && widget.currentStatus!.isNotEmpty) {
+//         _pauseForStatus();
+//       } else if (!_hasCompletedTyping && !_wasForceStopped) {
+//         _resumeFromStatus();
+//       }
+//       setState(() {});
+//     }
+//
+//     // force stop
+//     final stopTsChanged = widget.stopTs != old.stopTs && widget.stopTs != null;
+//     if ((widget.forceStop == true && old.forceStop != true) || stopTsChanged) {
+//       _handleForceStop();
+//       return;
+//     }
+//
+//     // completion -> reveal everything
+//     if (widget.isComplete && !old.isComplete && !_hasCompletedTyping) {
+//       _finishStreaming();
+//     }
+//   }
+//
+//   void _handleForceStop() {
+//     debugPrint("🛑 Force stop detected");
+//     _timer?.cancel();
+//     _isTyping = false;
+//     _wasForceStopped = true;
+//     _hasCompletedTyping = true;
+//     if (_hasTableDataAvailable && _reachedPlaceholder) _shouldShowTable = true;
+//     _saveStreamingState();
+//     setState(() {});
+//     widget.onRenderComplete?.call();
+//   }
+//
+//   void _startContinuousStreaming() {
+//     if (_hasCompletedTyping || _wasForceStopped || widget.forceStop == true) return;
+//
+//     // start only when there is something to animate
+//     final hasAnyContent = _preFull.isNotEmpty || _postFull.isNotEmpty || _hasTableDataAvailable;
+//     if (!hasAnyContent) return;
+//
+//     if (_isTyping) return;
+//
+//     debugPrint("🚀 BotMessage: Starting continuous streaming (scroll-resistant)");
+//     _isTyping = true;
+//     _timer?.cancel();
+//     _timer = Timer.periodic(Duration(milliseconds: _intervalMs), _continuousStreamingTick);
+//   }
+//
+//   void _pauseForStatus() {
+//     if (_isTyping) {
+//       _timer?.cancel();
+//       _isTyping = false;
+//       _saveStreamingState();
+//       debugPrint("⏸️ BotMessage: Paused for status (saving state)");
+//     }
+//   }
+//
+//   void _resumeFromStatus() {
+//     if (!_hasCompletedTyping && !_wasForceStopped && !_isTyping) {
+//       debugPrint("▶️ BotMessage: Resuming from status pause");
+//       _startContinuousStreaming();
+//     }
+//   }
+//
+//   /// 🔧 MAIN FIX: when the backend signals completion, reveal the rest of the text
+//   /// and show the table immediately so the bubble never stays empty.
+//   void _finishStreaming() {
+//     debugPrint("✅ BotMessage: Finishing continuous streaming");
+//
+//     _recomputeSegments(widget.message);
+//     _updateTableData();
+//
+//     // reveal all remaining content
+//     _preShown = _preFull.length;
+//     if (_hasTableDataAvailable) _shouldShowTable = true;
+//     _postShown = _postFull.length;
+//
+//     _timer?.cancel();
+//     _isTyping = false;
+//     _hasCompletedTyping = true;
+//
+//     _saveStreamingState();
+//     if (mounted) setState(() {});
+//
+//     if (!_wasForceStopped) {
+//       widget.onRenderComplete?.call();
+//     }
+//   }
+//
+//   void _applyPostDelayOnce() {
+//     if (_postDelayApplied || _wasForceStopped) return;
+//     _postDelayApplied = true;
+//     Future.delayed(const Duration(milliseconds: _postHoldMs), () {
+//       if (!mounted || _hasCompletedTyping || _wasForceStopped) return;
+//       // after the hold, normal ticking continues
+//     });
+//   }
+//
+//   void _continuousStreamingTick(Timer t) {
+//     if (!mounted) {
+//       t.cancel();
+//       return;
+//     }
+//     if (widget.forceStop == true || _wasForceStopped) {
+//       _handleForceStop();
+//       return;
+//     }
+//     if (widget.currentStatus != null && widget.currentStatus!.isNotEmpty) {
+//       _pauseForStatus();
+//       return;
+//     }
+//
+//     // stream pre text
+//     if (_preShown < _preFull.length) {
+//       setState(() => _preShown++);
+//       _saveStreamingState();
+//       return;
+//     }
+//
+//     // show table when placeholder reached
+//     if (_reachedPlaceholder && _hasTableDataAvailable && !_shouldShowTable) {
+//       setState(() => _shouldShowTable = true);
+//       _applyPostDelayOnce();
+//       _saveStreamingState();
+//       return;
+//     }
+//
+//     // after small delay, stream post text
+//     if (_postDelayApplied && _postShown < _postFull.length) {
+//       setState(() => _postShown++);
+//       _saveStreamingState();
+//       return;
+//     }
+//
+//     // all done?
+//     final allPreDone = _preShown >= _preFull.length;
+//     final allPostDone = _postFull.isEmpty || _postShown >= _postFull.length;
+//     final tableOk = !_hasTableDataAvailable || _shouldShowTable;
+//
+//     if (allPreDone && allPostDone && tableOk) {
+//       _finishStreaming();
+//     }
+//   }
+//
+//   @override
+//   void dispose() {
+//     debugPrint("🧹 BotMessage: Disposing timer");
+//     _timer?.cancel();
+//     // keep state only if still streaming; otherwise clean up
+//     if (_hasCompletedTyping || _wasForceStopped) {
+//       _streamingStates.remove(_stateKey);
+//     }
+//     super.dispose();
+//   }
+//
+//   // ——— UI ———
+//
+//
+//   Widget _buildStatusIndicator() {
+//     // FIXED: Handle both null and string 'null'
+//     final status = widget.currentStatus;
+//     final hasValidStatus = status != null &&
+//         status.isNotEmpty &&
+//         status != 'null' &&           // Handle string 'null'
+//         status != 'undefined';        // Handle string 'undefined'
+//
+//     //print("BotMessage _buildStatusIndicator: currentStatus='$status', hasValidStatus=$hasValidStatus");
+//
+//     if (!hasValidStatus) {
+//      // print("BotMessage: No valid status to show");
+//       return const SizedBox.shrink();
+//     }
+//
+//     //print("BotMessage: Showing status: '$status'");
+//     return Padding(
+//       padding: const EdgeInsets.only(bottom: 8.0),
+//       child: PremiumShimmerWidget(
+//         text: status,
+//         isComplete: false,
+//         baseColor: const Color(0xFF9CA3AF),
+//         highlightColor: const Color(0xFF6B7280),
+//       ),
+//     );
+//   }
+//
+//
+//   Widget _buildTypewriterCursor() {
+//     final show = _isTyping &&
+//         !_hasCompletedTyping &&
+//         !_wasForceStopped &&
+//         !widget.isHistorical &&
+//         !widget.isComplete;
+//     if (!show) return const SizedBox.shrink();
+//
+//     return TweenAnimationBuilder<double>(
+//       tween: Tween(begin: 0.0, end: 1.0),
+//       duration: const Duration(milliseconds: 500),
+//       builder: (context, value, child) {
+//         return Opacity(
+//           opacity: (value * 2) % 1.0 > 0.5 ? 1.0 : 0.3,
+//           child: Container(
+//             width: 2,
+//             height: 20,
+//             decoration: BoxDecoration(
+//               color: Colors.grey.shade600,
+//               borderRadius: BorderRadius.circular(1),
+//             ),
+//           ),
+//         );
+//       },
+//     );
+//   }
+//
+//   List<TextSpan> _buildFormattedSpans(String text, TextStyle base) {
+//     final spans = <TextSpan>[];
+//     final bold = RegExp(r"\*\*(.+?)\*\*");
+//     int last = 0;
+//     for (final m in bold.allMatches(text)) {
+//       if (m.start > last) {
+//         spans.add(TextSpan(text: text.substring(last, m.start), style: base));
+//       }
+//       spans.add(TextSpan(
+//         text: m.group(1),
+//         style: base.copyWith(fontWeight: FontWeight.w700, height: 1.5, fontFamily: "SF Pro"),
+//       ));
+//       last = m.end;
+//     }
+//     if (last < text.length) {
+//       spans.add(TextSpan(text: text.substring(last), style: base));
+//     }
+//     return spans;
+//   }
+//
+//   Widget _buildContextMenu(BuildContext context, EditableTextState s) {
+//     final value = s.textEditingValue;
+//     final sel = value.selection;
+//     if (!sel.isValid || sel.isCollapsed) return const SizedBox.shrink();
+//     final selected = value.text.substring(sel.start, sel.end);
+//
+//     return AdaptiveTextSelectionToolbar(
+//       anchors: s.contextMenuAnchors,
+//       children: [
+//         if (widget.onAskVitty != null)
+//           TextButton(
+//             onPressed: () {
+//               widget.onAskVitty!(selected);
+//               ContextMenuController.removeAny();
+//             },
+//             child: Row(
+//               mainAxisSize: MainAxisSize.min,
+//               children: [
+//                 const Text('Ask Vitty', style: TextStyle(color: Colors.black)),
+//                 const SizedBox(width: 8),
+//                 Image.asset('assets/images/vitty.png', width: 20, height: 20),
+//               ],
+//             ),
+//           ),
+//         TextButton(
+//           onPressed: () {
+//             Clipboard.setData(ClipboardData(text: selected));
+//             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied!')));
+//             ContextMenuController.removeAny();
+//           },
+//           child: const Text('Copy', style: TextStyle(color: Colors.black)),
+//         ),
+//       ],
+//     );
+//   }
+//
+//   Widget _buildTableWidget() {
+//     // DEBUG: Add this print
+//     //print("BotMessage _buildTableWidget: tableData=${widget.tableData != null ? 'Present' : 'Null'}, rows=${_availableTableRows.length}");
+//
+//     if (widget.tableData == null || _availableTableRows.isEmpty) {
+//       print("BotMessage: No table data to show");
+//       return const SizedBox.shrink();
+//     }
+//
+//     final dataType = (widget.tableData!['type']?.toString().toLowerCase() ?? '').trim();
+//    // print("BotMessage: Showing table with type='$dataType', rows=${_availableTableRows.length}");
+//
+//     if (dataType == 'tables' || dataType == 'table') {
+//       return ComparisonTableWidget(
+//         heading: _availableTableHeading,
+//         rows: _availableTableRows,
+//         onRowTap: widget.onStockTap,
+//       );
+//     }
+//     // 'cards' | 'card' | unknown -> fall back to KV cards
+//     return KeyValueTableWidget(
+//       heading: _availableTableHeading,
+//       rows: _availableTableRows,
+//       columnOrder: widget.tableData?['columnOrder']?.cast<String>(),
+//       onCardTap: widget.onStockTap,
+//     );
+//   }
+//
+//   Widget _buildActionButtons() {
+//     return Row(
+//       children: const [
+//         _AnimatedActionButton(icon: Icons.copy, size: 14, isVisible: true),
+//         SizedBox(width: 12),
+//         _AnimatedActionButton(icon: Icons.thumb_up_alt_outlined, size: 16, isVisible: true),
+//         SizedBox(width: 12),
+//         _AnimatedActionButton(icon: Icons.thumb_down_alt_outlined, size: 16, isVisible: true),
+//       ],
+//     );
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final textColor = Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black;
+//     final style = TextStyle(
+//       fontFamily: 'SF Pro',
+//       fontSize: 16,
+//       fontWeight: FontWeight.w500,
+//       height: 1.75,
+//       color: textColor,
+//     );
+//
+//     final hasPostText = _postDisplay.isNotEmpty;
+//
+//     return Padding(
+//       padding: const EdgeInsets.only(bottom: 4, top: 20),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           _buildStatusIndicator(),
+//
+//           if (_preDisplay.isNotEmpty)
+//             Row(
+//               crossAxisAlignment: CrossAxisAlignment.end,
+//               children: [
+//                 Expanded(
+//                   child: SelectableText.rich(
+//                     TextSpan(style: style, children: _buildFormattedSpans(_preDisplay, style)),
+//                     contextMenuBuilder: _buildContextMenu,
+//                   ),
+//                 ),
+//                 if ((_isTyping && !_hasCompletedTyping && !_wasForceStopped) &&
+//                     (!_shouldShowTable || _preShown < _preFull.length))
+//                   _buildTypewriterCursor(),
+//               ],
+//             ),
+//
+//           if (_shouldShowTable && _availableTableRows.isNotEmpty) _buildTableWidget(),
+//
+//           if (hasPostText)
+//             Row(
+//               crossAxisAlignment: CrossAxisAlignment.end,
+//               children: [
+//                 Expanded(
+//                   child: SelectableText.rich(
+//                     TextSpan(style: style, children: _buildFormattedSpans(_postDisplay, style)),
+//                     contextMenuBuilder: _buildContextMenu,
+//                   ),
+//                 ),
+//                 if (_shouldShowTable && _isTyping && !_hasCompletedTyping && !_wasForceStopped && _postShown < _postFull.length)
+//                   _buildTypewriterCursor(),
+//               ],
+//             ),
+//
+//           if ((_hasCompletedTyping || widget.isComplete || _wasForceStopped) && !_isTyping) ...[
+//             const SizedBox(height: 15),
+//             _buildActionButtons(),
+//           ],
+//         ],
+//       ),
+//     );
+//   }
+// }
+//
+// class _StreamingState {
+//   final int preShown;
+//   final int postShown;
+//   final bool shouldShowTable;
+//   final bool postDelayApplied;
+//   final bool wasCompleted;
+//   final bool wasForceStopped;
+//
+//   _StreamingState({
+//     required this.preShown,
+//     required this.postShown,
+//     required this.shouldShowTable,
+//     required this.postDelayApplied,
+//     required this.wasCompleted,
+//     required this.wasForceStopped,
+//   });
+// }
+//
+// class _AnimatedActionButton extends StatelessWidget {
+//   final IconData icon;
+//   final double size;
+//   final bool isVisible;
+//
+//   const _AnimatedActionButton({
+//     Key? key,
+//     required this.icon,
+//     required this.size,
+//     required this.isVisible,
+//   }) : super(key: key);
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Visibility(
+//       visible: true,
+//       maintainSize: true,
+//       maintainAnimation: true,
+//       maintainState: true,
+//       child: AnimatedOpacity(
+//         duration: const Duration(milliseconds: 300),
+//         opacity: isVisible ? 1 : 0,
+//         child: Icon(icon, size: size, color: Colors.grey),
+//       ),
+//     );
+//   }
+// }
 

@@ -598,21 +598,22 @@ class _ChatScreenState extends State<ChatScreen>
     final messageText = _controller.text.trim();
     _controller.clear();
 
-    // Title ko local widget.session par set karna optional hai; null ho to skip
-    final isFirstMessage = !widget.chatService.messages.any((m) => m['role'] == 'user');
-    if (isFirstMessage && widget.session != null) {
-      widget.session!.title = messageText;
-    }
+    // ❌ remove this optimistic title setting, the service will do it:
+    // final isFirstMessage = !widget.chatService.messages.any((m) => m['role'] == 'user');
+    // if (isFirstMessage && widget.session != null) {
+    //   widget.session!.title = messageText;
+    // }
 
-    // Null id allowed — ChatService create karega aur apni state update karega
-    await widget.chatService.sendMessage(widget.session?.id, messageText);
-    await Future.delayed(Duration(milliseconds: 100));
+    // ✅ pass the current (possibly null) session id; service will handle null
+    await widget.chatService.sendMessage(widget.chatService.currentSession?.id, messageText);
 
+    await Future.delayed(const Duration(milliseconds: 100));
     ChatScrollHelper.scrollToLatestLikeChatPage(
       scrollController: _scrollController,
       chatHeight: _chatHeight,
     );
   }
+
 
   void _stopResponse() {
     final sid = widget.chatService.currentSession?.id;
@@ -670,16 +671,42 @@ class _ChatScreenState extends State<ChatScreen>
     widget.chatService.retryMessage(originalMessage);
   }
 
-  // Pass message index for proper height tracking
+  // // Pass message index for proper height tracking
+  // Widget _buildMessageRow(Map<String, Object> msg, int index) {
+  //   final bool isLatest = msg == widget.chatService.messages.last;
+  //   final bool isBot = msg['role'] == 'bot';
+  //   final bool isUser = msg['role'] == 'user';
+  //   final messageKey = msg['key']?.toString() ??
+  //       'msg_${widget.chatService.messages.indexOf(msg)}';
+  //
+  //   return MessageRowWidget(
+  //     message: Map<String, dynamic>.from(msg), // Ensure proper casting
+  //     isLatest: isLatest,
+  //     onAskVitty: _onAskVittyFromSelection,
+  //     onStockTap: _onStockTap,
+  //     onBotRenderComplete: (isLatest && isBot)
+  //         ? () => widget.chatService.markUiRenderCompleteForLatest()
+  //         : null,
+  //     onHeightMeasuredWithValue: isUser
+  //         ? (double height) => _onUserMessageHeightMeasured(messageKey, height)
+  //         : null,
+  //     // NEW: Pass retry handler
+  //     onRetryMessage: _onRetryMessage,
+  //   );
+  // }
+
   Widget _buildMessageRow(Map<String, Object> msg, int index) {
-    final bool isLatest = msg == widget.chatService.messages.last;
+    final bool isLatest = index == widget.chatService.messages.length - 1;
     final bool isBot = msg['role'] == 'bot';
     final bool isUser = msg['role'] == 'user';
-    final messageKey = msg['key']?.toString() ??
-        'msg_${widget.chatService.messages.indexOf(msg)}';
+
+    // FIXED: Use message ID for stable key, not content-based key
+    final messageId = msg['id']?.toString() ?? 'msg_$index';
+    final Key messageKey = ValueKey(messageId); // Stable key based on message ID
 
     return MessageRowWidget(
-      message: Map<String, dynamic>.from(msg), // Ensure proper casting
+      key: messageKey, // CRITICAL: Add stable key here
+      message: Map<String, dynamic>.from(msg),
       isLatest: isLatest,
       onAskVitty: _onAskVittyFromSelection,
       onStockTap: _onStockTap,
@@ -687,9 +714,8 @@ class _ChatScreenState extends State<ChatScreen>
           ? () => widget.chatService.markUiRenderCompleteForLatest()
           : null,
       onHeightMeasuredWithValue: isUser
-          ? (double height) => _onUserMessageHeightMeasured(messageKey, height)
+          ? (double height) => _onUserMessageHeightMeasured(messageId, height)
           : null,
-      // NEW: Pass retry handler
       onRetryMessage: _onRetryMessage,
     );
   }

@@ -276,7 +276,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
       ],
     );
 
-    return Padding(
+    return  Padding(
       padding: EdgeInsets.symmetric(horizontal: w * 0.04, vertical: 6),
       child: InkWell(
         onTap: onTap,
@@ -287,7 +287,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
           decoration: BoxDecoration(
-            color: isActive ? theme.searchBox : Colors.transparent, // pill highlight
+            color: isActive ? Color(0xff734012).withOpacity(0.15) : Colors.transparent, // 15% opacity
             borderRadius: BorderRadius.circular(14),
           ),
           child: row,

@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -715,12 +716,18 @@ class _WebViewPageState extends State<WebViewPage> {
 
 
 
+
+
 class ComparisonTableWidget extends StatefulWidget {
   final String? heading;
   final List<Map<String, dynamic>> rows;
   final List<String>? columnOrder;
   final Function(String idOrFallback)? onRowTap;
   final int maxColumns;
+
+  // Fade config (optional)
+  final Duration fadeDuration;
+  final Curve fadeCurve;
 
   const ComparisonTableWidget({
     Key? key,
@@ -729,22 +736,83 @@ class ComparisonTableWidget extends StatefulWidget {
     this.columnOrder,
     this.onRowTap,
     this.maxColumns = 6,
+    this.fadeDuration = const Duration(milliseconds: 240),
+    this.fadeCurve = Curves.easeOutCubic,
   }) : super(key: key);
 
   @override
   State<ComparisonTableWidget> createState() => _ComparisonTableWidgetState();
 }
 
-class _ComparisonTableWidgetState extends State<ComparisonTableWidget> {
-  static const double _headerH = 40;
+class _ComparisonTableWidgetState extends State<ComparisonTableWidget>
+    with SingleTickerProviderStateMixin {
+  static const double _headerH = 50;
   static const double _rowH = 52;
   static const EdgeInsets _cellPad = EdgeInsets.symmetric(horizontal: 12);
 
   final _hCtrl = ScrollController();
 
+  late final AnimationController _fadeCtrl;
+  late final Animation<double> _fade;
+
+  // Deep comparators (order-sensitive for rows; order-sensitive for columnOrder)
+  static const _deep = DeepCollectionEquality();
+  static const _listEq = ListEquality<String>();
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeCtrl = AnimationController(vsync: this, duration: widget.fadeDuration);
+    _fade = CurvedAnimation(parent: _fadeCtrl, curve: widget.fadeCurve);
+
+    // Fade once on first mount
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _restartFade();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant ComparisonTableWidget old) {
+    super.didUpdateWidget(old);
+    if (_shouldRefade(old)) {
+      _restartFade();
+    }
+  }
+
+  bool _shouldRefade(ComparisonTableWidget old) {
+    if (widget.heading != old.heading) return true;
+    if (widget.rows.length != old.rows.length) return true;
+    // Only refade if row CONTENT changed (not just a new List instance)
+    if (!_deep.equals(widget.rows, old.rows)) return true;
+    final a = widget.columnOrder ?? const <String>[];
+    final b = old.columnOrder ?? const <String>[];
+    if (!_listEq.equals(a, b)) return true;
+    return false;
+  }
+
+  void _restartFade() {
+    _fadeCtrl.stop();
+    _fadeCtrl.value = 0.0;
+    _fadeCtrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _hCtrl.dispose();
+    _fadeCtrl.dispose();
+    super.dispose();
+  }
+
+  // ---------- (the rest is identical to your latest table code) ----------
+
   bool _hideKey(String k) {
     final lk = k.toLowerCase();
-    return lk == '_id' || lk == 'id' || lk.startsWith('overview.') || lk.contains('description') || lk.contains('summary');
+    return lk == '_id' ||
+        lk == 'id' ||
+        lk == 'name' ||
+        lk.startsWith('overview.') ||
+        lk.contains('description') ||
+        lk.contains('summary');
   }
 
   String? _getCI(Map<String, dynamic> row, List<String> keys) {
@@ -757,12 +825,12 @@ class _ComparisonTableWidgetState extends State<ComparisonTableWidget> {
   }
 
   String _nameOf(Map<String, dynamic> row) {
-    final v = _getCI(row, ['name','company','title','symbol','ticker']);
+    final v = _getCI(row, ['name', 'company', 'title', 'symbol', 'ticker']);
     return (v == null || v.trim().isEmpty) ? 'Entity' : v.trim();
   }
 
   String _idOf(Map<String, dynamic> row) {
-    final v = _getCI(row, ['isin','symbol','ticker']);
+    final v = _getCI(row, ['_id', 'id', 'isin', 'symbol', 'ticker']);
     return (v == null || v.trim().isEmpty) ? _nameOf(row) : v.trim();
   }
 
@@ -797,13 +865,13 @@ class _ComparisonTableWidgetState extends State<ComparisonTableWidget> {
     final isRupee = lk.contains('price') || lk.contains('market_cap');
     if (isPct && v is num) return '${v.toStringAsFixed(v > 100 ? 1 : 2)}%';
     if (isRupee && v is num) {
-      if (v >= 10_000_000) return '₹${(v/10_000_000).toStringAsFixed(1)}Cr';
-      if (v >= 100_000)   return '₹${(v/100_000).toStringAsFixed(1)}L';
+      if (v >= 10_000_000) return '₹${(v / 10_000_000).toStringAsFixed(1)}Cr';
+      if (v >= 100_000) return '₹${(v / 100_000).toStringAsFixed(1)}L';
       return '₹${v.toStringAsFixed(2)}';
     }
     if (v is num) {
-      if (v >= 1_000_000) return '${(v/1_000_000).toStringAsFixed(1)}M';
-      if (v >= 1_000)     return '${(v/1_000).toStringAsFixed(1)}K';
+      if (v >= 1_000_000) return '${(v / 1_000_000).toStringAsFixed(1)}M';
+      if (v >= 1_000) return '${(v / 1_000).toStringAsFixed(1)}K';
       return v.toStringAsFixed(2);
     }
     return v.toString();
@@ -835,6 +903,7 @@ class _ComparisonTableWidgetState extends State<ComparisonTableWidget> {
         keys.add(k);
       });
     }
+
     final ordered = <String>[];
     for (final c in (widget.columnOrder ?? const [])) {
       if (keys.remove(c)) ordered.add(c);
@@ -863,161 +932,177 @@ class _ComparisonTableWidgetState extends State<ComparisonTableWidget> {
 
     final cols = _resolveColumns();
     if (cols.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: const Text('No displayable columns found'),
+      return FadeTransition(
+        opacity: _fade,
+        child: const Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('No displayable columns found'),
+        ),
       );
     }
 
-    final nameW = 160.0;
+    const nameW = 190.0;
     final colWidths = {for (final c in cols) c: _colWidth(c)};
     final totalWidth = cols.fold<double>(0, (sum, c) => sum + colWidths[c]!);
 
-    TextStyle headerStyle = TextStyle(
+    final headerStyle = TextStyle(
       fontFamily: 'SF Pro',
       fontWeight: FontWeight.w700,
       fontSize: 13,
       color: muted,
     );
-    TextStyle cellStyle = TextStyle(
+    final cellStyle = TextStyle(
       fontFamily: 'SF Pro',
       fontWeight: FontWeight.w500,
       fontSize: 13,
       color: textColor,
     );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if ((widget.heading ?? '').isNotEmpty) ...[
-          Row(
-            children: [
-              const Text('📊 '),
-              Expanded(
-                child: Text(
-                  widget.heading!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'SF Pro',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+    return FadeTransition(
+      opacity: _fade,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if ((widget.heading ?? '').isNotEmpty) ...[
+            Row(
+              children: [
+                const Text('📊 '),
+                Expanded(
+                  child: Text(
+                    widget.heading!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'SF Pro',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-        ],
-        ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            decoration: BoxDecoration(
-              color: boxColor,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Fixed Name column
-                Column(
-                  children: [
-                    Container(
-                      width: nameW,
-                      height: _headerH,
-                      padding: _cellPad,
-                      alignment: Alignment.centerLeft,
-                      decoration: BoxDecoration(
-                        border: Border(bottom: BorderSide(color: borderColor, width: 0.6)),
-                      ),
-                      child: Text("Name", style: headerStyle),
-                    ),
-                    for (int i = 0; i < widget.rows.length; i++)
-                      InkWell(
-                        onTap: widget.onRowTap == null ? null : () => widget.onRowTap!(_idOf(widget.rows[i])),
-                        child: Container(
-                          width: nameW,
-                          height: _rowH,
-                          padding: _cellPad,
-                          alignment: Alignment.centerLeft,
-                          decoration: BoxDecoration(
-                            color: i.isOdd ? Colors.black.withOpacity(0.025) : Colors.transparent,
-                            border: Border(bottom: BorderSide(color: borderColor, width: 0.6)),
-                          ),
-                          child: Text(_nameOf(widget.rows[i]), style: cellStyle.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+          ],
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              decoration: BoxDecoration(
+                color: boxColor,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Fixed Name column
+                  Column(
+                    children: [
+                      Container(
+                        width: nameW,
+                        height: _headerH,
+                        padding: _cellPad,
+                        alignment: Alignment.centerLeft,
+                        decoration: BoxDecoration(
+                          border: Border(bottom: BorderSide(color: borderColor, width: 0.6)),
                         ),
+                        child: Text("Name", style: headerStyle),
                       ),
-                  ],
-                ),
-                // Scrollable rest of columns
-                Expanded(
-                  child: SingleChildScrollView(
-                    controller: _hCtrl,
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    child: SizedBox(
-                      width: totalWidth,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // header
-                          Row(
-                            children: [
-                              for (final c in cols)
-                                Container(
-                                  width: colWidths[c],
-                                  height: _headerH,
-                                  padding: _cellPad,
-                                  alignment: Alignment.centerLeft,
-                                  decoration: BoxDecoration(
-                                    border: Border(bottom: BorderSide(color: borderColor, width: 0.6)),
-                                  ),
-                                  child: Text(_label(c), style: headerStyle),
-                                ),
-                            ],
+                      for (int i = 0; i < widget.rows.length; i++)
+                        InkWell(
+                          onTap: widget.onRowTap == null
+                              ? null
+                              : () => widget.onRowTap!(_idOf(widget.rows[i])),
+                          child: Container(
+                            width: nameW,
+                            height: _rowH,
+                            padding: _cellPad,
+                            alignment: Alignment.centerLeft,
+                            decoration: BoxDecoration(
+                              color: i.isOdd ? Colors.black.withOpacity(0.025) : Colors.transparent,
+                              border: Border(bottom: BorderSide(color: borderColor, width: 0.6)),
+                            ),
+                            child: Text(
+                              _nameOf(widget.rows[i]),
+                              style: cellStyle.copyWith(fontWeight: FontWeight.w600),
+                            ),
                           ),
-                          // rows
-                          for (int i = 0; i < widget.rows.length; i++)
+                        ),
+                    ],
+                  ),
+
+                  // Scrollable rest of columns
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: _hCtrl,
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: SizedBox(
+                        width: totalWidth,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // header
                             Row(
                               children: [
                                 for (final c in cols)
                                   Container(
                                     width: colWidths[c],
-                                    height: _rowH,
+                                    height: _headerH,
                                     padding: _cellPad,
                                     alignment: Alignment.centerLeft,
                                     decoration: BoxDecoration(
-                                      color: i.isOdd ? Colors.black.withOpacity(0.025) : Colors.transparent,
                                       border: Border(bottom: BorderSide(color: borderColor, width: 0.6)),
                                     ),
-                                    child: Text(
-                                      _fmt(c, widget.rows[i][c]),
-                                      style: cellStyle.copyWith(color: _tint(c, widget.rows[i][c], textColor)),
-                                    ),
+                                    child: Text(_label(c), style: headerStyle),
                                   ),
                               ],
                             ),
-                        ],
+                            // rows
+                            for (int i = 0; i < widget.rows.length; i++)
+                              Row(
+                                children: [
+                                  for (final c in cols)
+                                    Container(
+                                      width: colWidths[c],
+                                      height: _rowH,
+                                      padding: _cellPad,
+                                      alignment: Alignment.centerLeft,
+                                      decoration: BoxDecoration(
+                                        color: i.isOdd ? Colors.black.withOpacity(0.025) : Colors.transparent,
+                                        border: Border(bottom: BorderSide(color: borderColor, width: 0.6)),
+                                      ),
+                                      child: Text(
+                                        _fmt(c, widget.rows[i][c]),
+                                        style: cellStyle.copyWith(
+                                          color: _tint(c, widget.rows[i][c], textColor),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
+
+
 
 
 
@@ -1785,8 +1870,8 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
             Expanded(
               child: Text(
                 text,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+                overflow: TextOverflow.visible,
                 style:  TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,

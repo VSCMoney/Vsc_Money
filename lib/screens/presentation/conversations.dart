@@ -22,6 +22,8 @@ import 'package:flutter/material.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:get_it/get_it.dart';
 
+// import 'package:intl/intl.dart'; // <-- make sure this import exists
+
 class Conversations extends StatefulWidget {
   final Function(ChatSession)? onSessionTap;
 
@@ -86,7 +88,7 @@ class _ConversationsState extends State<Conversations> {
     });
   }
 
-  /// ✅ FAB just goes to Home. No chat creation here.
+  /// FAB just goes to Home. No chat creation here.
   void _onNewChatFabPressed() {
     if (_isNavigating) return;
     _isNavigating = true;
@@ -97,6 +99,37 @@ class _ConversationsState extends State<Conversations> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _isNavigating = false;
     });
+  }
+
+  // ------------------------
+  // Group header formatting
+  // ------------------------
+  String _formatGroupLabel(dynamic key) {
+    // If your ConversationsService already provides a label string, just return it.
+    if (key is String) {
+      // Try to parse as date first (ISO or yyyy-MM-dd), else use as-is.
+      final parsed = DateTime.tryParse(key);
+      if (parsed == null) return key;
+      return _formatDateLabel(parsed);
+    }
+
+    if (key is DateTime) {
+      return _formatDateLabel(key);
+    }
+
+    return key?.toString() ?? 'Unknown';
+  }
+
+  String _formatDateLabel(DateTime d) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dateOnly = DateTime(d.year, d.month, d.day);
+    final diff = today.difference(dateOnly).inDays;
+
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    if (diff < 7) return DateFormat('EEEE').format(d); // e.g., Monday
+    return DateFormat('MMM d, yyyy').format(d); // e.g., Aug 30, 2025
   }
 
   @override
@@ -131,7 +164,6 @@ class _ConversationsState extends State<Conversations> {
               ),
             ),
           ),
-
           floatingActionButton: FloatingActionButton(
             onPressed: _onNewChatFabPressed,
             backgroundColor: AppColors.primary,
@@ -139,7 +171,6 @@ class _ConversationsState extends State<Conversations> {
             shape: const CircleBorder(),
             elevation: 4,
           ),
-
           body: state.isLoading
               ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
               : SafeArea(
@@ -148,6 +179,7 @@ class _ConversationsState extends State<Conversations> {
               color: theme.text,
               child: CustomScrollView(
                 slivers: [
+                  // Search box
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.symmetric(
@@ -191,6 +223,8 @@ class _ConversationsState extends State<Conversations> {
                       ),
                     ),
                   ),
+
+                  // Empty state
                   if (state.filteredSessions.isEmpty && !state.isLoading)
                     SliverFillRemaining(
                       child: Center(
@@ -205,23 +239,35 @@ class _ConversationsState extends State<Conversations> {
                       ),
                     )
                   else
+                  // Grouped list
                     SliverList(
                       delegate: SliverChildBuilderDelegate(
                             (context, index) {
                           final entries = state.groupedSessions.entries.toList();
+
+                          // Optional: sort groups newest-first when keys are DateTime/parseable
+                          entries.sort((a, b) {
+                            DateTime? da = a.key is DateTime ? a.key as DateTime : DateTime.tryParse(a.key.toString());
+                            DateTime? db = b.key is DateTime ? b.key as DateTime : DateTime.tryParse(b.key.toString());
+                            if (da != null && db != null) return db.compareTo(da);
+                            return 0;
+                          });
+
                           if (index >= entries.length) return null;
 
                           final entry = entries[index];
+                          final headerLabel = _formatGroupLabel(entry.key);
+
                           return Padding(
                             padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Padding(
-                                  padding: EdgeInsets.only(top: 16, bottom: 8),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 16, bottom: 8),
                                   child: Text(
-                                    "Recent",
-                                    style: TextStyle(
+                                    headerLabel, // <-- dynamic label now
+                                    style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w700,
                                       color: Color(0xff7E7E7E),
@@ -229,7 +275,9 @@ class _ConversationsState extends State<Conversations> {
                                     ),
                                   ),
                                 ),
-                                ...entry.value.map((session) => _buildConversationItem(session)),
+                                ...entry.value
+                                    .map((session) => _buildConversationItem(session))
+                                    .toList(),
                               ],
                             ),
                           );
@@ -274,4 +322,5 @@ class _ConversationsState extends State<Conversations> {
     );
   }
 }
+
 

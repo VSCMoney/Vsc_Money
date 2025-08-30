@@ -341,22 +341,52 @@ class ChatMessage {
   final bool isUser;
   final DateTime timestamp;
   final bool isComplete;
+
+  // Add these new fields
   final String? currentStatus;
-
-  // structured payloads (cards/tables/etc.)
-  final String? messageType; // 'kv_table'
+  final bool isTable;
   final Map<String, dynamic>? structuredData;
+  final String? messageType;
 
-  const ChatMessage({
+  ChatMessage({
     required this.id,
     required this.text,
     required this.isUser,
     required this.timestamp,
-    required this.isComplete,
+    this.isComplete = true,
     this.currentStatus,
-    this.messageType,
+    this.isTable = false,
     this.structuredData,
+    this.messageType,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'text': text,
+      'isUser': isUser,
+      'timestamp': timestamp.toIso8601String(),
+      'isComplete': isComplete,
+      'currentStatus': currentStatus,
+      'isTable': isTable,
+      'structuredData': structuredData,
+      'messageType': messageType,
+    };
+  }
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      id: json['id'],
+      text: json['text'],
+      isUser: json['isUser'],
+      timestamp: DateTime.parse(json['timestamp']),
+      isComplete: json['isComplete'] ?? true,
+      currentStatus: json['currentStatus'],
+      isTable: json['isTable'] ?? false,
+      structuredData: json['structuredData'] as Map<String, dynamic>?,
+      messageType: json['messageType'],
+    );
+  }
 
   ChatMessage copyWith({
     String? id,
@@ -365,8 +395,9 @@ class ChatMessage {
     DateTime? timestamp,
     bool? isComplete,
     String? currentStatus,
-    String? messageType,
+    bool? isTable,
     Map<String, dynamic>? structuredData,
+    String? messageType,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -374,127 +405,10 @@ class ChatMessage {
       isUser: isUser ?? this.isUser,
       timestamp: timestamp ?? this.timestamp,
       isComplete: isComplete ?? this.isComplete,
-      currentStatus: currentStatus,
-      messageType: messageType,
-      structuredData: structuredData,
+      currentStatus: currentStatus ?? this.currentStatus,
+      isTable: isTable ?? this.isTable,
+      structuredData: structuredData ?? this.structuredData,
+      messageType: messageType ?? this.messageType,
     );
-  }
-
-  bool get isTable => messageType == 'kv_table' && structuredData != null;
-
-  Map<String, dynamic>? get tableData => isTable ? structuredData : null;
-
-  ChatMessage processChunk(StreamChunk chunk) {
-    print("🔄 Processing chunk: type=${chunk.type}, payload=${chunk.payload}");
-
-    if (chunk.isStatusUpdate) {
-      print("📝 Status update: ${chunk.statusReason}");
-      return copyWith(currentStatus: chunk.statusReason);
-    }
-
-    if (chunk.isTextChunk) {
-      final chunkText = chunk.responseData?.toString() ?? '';
-      final sanitized = _sanitizeChunkText(chunkText);
-      print("📝 Text chunk: '$sanitized'");
-
-      // Check if this text chunk contains JSON data
-      final updatedText = text + sanitized;
-      if (updatedText.contains('"stocks":')) {
-        print("🎯 Found stocks JSON in text, parsing...");
-        try {
-          // Extract and parse JSON
-          final cleaned = updatedText.replaceAll("```json", "").replaceAll("```", "").trim();
-          final data = jsonDecode(cleaned);
-
-          if (data['stocks'] != null) {
-            print("✅ Successfully parsed stocks data: ${data['stocks'].length} items");
-            return copyWith(
-              messageType: 'kv_table',
-              structuredData: {
-                'heading': 'Stock Results',
-                'rows': List<Map<String, dynamic>>.from(data['stocks']),
-              },
-              text: '', // Clear text since we're showing table instead
-              isComplete: true,
-              currentStatus: null,
-            );
-          }
-        } catch (e) {
-          print("❌ Error parsing stocks JSON: $e");
-        }
-      }
-
-      return copyWith(
-        text: updatedText,
-        currentStatus: null,
-      );
-    }
-
-    if (chunk.isJsonChunk) {
-      print("📊 JSON chunk received: ${chunk.responseData}");
-      final jsonData = chunk.responseData;
-
-      // Handle different JSON structures
-      if (jsonData is Map) {
-        // Handle cards type
-        if (jsonData['type'] == 'cards') {
-          print("🎯 Processing cards type JSON");
-          return copyWith(
-            messageType: 'kv_table',
-            structuredData: {
-              'heading': jsonData['heading'] ?? 'Results',
-              'rows': List<Map<String, dynamic>>.from(jsonData['list'] ?? []),
-            },
-            isComplete: true,
-            currentStatus: null,
-          );
-        }
-
-        // Handle stocks type
-        if (jsonData['stocks'] != null) {
-          print("🎯 Processing stocks type JSON");
-          return copyWith(
-            messageType: 'kv_table',
-            structuredData: {
-              'heading': 'Stock Results',
-              'rows': List<Map<String, dynamic>>.from(jsonData['stocks']),
-            },
-            text: '', // Clear text since we're showing table instead
-            isComplete: true,
-            currentStatus: null,
-          );
-        }
-
-        // Handle generic table data
-        if (jsonData['rows'] != null) {
-          print("🎯 Processing generic table JSON");
-          return copyWith(
-            messageType: 'kv_table',
-            structuredData: {
-              'heading': jsonData['heading'] ?? 'Results',
-              'rows': List<Map<String, dynamic>>.from(jsonData['rows']),
-              'columnOrder': jsonData['columnOrder'],
-            },
-            isComplete: true,
-            currentStatus: null,
-          );
-        }
-      }
-    }
-
-    return this;
-  }
-
-  ChatMessage markComplete() => copyWith(isComplete: true, currentStatus: null);
-
-  static String _sanitizeChunkText(String text) {
-    text = text.replaceAll('\u0000', '');
-    text = text.replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]'), '');
-    try {
-      final bytes = utf8.encode(text);
-      return utf8.decode(bytes, allowMalformed: true);
-    } catch (_) {
-      return text.replaceAll(RegExp(r'[^\x20-\x7E\u00A0-\uFFFF]'), '�');
-    }
   }
 }
