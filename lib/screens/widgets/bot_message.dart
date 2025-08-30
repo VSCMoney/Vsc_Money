@@ -998,9 +998,24 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
       return const SizedBox.shrink();
     }
 
-    final dataType = (widget.tableData!['type']?.toString().toLowerCase() ?? 'cards');
+    final dataType = (widget.tableData!['type']?.toString().toLowerCase() ?? '').trim();
 
-    if (dataType == 'cards' || dataType == 'card') {
+    print("🎯 _buildTableWidget: dataType='$dataType'");
+    print("🎯 _buildTableWidget: rows count=${_availableTableRows.length}");
+
+    // Show ComparisonTableWidget for table/tables type
+    if (dataType == 'tables' || dataType == 'table') {
+      print("📊 Rendering as COMPARISON TABLE widget");
+      return ComparisonTableWidget(
+        heading: _availableTableHeading,
+        rows: _availableTableRows,
+        onRowTap: widget.onStockTap,
+      );
+    }
+
+    // Show KeyValueTableWidget for card/cards type (or as fallback)
+    if (dataType == 'cards' || dataType == 'card' || dataType == '') {
+      print("🎴 Rendering as KEY-VALUE CARDS widget");
       return KeyValueTableWidget(
         heading: _availableTableHeading,
         rows: _availableTableRows,
@@ -1009,19 +1024,8 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
       );
     }
 
-    if (dataType == 'tables' ||
-        dataType == 'table' ||
-        dataType == 'comparison' ||
-        dataType == 'compare' ||
-        dataType == 'comparison_table') {
-      return ComparisonTableWidget(
-        heading: _availableTableHeading,
-        rows: _availableTableRows,
-        onRowTap: widget.onStockTap,
-      );
-    }
-
-    // Fallback
+    // Fallback to cards for unknown types
+    print("⚠️ Unknown table type: '$dataType', falling back to cards");
     return KeyValueTableWidget(
       heading: _availableTableHeading,
       rows: _availableTableRows,
@@ -1029,6 +1033,7 @@ class _BotMessageWidgetState extends State<BotMessageWidget> {
       onCardTap: widget.onStockTap,
     );
   }
+
 
 
   Widget _buildActionButtons() {

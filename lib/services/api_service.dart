@@ -30,9 +30,9 @@ class EndPointService {
   bool isDebug = false;
 
   // Base URL
-  final String _baseUrl = 'https://fastapi-app-130321581049.asia-south1.run.app';
-  //final String _baseUrl = "http://localhost:8000";
-  // final String _baseUrl = 'http://127.0.0.1:8000';
+  //final String _baseUrl = 'https://fastapi-app-130321581049.asia-south1.run.app';
+  final String _baseUrl = "http://localhost:8000";
+  // final String _baseUrl = 'http://192.168.1.2:8000';
 
   String? _lastEndpoint;
   Map<String, dynamic>? _lastBody;

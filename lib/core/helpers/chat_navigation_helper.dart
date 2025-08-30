@@ -36,7 +36,9 @@ class ChatNavigationHelper {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => AssetPage(onClose: (){},assetId: "",),
+        builder: (_) => AssetPage(onClose: (){
+
+        },assetId: "",),
       ),
     );
   }

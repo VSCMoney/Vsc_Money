@@ -208,194 +208,199 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
       child: GestureDetector(
         // Dismiss keyboard when tapping outside ANYWHERE
         onTap: _closeKeyboard,
-        child: Scaffold(
-          backgroundColor: theme.background,
-          appBar: AppBar(
-            leading: IconButton(
-              icon: Icon(Icons.arrow_back, color: theme.icon, size: 24),
-              onPressed: () {
-                _closeKeyboard(); // <— make sure it closes on back
-                Navigator.of(context).pop();
-              },
-            ),
-            titleSpacing: 0,
-            title: TextField(
-              controller: _controller,
-              focusNode: _focusNode,
-              onSubmitted: _onSearchSubmitted, // closes keyboard
-              onChanged: _searchStock,         // real-time, keep open
-              autofocus: true,
-              textInputAction: TextInputAction.search,
-              style: TextStyle(
-                fontSize: 16,
-                color: theme.text,
-                fontFamily: 'SF Pro',
+        child: SafeArea(
+          top: false,
+          bottom: false,
+          child: Scaffold(
+            backgroundColor: theme.background,
+            // extendBody: true,
+            appBar: AppBar(
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back, color: theme.icon, size: 24),
+                onPressed: () {
+                  _closeKeyboard(); // <— make sure it closes on back
+                  Navigator.of(context).pop();
+                },
               ),
-              decoration: InputDecoration(
-                hintText: 'Search stocks',
-                hintStyle: TextStyle(
-                  color: theme.text.withOpacity(0.6),
+              titleSpacing: 0,
+              title: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                onSubmitted: _onSearchSubmitted, // closes keyboard
+                onChanged: _searchStock,         // real-time, keep open
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                style: TextStyle(
                   fontSize: 16,
+                  color: theme.text,
                   fontFamily: 'SF Pro',
                 ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                decoration: InputDecoration(
+                  hintText: 'Search stocks',
+                  hintStyle: TextStyle(
+                    color: theme.text.withOpacity(0.6),
+                    fontSize: 16,
+                    fontFamily: 'SF Pro',
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                ),
+              ),
+              backgroundColor: theme.box,
+              surfaceTintColor: theme.background,
+              shadowColor: Colors.transparent,
+              elevation: 0,
+              systemOverlayStyle:  SystemUiOverlayStyle(
+                statusBarColor: theme.box,
+                statusBarIconBrightness: Brightness.dark,
               ),
             ),
-            backgroundColor: theme.box,
-            surfaceTintColor: theme.background,
-            shadowColor: Colors.transparent,
-            elevation: 0,
-            systemOverlayStyle: const SystemUiOverlayStyle(
-              statusBarColor: Colors.white,
-              statusBarIconBrightness: Brightness.dark,
-            ),
-          ),
-          body: SafeArea(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
-              child: SingleChildScrollView(
-                // Also dismiss on scroll gestures
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 16),
-
-                    // Filter chips
-                    SizedBox(
-                      height: 40,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          const SizedBox(width: 8),
-                          _buildChip("All", selected: true),
-                          _buildChip("Stocks"),
-                          _buildChip("MF"),
-                          _buildChip("ETF"),
-                          const SizedBox(width: 8),
-                        ],
+            body: SafeArea(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
+                child: SingleChildScrollView(
+                  // Also dismiss on scroll gestures
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 16),
+          
+                      // Filter chips
+                      SizedBox(
+                        height: 40,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: [
+                            const SizedBox(width: 8),
+                            _buildChip("All", selected: true),
+                            _buildChip("Stocks"),
+                            _buildChip("MF"),
+                            _buildChip("ETF"),
+                            const SizedBox(width: 8),
+                          ],
+                        ),
                       ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Recent searches
-                    if (!_loading && _results.isEmpty && _lastQuery.isEmpty && _recentSearches.isNotEmpty)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ..._recentSearches.take(3).map(
-                                (term) => InkWell(
-                              onTap: () {
-                                _controller.text = term;
-                                _onSearchSubmitted(term); // closes inside
-                              },
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: horizontalPadding,
-                                  vertical: 8,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.shade200,
-                                        shape: BoxShape.circle,
+          
+                      const SizedBox(height: 20),
+          
+                      // Recent searches
+                      if (!_loading && _results.isEmpty && _lastQuery.isEmpty && _recentSearches.isNotEmpty)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ..._recentSearches.take(3).map(
+                                  (term) => InkWell(
+                                onTap: () {
+                                  _controller.text = term;
+                                  _onSearchSubmitted(term); // closes inside
+                                },
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: horizontalPadding,
+                                    vertical: 8,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade200,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.history, size: 18, color: Colors.black54),
                                       ),
-                                      child: const Icon(Icons.history, size: 18, color: Colors.black54),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          term,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontFamily: 'SF Pro',
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(Icons.close, size: 18, color: Colors.grey.shade600),
+                                        onPressed: () {
+                                          _closeKeyboard();
+                                          _removeRecentSearch(term);
+                                        },
+                                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                        padding: EdgeInsets.zero,
+                                        splashRadius: 20,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+          
+                      // Loading
+                      if (_loading)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24.0),
+                            child: CircularProgressIndicator(color: Color(0xFFF66A00)),
+                          ),
+                        ),
+          
+                      // Results
+                      if (!_loading && _results.isNotEmpty)
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: _results.map((asset) {
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Row(
+                                  children: [
+                                    const CircleAvatar(
+                                      child: Icon(Icons.trending_up, size: 18, color: Colors.black),
+                                      backgroundColor: Color(0xFFD9D9D9),
+                                      maxRadius: 15,
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Text(
-                                        term,
-                                        style: const TextStyle(
+                                        asset.name,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
                                           fontSize: 16,
                                           fontFamily: 'SF Pro',
+                                          color: theme.text,
                                         ),
-                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                    ),
-                                    IconButton(
-                                      icon: Icon(Icons.close, size: 18, color: Colors.grey.shade600),
-                                      onPressed: () {
-                                        _closeKeyboard();
-                                        _removeRecentSearch(term);
-                                      },
-                                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                                      padding: EdgeInsets.zero,
-                                      splashRadius: 20,
                                     ),
                                   ],
                                 ),
-                              ),
+                                onTap: () => _openStockDetailSheet(asset.id), // closes + opens sheet
+                              );
+                            }).toList(),
+                          ),
+                        ),
+          
+                      // No results
+                      if (!_loading && _results.isEmpty && _lastQuery.isNotEmpty)
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
+                          child: Text(
+                            'No results for "$_lastQuery"',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 14,
+                              fontFamily: 'SF Pro',
                             ),
                           ),
-                        ],
-                      ),
-
-                    // Loading
-                    if (_loading)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: CircularProgressIndicator(color: Color(0xFFF66A00)),
                         ),
-                      ),
-
-                    // Results
-                    if (!_loading && _results.isNotEmpty)
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: _results.map((asset) {
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Row(
-                                children: [
-                                  const CircleAvatar(
-                                    child: Icon(Icons.trending_up, size: 18, color: Colors.black),
-                                    backgroundColor: Color(0xFFD9D9D9),
-                                    maxRadius: 15,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      asset.name,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontFamily: 'SF Pro',
-                                        color: theme.text,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              onTap: () => _openStockDetailSheet(asset.id), // closes + opens sheet
-                            );
-                          }).toList(),
-                        ),
-                      ),
-
-                    // No results
-                    if (!_loading && _results.isEmpty && _lastQuery.isNotEmpty)
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
-                        child: Text(
-                          'No results for "$_lastQuery"',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 14,
-                            fontFamily: 'SF Pro',
-                          ),
-                        ),
-                      ),
-
-                    const SizedBox(height: 24),
-                  ],
+          
+                      const SizedBox(height: 24),
+                    ],
+                  ),
                 ),
               ),
             ),

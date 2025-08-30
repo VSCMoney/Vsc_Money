@@ -709,7 +709,13 @@ class _WebViewPageState extends State<WebViewPage> {
 
 
 
-class ComparisonTableWidget extends StatelessWidget {
+
+
+
+
+
+
+class ComparisonTableWidget extends StatefulWidget {
   final String? heading;
   final List<Map<String, dynamic>> rows;
   final List<String>? columnOrder;
@@ -725,14 +731,20 @@ class ComparisonTableWidget extends StatelessWidget {
     this.maxColumns = 6,
   }) : super(key: key);
 
-  bool _isOverviewField(String k) {
-    final lk = k.toLowerCase();
-    return lk.startsWith('overview.') || lk.contains('description') || lk.contains('summary');
-  }
+  @override
+  State<ComparisonTableWidget> createState() => _ComparisonTableWidgetState();
+}
 
-  bool _shouldHide(String k) {
+class _ComparisonTableWidgetState extends State<ComparisonTableWidget> {
+  static const double _headerH = 40;
+  static const double _rowH = 52;
+  static const EdgeInsets _cellPad = EdgeInsets.symmetric(horizontal: 12);
+
+  final _hCtrl = ScrollController();
+
+  bool _hideKey(String k) {
     final lk = k.toLowerCase();
-    return lk == '_id' || lk == 'id' || _isOverviewField(lk);
+    return lk == '_id' || lk == 'id' || lk.startsWith('overview.') || lk.contains('description') || lk.contains('summary');
   }
 
   String? _getCI(Map<String, dynamic> row, List<String> keys) {
@@ -744,23 +756,21 @@ class ComparisonTableWidget extends StatelessWidget {
     return null;
   }
 
-  String _extractName(Map<String, dynamic> row) {
+  String _nameOf(Map<String, dynamic> row) {
     final v = _getCI(row, ['name','company','title','symbol','ticker']);
     return (v == null || v.trim().isEmpty) ? 'Entity' : v.trim();
   }
 
-  String _extractId(Map<String, dynamic> row) {
-    final v = _getCI(row, ['_id','id','isin','symbol','ticker']);
-    return (v == null || v.trim().isEmpty) ? _extractName(row) : v.trim();
+  String _idOf(Map<String, dynamic> row) {
+    final v = _getCI(row, ['isin','symbol','ticker']);
+    return (v == null || v.trim().isEmpty) ? _nameOf(row) : v.trim();
   }
 
   String _label(String k) {
     const map = {
       'current_price': 'Current Price',
-      'current price': 'Current Price',
       'price': 'Price',
       'market_cap': 'Market Cap',
-      'market cap': 'Market Cap',
       'pe_ratio': 'P/E',
       'sector': 'Sector',
       'industry': 'Industry',
@@ -769,178 +779,123 @@ class ComparisonTableWidget extends StatelessWidget {
       'ratios.returns.1m': '1M Return',
       'ratios.returns.6m': '6M Return',
       'ratios.returns.1y': '1Y Return',
-      'ratios.returns.1y_excess_over_nifty': '1Y vs Nifty',
-      'overview.sector': 'Sector',
     };
-
     final lk = k.toLowerCase();
     if (map.containsKey(lk)) return map[lk]!;
-
-    if (k.contains('.')) {
-      final parts = k.split('.');
-      final lastPart = parts.last;
-      final cleaned = lastPart.replaceAll('_', ' ');
-      return cleaned
-          .split(' ')
-          .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
-          .join(' ');
-    }
-
-    final cleaned = lk.replaceAll('_', ' ').replaceAll('.', ' ');
-    return cleaned
+    final last = (k.contains('.')) ? k.split('.').last : k;
+    return last
+        .replaceAll('_', ' ')
         .split(' ')
         .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
         .join(' ');
   }
 
-  String _formatValue(String key, dynamic v) {
+  String _fmt(String key, dynamic v) {
     if (v == null) return '—';
     final lk = key.toLowerCase();
-
-    final isPct = lk.contains('return') || lk.contains('change') ||
-        lk.contains('yield') || lk.contains('growth') ||
-        lk.contains('1d') || lk.contains('1m') ||
-        lk.contains('6m') || lk.contains('1y');
-
-    final isRupee = lk.contains('price') || lk.contains('market_cap') || lk.contains('market cap');
-
-    if (isPct && v is num) {
-      if (v > 100) return '${v.toStringAsFixed(1)}%';
-      return '${v.toStringAsFixed(2)}%';
-    }
-
+    final isPct = lk.contains('return') || lk.contains('change');
+    final isRupee = lk.contains('price') || lk.contains('market_cap');
+    if (isPct && v is num) return '${v.toStringAsFixed(v > 100 ? 1 : 2)}%';
     if (isRupee && v is num) {
-      if (v >= 10_000_000) return '₹${(v / 10_000_000).toStringAsFixed(1)}Cr';
-      if (v >= 100_000) return '₹${(v / 100_000).toStringAsFixed(1)}L';
+      if (v >= 10_000_000) return '₹${(v/10_000_000).toStringAsFixed(1)}Cr';
+      if (v >= 100_000)   return '₹${(v/100_000).toStringAsFixed(1)}L';
       return '₹${v.toStringAsFixed(2)}';
     }
-
-    if (lk.contains('volume') && v is num) {
-      return v.toStringAsFixed(2);
-    }
-
     if (v is num) {
-      if (v >= 1_000_000) return '${(v / 1_000_000).toStringAsFixed(1)}M';
-      if (v >= 1_000) return '${(v / 1_000).toStringAsFixed(1)}K';
+      if (v >= 1_000_000) return '${(v/1_000_000).toStringAsFixed(1)}M';
+      if (v >= 1_000)     return '${(v/1_000).toStringAsFixed(1)}K';
       return v.toStringAsFixed(2);
     }
-
     return v.toString();
   }
 
-  List<String> _inferColumnOrder(List<Map<String, dynamic>> rows, int cap) {
-    if (rows.isEmpty) return const [];
+  Color _tint(String key, dynamic v, Color base) {
+    final lk = key.toLowerCase();
+    final looksPct = lk.contains('return') || lk.contains('change');
+    num? n;
+    if (v is num) n = v;
+    if (v is String && v.trim().isNotEmpty) {
+      final s = v.replaceAll(RegExp(r'[^0-9\.\-]'), '');
+      if (s.isNotEmpty) n = num.tryParse(s);
+    }
+    if (looksPct && n != null) {
+      if (n > 0) return const Color(0xFF1A7F37);
+      if (n < 0) return const Color(0xFFB42318);
+    }
+    return base;
+  }
 
+  List<String> _resolveColumns() {
+    if (widget.rows.isEmpty) return const [];
     final keys = <String>{};
-    for (final r in rows) {
+    for (final r in widget.rows) {
       r.forEach((k, v) {
-        if (_shouldHide(k)) return;
+        if (_hideKey(k)) return;
         if (v is Map) return;
         keys.add(k);
       });
     }
-
-    // prefer both snake_case and human labels
-    const preferred = [
-      'price','current_price','current price',
-      'change',
-      'market_cap','market cap',
-      'sector','industry',
-      'ratios.returns.1d','ratios.returns.1m','ratios.returns.6m','ratios.returns.1y','ratios.returns.1y_excess_over_nifty',
-    ];
-
     final ordered = <String>[];
-    for (final p in preferred) {
-      if (keys.remove(p)) ordered.add(p);
+    for (final c in (widget.columnOrder ?? const [])) {
+      if (keys.remove(c)) ordered.add(c);
     }
     ordered.addAll(keys);
-
-    return ordered.take(cap).toList();
+    return ordered.take(widget.maxColumns).toList();
   }
 
-  List<String> _resolveColumns() {
-    final provided = (columnOrder ?? [])
-        .where((c) => rows.any((r) => r.containsKey(c)))
-        .toList();
-    if (provided.isNotEmpty) {
-      return provided.take(maxColumns).toList();
-    }
-    return _inferColumnOrder(rows, maxColumns);
+  double _colWidth(String key) {
+    final lk = key.toLowerCase();
+    if (lk.contains('industry') || lk.contains('sector')) return 160;
+    if (lk.contains('market') || lk.contains('price')) return 130;
+    if (lk.contains('returns') || lk.contains('change')) return 110;
+    return 120;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (rows.isEmpty) return const SizedBox.shrink();
+    if (widget.rows.isEmpty) return const SizedBox.shrink();
 
-    final themeExt = Theme.of(context).extension<AppThemeExtension>();
-    final theme = themeExt?.theme;
-    final textColor = theme?.text ?? Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black;
+    final theme = Theme.of(context);
+    final textColor = theme.textTheme.bodyMedium?.color ?? Colors.black;
+    final muted = textColor.withOpacity(0.9);
+    final borderColor = Colors.grey.withOpacity(0.2);
+    final boxColor = theme.cardColor;
 
-    final columns = _resolveColumns();
-    if (columns.isEmpty) {
-      return Container(
+    final cols = _resolveColumns();
+    if (cols.isEmpty) {
+      return Padding(
         padding: const EdgeInsets.all(16),
-        child: const Text("No displayable columns found"),
+        child: const Text('No displayable columns found'),
       );
     }
 
-    final table = DataTable(
-      headingRowHeight: 36,
-      dataRowMinHeight: 44,
-      dataRowMaxHeight: 56,
-      headingTextStyle: TextStyle(
-        fontFamily: 'SF Pro',
-        fontWeight: FontWeight.w700,
-        fontSize: 13,
-        color: textColor.withOpacity(0.9),
-      ),
-      dataTextStyle: TextStyle(
-        fontFamily: 'SF Pro',
-        fontWeight: FontWeight.w500,
-        fontSize: 13,
-        color: textColor,
-        height: 1.4,
-      ),
-      columns: <DataColumn>[
-        const DataColumn(label: Text('Entity')),
-        ...columns.map((c) => DataColumn(label: Text(_label(c)))),
-      ],
-      rows: rows.map((row) {
-        final id = _extractId(row);
-        final name = _extractName(row);
+    final nameW = 160.0;
+    final colWidths = {for (final c in cols) c: _colWidth(c)};
+    final totalWidth = cols.fold<double>(0, (sum, c) => sum + colWidths[c]!);
 
-        final cells = <DataCell>[
-          DataCell(Text(name)),
-          ...columns.map((c) {
-            final value = row[c];
-            return DataCell(Text(_formatValue(c, value)));
-          }),
-        ];
-
-        return DataRow(
-          cells: cells,
-          onSelectChanged: onRowTap == null ? null : (_) => onRowTap!(id),
-        );
-      }).toList(),
-      dividerThickness: 0.6,
-      border: TableBorder(
-        horizontalInside: BorderSide(
-          color: (theme?.border ?? Colors.grey.withOpacity(0.2)),
-          width: 0.6,
-        ),
-      ),
+    TextStyle headerStyle = TextStyle(
+      fontFamily: 'SF Pro',
+      fontWeight: FontWeight.w700,
+      fontSize: 13,
+      color: muted,
+    );
+    TextStyle cellStyle = TextStyle(
+      fontFamily: 'SF Pro',
+      fontWeight: FontWeight.w500,
+      fontSize: 13,
+      color: textColor,
     );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if ((heading ?? '').isNotEmpty) ...[
+        if ((widget.heading ?? '').isNotEmpty) ...[
           Row(
             children: [
               const Text('📊 '),
               Expanded(
                 child: Text(
-                  heading!,
+                  widget.heading!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -955,30 +910,107 @@ class ComparisonTableWidget extends StatelessWidget {
           const SizedBox(height: 8),
         ],
         ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           child: Container(
             decoration: BoxDecoration(
-              color: theme?.box ?? Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: theme?.box ?? Colors.transparent,
-                width: 1,
-              ),
+              color: boxColor,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 8,
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: table,
-              ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Fixed Name column
+                Column(
+                  children: [
+                    Container(
+                      width: nameW,
+                      height: _headerH,
+                      padding: _cellPad,
+                      alignment: Alignment.centerLeft,
+                      decoration: BoxDecoration(
+                        border: Border(bottom: BorderSide(color: borderColor, width: 0.6)),
+                      ),
+                      child: Text("Name", style: headerStyle),
+                    ),
+                    for (int i = 0; i < widget.rows.length; i++)
+                      InkWell(
+                        onTap: widget.onRowTap == null ? null : () => widget.onRowTap!(_idOf(widget.rows[i])),
+                        child: Container(
+                          width: nameW,
+                          height: _rowH,
+                          padding: _cellPad,
+                          alignment: Alignment.centerLeft,
+                          decoration: BoxDecoration(
+                            color: i.isOdd ? Colors.black.withOpacity(0.025) : Colors.transparent,
+                            border: Border(bottom: BorderSide(color: borderColor, width: 0.6)),
+                          ),
+                          child: Text(_nameOf(widget.rows[i]), style: cellStyle.copyWith(fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                  ],
+                ),
+                // Scrollable rest of columns
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: _hCtrl,
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: SizedBox(
+                      width: totalWidth,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // header
+                          Row(
+                            children: [
+                              for (final c in cols)
+                                Container(
+                                  width: colWidths[c],
+                                  height: _headerH,
+                                  padding: _cellPad,
+                                  alignment: Alignment.centerLeft,
+                                  decoration: BoxDecoration(
+                                    border: Border(bottom: BorderSide(color: borderColor, width: 0.6)),
+                                  ),
+                                  child: Text(_label(c), style: headerStyle),
+                                ),
+                            ],
+                          ),
+                          // rows
+                          for (int i = 0; i < widget.rows.length; i++)
+                            Row(
+                              children: [
+                                for (final c in cols)
+                                  Container(
+                                    width: colWidths[c],
+                                    height: _rowH,
+                                    padding: _cellPad,
+                                    alignment: Alignment.centerLeft,
+                                    decoration: BoxDecoration(
+                                      color: i.isOdd ? Colors.black.withOpacity(0.025) : Colors.transparent,
+                                      border: Border(bottom: BorderSide(color: borderColor, width: 0.6)),
+                                    ),
+                                    child: Text(
+                                      _fmt(c, widget.rows[i][c]),
+                                      style: cellStyle.copyWith(color: _tint(c, widget.rows[i][c], textColor)),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -986,6 +1018,291 @@ class ComparisonTableWidget extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+// class ComparisonTableWidget extends StatelessWidget {
+//   final String? heading;
+//   final List<Map<String, dynamic>> rows;
+//   final List<String>? columnOrder;
+//   final Function(String idOrFallback)? onRowTap;
+//   final int maxColumns;
+//
+//   const ComparisonTableWidget({
+//     Key? key,
+//     this.heading,
+//     required this.rows,
+//     this.columnOrder,
+//     this.onRowTap,
+//     this.maxColumns = 6,
+//   }) : super(key: key);
+//
+//   bool _isOverviewField(String k) {
+//     final lk = k.toLowerCase();
+//     return lk.startsWith('overview.') || lk.contains('description') || lk.contains('summary');
+//   }
+//
+//   bool _shouldHide(String k) {
+//     final lk = k.toLowerCase();
+//     return lk == '_id' || lk == 'id' || _isOverviewField(lk);
+//   }
+//
+//   String? _getCI(Map<String, dynamic> row, List<String> keys) {
+//     final lower = {for (final e in row.entries) e.key.toLowerCase(): e.value};
+//     for (final k in keys) {
+//       final v = lower[k.toLowerCase()];
+//       if (v != null) return v.toString();
+//     }
+//     return null;
+//   }
+//
+//   String _extractName(Map<String, dynamic> row) {
+//     final v = _getCI(row, ['name','company','title','symbol','ticker']);
+//     return (v == null || v.trim().isEmpty) ? 'Entity' : v.trim();
+//   }
+//
+//   String _extractId(Map<String, dynamic> row) {
+//     final v = _getCI(row, ['_id','id','isin','symbol','ticker']);
+//     return (v == null || v.trim().isEmpty) ? _extractName(row) : v.trim();
+//   }
+//
+//   String _label(String k) {
+//     const map = {
+//       'current_price': 'Current Price',
+//       'current price': 'Current Price',
+//       'price': 'Price',
+//       'market_cap': 'Market Cap',
+//       'market cap': 'Market Cap',
+//       'pe_ratio': 'P/E',
+//       'sector': 'Sector',
+//       'industry': 'Industry',
+//       'change': 'Change',
+//       'ratios.returns.1d': '1D Return',
+//       'ratios.returns.1m': '1M Return',
+//       'ratios.returns.6m': '6M Return',
+//       'ratios.returns.1y': '1Y Return',
+//       'ratios.returns.1y_excess_over_nifty': '1Y vs Nifty',
+//       'overview.sector': 'Sector',
+//     };
+//
+//     final lk = k.toLowerCase();
+//     if (map.containsKey(lk)) return map[lk]!;
+//
+//     if (k.contains('.')) {
+//       final parts = k.split('.');
+//       final lastPart = parts.last;
+//       final cleaned = lastPart.replaceAll('_', ' ');
+//       return cleaned
+//           .split(' ')
+//           .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+//           .join(' ');
+//     }
+//
+//     final cleaned = lk.replaceAll('_', ' ').replaceAll('.', ' ');
+//     return cleaned
+//         .split(' ')
+//         .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+//         .join(' ');
+//   }
+//
+//   String _formatValue(String key, dynamic v) {
+//     if (v == null) return '—';
+//     final lk = key.toLowerCase();
+//
+//     final isPct = lk.contains('return') || lk.contains('change') ||
+//         lk.contains('yield') || lk.contains('growth') ||
+//         lk.contains('1d') || lk.contains('1m') ||
+//         lk.contains('6m') || lk.contains('1y');
+//
+//     final isRupee = lk.contains('price') || lk.contains('market_cap') || lk.contains('market cap');
+//
+//     if (isPct && v is num) {
+//       if (v > 100) return '${v.toStringAsFixed(1)}%';
+//       return '${v.toStringAsFixed(2)}%';
+//     }
+//
+//     if (isRupee && v is num) {
+//       if (v >= 10_000_000) return '₹${(v / 10_000_000).toStringAsFixed(1)}Cr';
+//       if (v >= 100_000) return '₹${(v / 100_000).toStringAsFixed(1)}L';
+//       return '₹${v.toStringAsFixed(2)}';
+//     }
+//
+//     if (lk.contains('volume') && v is num) {
+//       return v.toStringAsFixed(2);
+//     }
+//
+//     if (v is num) {
+//       if (v >= 1_000_000) return '${(v / 1_000_000).toStringAsFixed(1)}M';
+//       if (v >= 1_000) return '${(v / 1_000).toStringAsFixed(1)}K';
+//       return v.toStringAsFixed(2);
+//     }
+//
+//     return v.toString();
+//   }
+//
+//   List<String> _inferColumnOrder(List<Map<String, dynamic>> rows, int cap) {
+//     if (rows.isEmpty) return const [];
+//
+//     final keys = <String>{};
+//     for (final r in rows) {
+//       r.forEach((k, v) {
+//         if (_shouldHide(k)) return;
+//         if (v is Map) return;
+//         keys.add(k);
+//       });
+//     }
+//
+//     // prefer both snake_case and human labels
+//     const preferred = [
+//       'price','current_price','current price',
+//       'change',
+//       'market_cap','market cap',
+//       'sector','industry',
+//       'ratios.returns.1d','ratios.returns.1m','ratios.returns.6m','ratios.returns.1y','ratios.returns.1y_excess_over_nifty',
+//     ];
+//
+//     final ordered = <String>[];
+//     for (final p in preferred) {
+//       if (keys.remove(p)) ordered.add(p);
+//     }
+//     ordered.addAll(keys);
+//
+//     return ordered.take(cap).toList();
+//   }
+//
+//   List<String> _resolveColumns() {
+//     final provided = (columnOrder ?? [])
+//         .where((c) => rows.any((r) => r.containsKey(c)))
+//         .toList();
+//     if (provided.isNotEmpty) {
+//       return provided.take(maxColumns).toList();
+//     }
+//     return _inferColumnOrder(rows, maxColumns);
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     if (rows.isEmpty) return const SizedBox.shrink();
+//
+//     final themeExt = Theme.of(context).extension<AppThemeExtension>();
+//     final theme = themeExt?.theme;
+//     final textColor = theme?.text ?? Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black;
+//
+//     final columns = _resolveColumns();
+//     if (columns.isEmpty) {
+//       return Container(
+//         padding: const EdgeInsets.all(16),
+//         child: const Text("No displayable columns found"),
+//       );
+//     }
+//
+//     final table = DataTable(
+//       headingRowHeight: 36,
+//       dataRowMinHeight: 44,
+//       dataRowMaxHeight: 56,
+//       headingTextStyle: TextStyle(
+//         fontFamily: 'SF Pro',
+//         fontWeight: FontWeight.w700,
+//         fontSize: 13,
+//         color: textColor.withOpacity(0.9),
+//       ),
+//       dataTextStyle: TextStyle(
+//         fontFamily: 'SF Pro',
+//         fontWeight: FontWeight.w500,
+//         fontSize: 13,
+//         color: textColor,
+//         height: 1.4,
+//       ),
+//       columns: <DataColumn>[
+//         const DataColumn(label: Text('Entity')),
+//         ...columns.map((c) => DataColumn(label: Text(_label(c)))),
+//       ],
+//       rows: rows.map((row) {
+//         final id = _extractId(row);
+//         final name = _extractName(row);
+//
+//         final cells = <DataCell>[
+//           DataCell(Text(name)),
+//           ...columns.map((c) {
+//             final value = row[c];
+//             return DataCell(Text(_formatValue(c, value)));
+//           }),
+//         ];
+//
+//         return DataRow(
+//           cells: cells,
+//           onSelectChanged: onRowTap == null ? null : (_) => onRowTap!(id),
+//         );
+//       }).toList(),
+//       dividerThickness: 0.6,
+//       border: TableBorder(
+//         horizontalInside: BorderSide(
+//           color: (theme?.border ?? Colors.grey.withOpacity(0.2)),
+//           width: 0.6,
+//         ),
+//       ),
+//     );
+//
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         if ((heading ?? '').isNotEmpty) ...[
+//           Row(
+//             children: [
+//               const Text('📊 '),
+//               Expanded(
+//                 child: Text(
+//                   heading!,
+//                   maxLines: 1,
+//                   overflow: TextOverflow.ellipsis,
+//                   style: const TextStyle(
+//                     fontFamily: 'SF Pro',
+//                     fontSize: 16,
+//                     fontWeight: FontWeight.w700,
+//                   ),
+//                 ),
+//               ),
+//             ],
+//           ),
+//           const SizedBox(height: 8),
+//         ],
+//         ClipRRect(
+//           borderRadius: BorderRadius.circular(12),
+//           child: Container(
+//             decoration: BoxDecoration(
+//               color: theme?.box ?? Theme.of(context).cardColor,
+//               borderRadius: BorderRadius.circular(12),
+//               border: Border.all(
+//                 color: theme?.box ?? Colors.transparent,
+//                 width: 1,
+//               ),
+//               boxShadow: [
+//                 BoxShadow(
+//                   color: Colors.black.withOpacity(0.06),
+//                   blurRadius: 8,
+//                   offset: const Offset(0, 2),
+//                 ),
+//               ],
+//             ),
+//             child: SingleChildScrollView(
+//               scrollDirection: Axis.horizontal,
+//               physics: const BouncingScrollPhysics(),
+//               child: Padding(
+//                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+//                 child: table,
+//               ),
+//             ),
+//           ),
+//         ),
+//       ],
+//     );
+//   }
+// }
 
 
 

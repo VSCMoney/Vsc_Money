@@ -48,38 +48,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _closeSheet() async {
-    debugPrint('🧹 _closeSheet() called');
-
-    // 1) Prefer the wrapper (works for your custom in-app sheets)
-    final wrapper = _sheetKey.currentState
-        ?? context.findAncestorStateOfType<ChatGPTBottomSheetWrapperState>();
+    debugPrint("🧹 HomeScreen._closeSheet() called");
+    final wrapper = _sheetKey.currentState;
+    debugPrint("🧹 wrapper: $wrapper, isSheetOpen: ${wrapper?.isSheetOpen}");
     if (wrapper != null && wrapper.isSheetOpen) {
-      debugPrint('🧹 closing via wrapper.closeSheet()');
-      try { HapticFeedback.heavyImpact(); } catch (_) {}
+      debugPrint("🧹 Calling wrapper.closeSheet()");
       await wrapper.closeSheet();
-      return;
+      debugPrint("🧹 wrapper.closeSheet() finished");
+    } else {
+      debugPrint("🧹 No sheet to close");
     }
-
-    // 2) Page navigator
-    final nav = Navigator.maybeOf(context);
-    if (nav != null && nav.canPop()) {
-      debugPrint('🧹 closing via Navigator.of(context).pop()');
-      try { HapticFeedback.heavyImpact(); } catch (_) {}
-      nav.pop();
-      return;
-    }
-
-    // 3) Root navigator (iOS modal sheets often live here)
-    final rootNav = Navigator.of(context, rootNavigator: true);
-    if (rootNav.canPop()) {
-      debugPrint('🧹 closing via rootNavigator.pop()');
-      try { HapticFeedback.heavyImpact(); } catch (_) {}
-      rootNav.pop();
-      return;
-    }
-
-    debugPrint('🧹 nothing to close');
   }
+
 
   Future<void> _createNewChat() async {
     try {
@@ -142,14 +122,24 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
+  // void _openStockDetailSheet(String assetId) {
+  //   print(assetId);
+  //   final stockSheet = BottomSheetManager.buildStockDetailSheet(
+  //     assetId: assetId,
+  //     onTap: _closeSheet
+  //   );
+  //   _sheetKey.currentState?.openSheet(stockSheet);
+  // }
+
   void _openStockDetailSheet(String assetId) {
-    print(assetId);
+    print("Opening stock detail for: $assetId");
     final stockSheet = BottomSheetManager.buildStockDetailSheet(
       assetId: assetId,
-      onTap: _closeSheet
+      onTap: _closeSheet, // Make sure this is _closeSheet, not () => _closeSheet()
     );
     _sheetKey.currentState?.openSheet(stockSheet);
   }
+
 
 
   void _openAskVittySheet(String selectedText) {
@@ -216,15 +206,19 @@ class _HomeScreenState extends State<HomeScreen> {
     final backgroundColor = themeExtension?.theme?.background ??
         Theme.of(context).scaffoldBackgroundColor;
 
-    return Container(
-      color: Colors.black,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 400),
-        switchInCurve: Curves.easeOut,
-        switchOutCurve: Curves.easeIn,
-        child: ChatGPTBottomSheetWrapper(
-          key: _sheetKey,
-          child: _buildContent(backgroundColor),
+    return SafeArea(
+      top: false,
+      bottom: false,
+      child: Container(
+        color: Colors.black,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 400),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          child: ChatGPTBottomSheetWrapper(
+            key: _sheetKey,
+            child: _buildContent(backgroundColor),
+          ),
         ),
       ),
     );

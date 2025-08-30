@@ -42,23 +42,55 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
     });
   }
 
+
   void _submitName() async {
     final fullName = _fullNameController.text.trim();
-    if (fullName.isEmpty || !fullName.contains(" ")) {
+
+    // Check if name is empty
+    if (fullName.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter full name (first & last)")),
+        const SnackBar(content: Text("Please enter your full name")),
       );
       return;
     }
 
-    final parts = fullName.split(" ");
-    final firstName = parts.first;
-    final lastName = parts.sublist(1).join(" ");
+    // Split the name into parts and filter out empty strings
+    final parts = fullName.split(" ").where((part) => part.isNotEmpty).toList();
+
+    // Check if exactly 2 words (first name and last name only)
+    if (parts.length != 2) {
+      if (!mounted) return;
+      String errorMessage;
+      if (parts.length == 1) {
+        errorMessage = "Please enter both first and last name";
+      } else {
+        errorMessage = "Please enter only first and last name (2 words maximum)";
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+      return;
+    }
+
+    // Validate that each part contains only letters (optional - remove if you want to allow numbers/special chars)
+    for (final part in parts) {
+      if (!RegExp(r'^[a-zA-Z]+$').hasMatch(part)) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Name should contain only letters")),
+        );
+        return;
+      }
+    }
+
+    final firstName = parts[0];
+    final lastName = parts[1];
 
     await _authService.completeUserProfile(firstName, lastName);
 
-    if (!mounted) return; // <- ADD THIS
+    if (!mounted) return;
 
     _authService.completeUserProfileAndNavigate((flow) {
       if (!mounted) return;
@@ -77,6 +109,42 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
       }
     });
   }
+
+  // void _submitName() async {
+  //   final fullName = _fullNameController.text.trim();
+  //   if (fullName.isEmpty || !fullName.contains(" ")) {
+  //     if (!mounted) return;
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text("Please enter full name (first & last)")),
+  //     );
+  //     return;
+  //   }
+  //
+  //   final parts = fullName.split(" ");
+  //   final firstName = parts.first;
+  //   final lastName = parts.sublist(1).join(" ");
+  //
+  //   await _authService.completeUserProfile(firstName, lastName);
+  //
+  //   if (!mounted) return; // <- ADD THIS
+  //
+  //   _authService.completeUserProfileAndNavigate((flow) {
+  //     if (!mounted) return;
+  //     switch (flow) {
+  //       case AuthFlow.onboarding:
+  //         context.go('/onboarding');
+  //         break;
+  //       case AuthFlow.home:
+  //         GoRouter.of(context).go('/premium');
+  //         break;
+  //       case AuthFlow.nameEntry:
+  //         break;
+  //       case AuthFlow.login:
+  //         context.go('/home');
+  //         break;
+  //     }
+  //   });
+  // }
 
 
   @override
@@ -145,11 +213,11 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(5),
-                    borderSide:  BorderSide(color: theme.border, width: 2),
+                    borderSide:  BorderSide(color: theme.searchBox, width: 2),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(5),
-                    borderSide: BorderSide(color: theme.border, width: 1.5),
+                    borderSide: BorderSide(color: theme.searchBox, width: 1.5),
                   ),
                   contentPadding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
                   filled: true,

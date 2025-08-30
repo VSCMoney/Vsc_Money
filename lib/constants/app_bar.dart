@@ -9,18 +9,10 @@ import '../services/locator.dart';
 import '../services/theme_service.dart';
 
 
-// -------------------------
-// 🔁 Shared rotation angle
-// -------------------------
-// Set this to the SAME angle your splash ends at.
-//   math.pi     -> half-turn (180°)
-//   2*math.pi   -> full-turn (360°)
-//   -math.pi    -> half-turn the other way, if asset looks mirrored
+
 const double kLogoFinalAngle = math.pi;
 
-// ----------------------------------------------------
-// AppBar helper that shows a rotated logo on dashboard
-// ----------------------------------------------------
+
 PreferredSize appBar(
     BuildContext context,
     String title,
@@ -64,7 +56,7 @@ class _AnimatedAppBarState extends State<AnimatedAppBar> {
     final bool isTablet = screenWidth > 600;
     final double horizontalPadding = 16.0;
     final double iconSize = isTablet ? 26 : 26;
-    final double logoHeight = isTablet ? 50 : 30;
+    final double logoHeight = isTablet ? 50 : 45;
     final double spacing = 12;
     final theme = locator<ThemeService>().currentTheme;
 
@@ -81,7 +73,8 @@ class _AnimatedAppBarState extends State<AnimatedAppBar> {
               children: [
                 // ✅ Rotate the AppBar logo by the same final angle as splash
                 widget.isDashboard
-                    ? Hero(
+                    ?
+                Hero(
                   tag: 'penny_logo',
                   child: Transform.rotate(
                     angle: kLogoFinalAngle,
@@ -97,7 +90,7 @@ class _AnimatedAppBarState extends State<AnimatedAppBar> {
                     fontWeight: FontWeight.w600,
                     color: theme.text,
                     fontSize: isTablet ? 22 : 20,
-                    fontFamily: 'Inter',
+                    fontFamily: 'SF Pro',
                   ),
                 ),
 
@@ -112,7 +105,7 @@ class _AnimatedAppBarState extends State<AnimatedAppBar> {
                         child: InkWell(
                           borderRadius: BorderRadius.circular(24),
                           onTap: () {
-                            HapticFeedback.vibrate();
+                            HapticFeedback.mediumImpact();
                             FocusManager.instance.primaryFocus?.unfocus();
                             FocusScope.of(context).unfocus();
                             final scaffold = Scaffold.maybeOf(drawerContext);

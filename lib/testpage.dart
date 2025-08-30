@@ -17,6 +17,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:vscmoney/constants/bottomsheet.dart';
 import 'package:vscmoney/constants/colors.dart';
 import 'package:vscmoney/screens/presentation/home/chat_screen.dart';
 import 'package:vscmoney/services/asset_service.dart';
@@ -27,159 +28,171 @@ import 'models/asset_model.dart';
 import 'models/chat_message.dart';
 import 'models/chat_session.dart';
 
-class PremiumAccessScreen extends StatelessWidget {
+class PremiumAccessScreen extends StatefulWidget {
   const PremiumAccessScreen({Key? key}) : super(key: key);
+
+  @override
+  State<PremiumAccessScreen> createState() => _PremiumAccessScreenState();
+}
+
+class _PremiumAccessScreenState extends State<PremiumAccessScreen> {
+
+  final GlobalKey<ChatGPTBottomSheetWrapperState> _sheetKey =
+  GlobalKey(debugLabel: 'BottomSheetWrapper');
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
-    return Scaffold(
-      backgroundColor: theme.background,
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-        child: Column(
-          children: [
-            SizedBox(height: 60),
+    return ChatGPTBottomSheetWrapper(
+      key: _sheetKey,
+      child: Scaffold(
+        backgroundColor: theme.background,
+        body: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            children: [
+              SizedBox(height: 60),
 
-            // Logo
-            Container(
-              width: 40,
-              height: 40,
-              child: Image.asset("assets/images/ying yang.png"),
-            ),
-
-            SizedBox(height: 20),
-
-            // Title
-            Text(
-              'Full Access Unlocked\nFor 21 Days!',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 25,
-                fontWeight: FontWeight.w700,
-                color: theme.text,
-                height: 1.2,
-                fontFamily: "SF Pro"
+              // Logo
+              Container(
+                width: 40,
+                height: 40,
+                child: Image.asset("assets/images/ying yang.png"),
               ),
-            ),
 
-            SizedBox(height: 16),
+              SizedBox(height: 20),
 
-            // Subtitle
-            Text(
-              'Enjoy full access to your AI financial consultant',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.text,
-                fontFamily: "SF Pro",
-              ),
-            ),
-
-            SizedBox(height: 30),
-
-            // Features List
-            Expanded(
-              flex: 3,
-              child: Column(
-                children: [
-                  FeatureItem(
-                    icon: Icons.track_changes,
-                    iconColor: Color(0xFFFF6B35),
-                    title: 'Smart Goal Planning',
-                    description:
-                        'Unlock powerful tools to define, plan, and track what truly matters to you.',
-                  ),
-
-                  SizedBox(height: 32),
-
-                  FeatureItem(
-                    icon: Icons.insights,
-                    iconColor: Color(0xFFFF6B35),
-                    title: 'Deeper Wealth Insights',
-                    description:
-                        'Access personalised financial insights to grow faster and make informed decisions.',
-                  ),
-
-                  SizedBox(height: 32),
-
-                  FeatureItem(
-                    icon: Icons.chat_bubble_outline,
-                    iconColor: Color(0xFFFF6B35),
-                    title: '50 Prompts Per Day',
-                    description:
-                        'Ask up to 50 questions daily to gain deeper clarity and guidance from your AI advisor.',
-                  ),
-
-                  SizedBox(height: 32),
-
-                  FeatureItem(
-                    icon: Icons.tune,
-                    iconColor: Color(0xFFFF6B35),
-                    title: 'Tailored Experience',
-                    description:
-                        'Customise the app to match your financial needs and preferences.',
-                  ),
-                ],
-              ),
-            ),
-
-            //  SizedBox(height: 14),
-            Divider(thickness: 0.1, color: Colors.black),
-
-            // Bottom text
-            Text(
-              'Enjoy 21 days of full access—upgrade anytime to keep going with your AI advisor.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: theme.text,
-                fontFamily: "SF Pro",
-              ),
-            ),
-
-            SizedBox(height: 24),
-
-            // Continue Button
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: () {
-                  GoRouter.of(context).go('/home');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  elevation: 0,
-                ),
-                child: Text(
-                  'Continue',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
+              // Title
+              Text(
+                'Full Access Unlocked\nFor 21 Days!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 25,
+                  fontWeight: FontWeight.w700,
+                  color: theme.text,
+                  height: 1.2,
+                  fontFamily: "SF Pro"
                 ),
               ),
-            ),
 
-            SizedBox(height: 32),
+              SizedBox(height: 16),
 
-            // Home indicator
-            Container(
-              width: 134,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(2.5),
+              // Subtitle
+              Text(
+                'Enjoy full access to your AI financial consultant',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: theme.text,
+                  fontFamily: "SF Pro",
+                ),
               ),
-            ),
 
-            SizedBox(height: 16),
-          ],
+              SizedBox(height: 30),
+
+              // Features List
+              Expanded(
+                flex: 3,
+                child: Column(
+                  children: [
+                    FeatureItem(
+                      icon: Icons.track_changes,
+                      iconColor: Color(0xFFFF6B35),
+                      title: 'Smart Goal Planning',
+                      description:
+                          'Unlock powerful tools to define, plan, and track what truly matters to you.',
+                    ),
+
+                    SizedBox(height: 32),
+
+                    FeatureItem(
+                      icon: Icons.insights,
+                      iconColor: Color(0xFFFF6B35),
+                      title: 'Deeper Wealth Insights',
+                      description:
+                          'Access personalised financial insights to grow faster and make informed decisions.',
+                    ),
+
+                    SizedBox(height: 32),
+
+                    FeatureItem(
+                      icon: Icons.chat_bubble_outline,
+                      iconColor: Color(0xFFFF6B35),
+                      title: '50 Prompts Per Day',
+                      description:
+                          'Ask up to 50 questions daily to gain deeper clarity and guidance from your AI advisor.',
+                    ),
+
+                    SizedBox(height: 32),
+
+                    FeatureItem(
+                      icon: Icons.tune,
+                      iconColor: Color(0xFFFF6B35),
+                      title: 'Tailored Experience',
+                      description:
+                          'Customise the app to match your financial needs and preferences.',
+                    ),
+                  ],
+                ),
+              ),
+
+              //  SizedBox(height: 14),
+              Divider(thickness: 0.1, color: Colors.black),
+
+              // Bottom text
+              Text(
+                'Enjoy 21 days of full access—upgrade anytime to keep going with your AI advisor.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: theme.text,
+                  fontFamily: "SF Pro",
+                ),
+              ),
+
+              SizedBox(height: 24),
+
+              // Continue Button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    GoRouter.of(context).go('/home');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    'Continue',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 32),
+
+              // Home indicator
+              Container(
+                width: 134,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(2.5),
+                ),
+              ),
+
+              SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );

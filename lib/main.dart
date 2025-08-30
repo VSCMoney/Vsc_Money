@@ -103,14 +103,14 @@ class AppInitializer {
 
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarBrightness: Brightness.light,
         statusBarIconBrightness: Brightness.dark,
-        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent, // Use transparent
         systemNavigationBarIconBrightness: Brightness.dark,
-        systemNavigationBarDividerColor: Colors.transparent,
-        // 👇 kills the black strip on Android 10+
+        systemNavigationBarDividerColor: Colors.transparent, // Match transparency
         systemNavigationBarContrastEnforced: false,
         systemStatusBarContrastEnforced: false,
       ));
@@ -360,11 +360,12 @@ class _AppThemeBuilderState extends State<AppThemeBuilder> {
     final isLight = theme == AppTheme.light;
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarBrightness: isLight ? Brightness.light : Brightness.dark,    // iOS glyph color
-      statusBarIconBrightness: isLight ? Brightness.dark : Brightness.light, // Android glyph color
-      systemNavigationBarColor: Colors.transparent,
+      statusBarBrightness: isLight ? Brightness.light : Brightness.dark,
+      statusBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
+      systemNavigationBarColor: Colors.transparent, // Use transparent
       systemNavigationBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
-      systemNavigationBarContrastEnforced: false,   // 👈
+      systemNavigationBarDividerColor: Colors.transparent, // Match transparency
+      systemNavigationBarContrastEnforced: false,
       systemStatusBarContrastEnforced: false,
     ));
   }

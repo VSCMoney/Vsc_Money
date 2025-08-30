@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:get_it/get_it.dart';
 import 'package:vscmoney/services/locator.dart';
@@ -71,27 +74,20 @@ class _StockAppBarState extends State<StockAppBar> {
     _svc.toggleWatchlist();
   }
 
-  // ---- NEW: robust closer that works inside sheets/slivers on iOS too ----
   Future<void> _handleClose() async {
-    // 1) Try any ChatGPTBottomSheetWrapper up the tree
-    final wrapper = context.findAncestorStateOfType<ChatGPTBottomSheetWrapperState>();
-    if (wrapper != null && wrapper.isSheetOpen) {
-      await wrapper.closeSheet();
-      return;
-    }
+    print("🔄 StockAppBar._handleClose() called");
 
-    // 2) Use the callback provided by the parent (HomeScreen’s _closeSheet or similar)
     try {
-      widget.onClose();
-      return;
+      HapticFeedback.heavyImpact();
     } catch (_) {}
 
-    // 3) Final fallback: pop the current route if possible
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-    if (mounted && Navigator.of(context).canPop()) {
-      Navigator.of(context).maybePop();
-    }
+    // Simply call the provided callback - don't overthink it
+    widget.onClose();
+
+    // Give iOS a moment to process
+    await Future.delayed(const Duration(milliseconds: 100));
   }
+
 
   @override
   Widget build(BuildContext context) {

@@ -59,6 +59,28 @@ class InputActionsBarWidget extends StatelessWidget {
     );
   }
 
+  /// 🔥 Bold upward arrow by stacking several slightly offset ones
+  /// 🔥 Extra Bold upward arrow by stacking 9 icons
+  Widget _boldArrowIcon() {
+    return Stack(
+      alignment: Alignment.center,
+      children: const [
+        Icon(Icons.arrow_upward, color: Colors.white, size: 20), // center
+        Positioned(left: 0.5, child: Icon(Icons.arrow_upward, color: Colors.white, size: 20)),
+        Positioned(right: 0.5, child: Icon(Icons.arrow_upward, color: Colors.white, size: 20)),
+        Positioned(top: 0.5, child: Icon(Icons.arrow_upward, color: Colors.white, size: 20)),
+        Positioned(bottom: 0.5, child: Icon(Icons.arrow_upward, color: Colors.white, size: 20)),
+
+        // corners for extra boldness
+        Positioned(left: 0.5, top: 0.5, child: Icon(Icons.arrow_upward, color: Colors.white, size: 20)),
+        Positioned(left: 0.5, bottom: 0.5, child: Icon(Icons.arrow_upward, color: Colors.white, size: 20)),
+        Positioned(right: 0.5, top: 0.5, child: Icon(Icons.arrow_upward, color: Colors.white, size: 20)),
+        Positioned(right: 0.5, bottom: 0.5, child: Icon(Icons.arrow_upward, color: Colors.white, size: 20)),
+      ],
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final showSend = isTyping || hasText || isTranscribing;
@@ -67,7 +89,7 @@ class InputActionsBarWidget extends StatelessWidget {
       child: Row(
         key: const ValueKey('normalMode'),
         children: [
-          // Attach icon (kept as-is)
+          // Attach icon
           Image.asset(
             "assets/images/attach_2.png",
             color: theme.icon,
@@ -91,7 +113,6 @@ class InputActionsBarWidget extends StatelessWidget {
 
           // -------- Fixed-size SEND SLOT (prevents layout jump) --------
           SizedBox(
-           // width: 36,
             height: 36,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 140),
@@ -106,19 +127,16 @@ class InputActionsBarWidget extends StatelessWidget {
               ),
               child: showSend
                   ? KeyedSubtree(
-                key: ValueKey<bool>(isTyping), // only animates icon swap
+                key: ValueKey<bool>(isTyping),
                 child: _circleButton(
                   bgColor: AppColors.primary,
-               //   onTap: () => isTyping ? onStopResponse() : onSendMessage(),
-                  onTap: (){
-                    HapticFeedback.vibrate();
+                  onTap: () {
+                    HapticFeedback.heavyImpact();
                     isTyping ? onStopResponse() : onSendMessage();
                   },
-                  icon: Icon(
-                    isTyping ? Icons.stop : Icons.arrow_upward,
-                    color: Colors.white,
-                    size: 18,
-                  ),
+                  icon: isTyping
+                      ? const Icon(Icons.stop, color: Colors.white, size: 18)
+                      : _boldArrowIcon(), // ⬅️ use bold stacked arrow here
                 ),
               )
                   : const SizedBox.shrink(),
@@ -129,3 +147,4 @@ class InputActionsBarWidget extends StatelessWidget {
     );
   }
 }
+

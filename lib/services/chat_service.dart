@@ -98,7 +98,10 @@ class ChatService{
   //   }
   // }
 
-
+  void addLocalMessage(Map<String, Object> msg) {
+    final updated = [..._messagesSubject.value, msg];
+    _messagesSubject.add(updated);
+  }
 
   Future<void> initializeForDashboard({String? initialSessionId}) async {
     print('🔄 Initializing ChatService for dashboard...');
@@ -106,7 +109,7 @@ class ChatService{
 
     try {
       // Load all sessions first
-      await _loadSessions();
+     // await _loadSessions();
 
       if (initialSessionId != null && initialSessionId.isNotEmpty) {
         print('🎯 Looking for session with ID: $initialSessionId');
@@ -1136,44 +1139,12 @@ class ChatService{
   //     }
   //   }
   // }
-  Future<void> stopResponse(String sessionId) async {
-    // 1) Ask server to cancel the live stream first
-    if (_currentStreamingId.isNotEmpty) {
-      try {
-        await _apiService.post(endpoint: '/chat/message/stop', body: {
-          'session_id': sessionId,
-          'message_id': _currentStreamingId, // server ignores if not used
-        });
-      } catch (e) {
-        debugPrint('❌ Stop (server) failed: $e'); // fine, we'll still freeze UI
-      }
-    }
 
-    // 2) Now cancel local SSE subscription
-    _streamSubscription?.cancel();
-    _streamSubscription = null;
-    _currentStreamingId = '';
 
-    // 3) Freeze the last bot message at current progress (no isComplete=true)
-    final updated = [..._messagesSubject.value];
-    final lastIndex = updated.length - 1;
-    if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
-      updated[lastIndex] = {
-        ...updated[lastIndex],
-        'currentStatus': '',
-        'forceStop': true,                     // BotMessageWidget will finish animation
-        'stopTs': DateTime.now().toIso8601String(),
-      };
-      _messagesSubject.add(updated);
-    }
-
-    // 4) Hide stop button (typing false). Do NOT call _checkAndNotifyFirstMessageComplete() here.
-    _isTypingSubject.add(false);
-  }
-
+  // Add these methods to your ChatService class
 
   Future<void> sendMessage(String? sessionId, String text) async {
-    // 🔐 ensure we have a real session id (creates one if needed)
+    // Ensure we have a real session id (creates one if needed)
     final effectiveSessionId = await _ensureActiveSessionId(sessionId);
 
     final userMessage = sanitizeMessage(text);
@@ -1183,27 +1154,26 @@ class ChatService{
 
     _isTypingSubject.add(true);
 
+    // CRITICAL: Add user message and placeholder bot message immediately
     _messagesSubject.add([
       ...messages,
       {
         'id': userMessageId,
         'role': 'user',
-        'content': userMessage,  // ✅ Changed 'msg' to 'content'
+        'content': userMessage,
         'isComplete': true,
-        // ✅ NEW messages are NOT historical
       },
       {
         'id': botMessageId,
         'role': 'bot',
-        'content': '',  // ✅ Changed 'msg' to 'content'
+        'content': '',
         'isComplete': false,
-        // ✅ NEW messages are NOT historical - will have typing animation
+        'currentStatus': 'Connecting...',
       }
     ]);
 
     try {
       if (isFirstMessage) {
-        // now we always have a valid id
         await updateSessionTitle(effectiveSessionId, userMessage);
       }
 
@@ -1211,7 +1181,7 @@ class ChatService{
         sessionId: effectiveSessionId,
         message: userMessage,
       );
-print("BHAIIII $responseStream");
+
       _currentStreamingId = '';
 
       _streamSubscription = responseStream.listen((chatMessage) {
@@ -1229,16 +1199,17 @@ print("BHAIIII $responseStream");
             ...prev,
             'id': botMessageId,
             'role': 'bot',
-            'content': chatMessage.text,  // ✅ Changed 'msg' to 'content'
+            'content': chatMessage.text,
             'isComplete': (prev['isComplete'] as bool?) ?? false,
             'backendComplete': chatMessage.isComplete,
             'currentStatus': chatMessage.currentStatus ?? '',
-            // ✅ Still NO isHistorical flag - keeps typing animation
           };
 
+          // Handle table data with type preservation
           if (chatMessage.isTable && chatMessage.structuredData != null) {
             final sd = chatMessage.structuredData!;
             final heading = sd['heading']?.toString() ?? 'Results';
+            final type = sd['type']?.toString() ?? 'cards';
             final rows = (sd['rows'] as List?)
                 ?.whereType<Map>()
                 .map((e) => Map<String, dynamic>.from(e))
@@ -1249,13 +1220,15 @@ print("BHAIIII $responseStream");
             messageData['tableData'] = <String, Object>{
               'heading': heading,
               'rows': rows,
+              'type': type,
               'columnOrder': (prev['tableData'] is Map &&
                   (prev['tableData'] as Map)['columnOrder'] is List)
                   ? List<String>.from((prev['tableData'] as Map)['columnOrder'])
                   : <String>[],
             };
           } else if (prev.containsKey('tableData') && prev['tableData'] != null) {
-            messageData['tableData'] = prev['tableData']!;
+            final existingTableData = prev['tableData'] as Map;
+            messageData['tableData'] = Map<String, Object>.from(existingTableData);
           }
 
           if (prev.containsKey('type') &&
@@ -1268,45 +1241,384 @@ print("BHAIIII $responseStream");
           _messagesSubject.add(updated);
         }
       }, onError: (e) {
-        debugPrint("❌ CHAT SERVICE ERROR: $e");
-        _isTypingSubject.add(false);
-
-        final updated = [..._messagesSubject.value];
-        final lastIndex = updated.length - 1;
-        if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
-          updated[lastIndex] = {
-            'id': botMessageId,
-            'role': 'bot',
-            'content': '❌ Failed to respond.',  // ✅ Changed 'msg' to 'content'
-            'isComplete': true,
-            'retry': true,
-            'originalMessage': userMessage,
-          };
-          _messagesSubject.add(updated);
-        }
+        debugPrint("CHAT SERVICE STREAM ERROR: $e");
+        _handleConnectionError(botMessageId, userMessage, e);
       });
-    } catch (e) {
-      debugPrint("❌ SEND MESSAGE ERROR: $e");
-      _isTypingSubject.add(false);
 
-      final updated = [..._messagesSubject.value];
-      final lastIndex = updated.length - 1;
-      if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
-        updated[lastIndex] = {
-          'id': botMessageId,
-          'role': 'bot',
-          'content': '❌ Failed to send.',  // ✅ Changed 'msg' to 'content'
-          'isComplete': true,
-          'retry': true,
-          'originalMessage': userMessage,
-        };
-        _messagesSubject.add(updated);
-      }
+    } catch (e) {
+      debugPrint("SEND MESSAGE SETUP ERROR: $e");
+      _handleConnectionError(botMessageId, userMessage, e);
     }
   }
 
+// NEW: Graceful error handling method
+  void _handleConnectionError(String botMessageId, String userMessage, dynamic error) {
+    _isTypingSubject.add(false);
+
+    // Show immediate connection error with status
+    final updated = [..._messagesSubject.value];
+    final lastIndex = updated.length - 1;
+
+    if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
+      updated[lastIndex] = {
+        'id': botMessageId,
+        'role': 'bot',
+        'content': 'Connecting...',
+        'isComplete': false,
+        'currentStatus': 'Connection failed. Retrying...',
+        'isConnecting': true,
+      };
+      _messagesSubject.add(updated);
+    }
+
+    // After 3 seconds, show graceful error message with retry option
+    Timer(Duration(seconds: 3), () {
+      // Check if service is still active
+      if (_messagesSubject.isClosed) return;
+
+      final currentMessages = [..._messagesSubject.value];
+      final lastBotIndex = currentMessages.length - 1;
+
+      if (lastBotIndex >= 0 &&
+          currentMessages[lastBotIndex]['role'] == 'bot' &&
+          currentMessages[lastBotIndex]['id'] == botMessageId) {
+
+        currentMessages[lastBotIndex] = {
+          'id': botMessageId,
+          'role': 'bot',
+          'content': 'I\'m having trouble connecting right now. Please check your internet connection and try again.',
+          'isComplete': true,
+          'retry': true,
+          'originalMessage': userMessage,
+          'errorType': 'connection_failed',
+          'currentStatus': '',
+        };
+        _messagesSubject.add(currentMessages);
+      }
+    });
+  }
+
+// NEW: Method to retry a failed message
+// Updated retryMessage method for ChatService class
+  Future<void> retryMessage(String originalMessage) async {
+    debugPrint("🔄 Retrying message: $originalMessage");
+
+    // Find and remove the retry (error) message, but keep the original user message
+    final updated = [..._messagesSubject.value];
+
+    // Find the last bot message with retry flag
+    int? retryMessageIndex;
+    for (int i = updated.length - 1; i >= 0; i--) {
+      if (updated[i]['role'] == 'bot' && updated[i]['retry'] == true) {
+        retryMessageIndex = i;
+        break;
+      }
+    }
+
+    if (retryMessageIndex != null) {
+      // Remove only the retry message, keep the user message
+      updated.removeAt(retryMessageIndex);
+      _messagesSubject.add(updated);
+    }
+
+    // Add a new bot message with connecting status
+    final botMessageId = UniqueKey().toString();
+    final messagesWithNewBot = [
+      ...updated,
+      {
+        'id': botMessageId,
+        'role': 'bot',
+        'content': '',
+        'isComplete': false,
+        'currentStatus': 'Connecting...',
+      }
+    ];
+    _messagesSubject.add(messagesWithNewBot);
+
+    // Start typing indicator
+    _isTypingSubject.add(true);
+
+    // Now attempt to send the message again
+    try {
+      final effectiveSessionId = await _ensureActiveSessionId(_currentSession?.id);
+
+      final responseStream = await sendMessageWithStreaming(
+        sessionId: effectiveSessionId,
+        message: originalMessage,
+      );
+
+      _currentStreamingId = '';
+
+      _streamSubscription = responseStream.listen((chatMessage) {
+        if (_currentStreamingId.isEmpty) {
+          _currentStreamingId = chatMessage.id;
+        }
+
+        final currentMessages = [..._messagesSubject.value];
+        final lastIndex = currentMessages.length - 1;
+
+        if (lastIndex >= 0 && currentMessages[lastIndex]['role'] == 'bot') {
+          final prev = Map<String, Object>.from(currentMessages[lastIndex]);
+
+          Map<String, Object> messageData = <String, Object>{
+            ...prev,
+            'id': botMessageId,
+            'role': 'bot',
+            'content': chatMessage.text,
+            'isComplete': (prev['isComplete'] as bool?) ?? false,
+            'backendComplete': chatMessage.isComplete,
+            'currentStatus': chatMessage.currentStatus ?? '',
+          };
+
+          // Handle table data with type preservation
+          if (chatMessage.isTable && chatMessage.structuredData != null) {
+            final sd = chatMessage.structuredData!;
+            final heading = sd['heading']?.toString() ?? 'Results';
+            final type = sd['type']?.toString() ?? 'cards';
+            final rows = (sd['rows'] as List?)
+                ?.whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList() ??
+                <Map<String, dynamic>>[];
+
+            messageData['type'] = 'kv_table';
+            messageData['tableData'] = <String, Object>{
+              'heading': heading,
+              'rows': rows,
+              'type': type,
+              'columnOrder': <String>[],
+            };
+          }
+
+          currentMessages[lastIndex] = messageData;
+          _messagesSubject.add(currentMessages);
+        }
+      }, onError: (e) {
+        debugPrint("❌ RETRY STREAM ERROR: $e");
+        _handleConnectionError(botMessageId, originalMessage, e);
+      });
+
+    } catch (e) {
+      debugPrint("❌ RETRY SETUP ERROR: $e");
+      _handleConnectionError(botMessageId, originalMessage, e);
+    }
+  }
+
+// Updated stopResponse method with better error handling
+  Future<void> stopResponse(String sessionId) async {
+    // Ask server to cancel the live stream first
+    if (_currentStreamingId.isNotEmpty) {
+      try {
+        await _apiService.post(endpoint: '/chat/message/stop', body: {
+          'session_id': sessionId,
+          'message_id': _currentStreamingId,
+        });
+      } catch (e) {
+        debugPrint('Stop (server) failed: $e');
+      }
+    }
+
+    // Cancel local SSE subscription
+    _streamSubscription?.cancel();
+    _streamSubscription = null;
+    _currentStreamingId = '';
+
+    // Freeze the last bot message at current progress
+    final updated = [..._messagesSubject.value];
+    final lastIndex = updated.length - 1;
+    if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
+      updated[lastIndex] = {
+        ...updated[lastIndex],
+        'currentStatus': '',
+        'forceStop': true,
+        'stopTs': DateTime.now().toIso8601String(),
+      };
+      _messagesSubject.add(updated);
+    }
+
+    // Hide stop button
+    _isTypingSubject.add(false);
+  }
+
+  // Future<void> stopResponse(String sessionId) async {
+  //   // 1) Ask server to cancel the live stream first
+  //   if (_currentStreamingId.isNotEmpty) {
+  //     try {
+  //       await _apiService.post(endpoint: '/chat/message/stop', body: {
+  //         'session_id': sessionId,
+  //         'message_id': _currentStreamingId, // server ignores if not used
+  //       });
+  //     } catch (e) {
+  //       debugPrint('❌ Stop (server) failed: $e'); // fine, we'll still freeze UI
+  //     }
+  //   }
+  //
+  //   // 2) Now cancel local SSE subscription
+  //   _streamSubscription?.cancel();
+  //   _streamSubscription = null;
+  //   _currentStreamingId = '';
+  //
+  //   // 3) Freeze the last bot message at current progress (no isComplete=true)
+  //   final updated = [..._messagesSubject.value];
+  //   final lastIndex = updated.length - 1;
+  //   if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
+  //     updated[lastIndex] = {
+  //       ...updated[lastIndex],
+  //       'currentStatus': '',
+  //       'forceStop': true,                     // BotMessageWidget will finish animation
+  //       'stopTs': DateTime.now().toIso8601String(),
+  //     };
+  //     _messagesSubject.add(updated);
+  //   }
+  //
+  //   // 4) Hide stop button (typing false). Do NOT call _checkAndNotifyFirstMessageComplete() here.
+  //   _isTypingSubject.add(false);
+  // }
+  //
+  //
+  // Future<void> sendMessage(String? sessionId, String text) async {
+  //   // 🔐 ensure we have a real session id (creates one if needed)
+  //   final effectiveSessionId = await _ensureActiveSessionId(sessionId);
+  //
+  //   final userMessage = sanitizeMessage(text);
+  //   final isFirstMessage = !messages.any((m) => m['role'] == 'user');
+  //   final userMessageId = UniqueKey().toString();
+  //   final botMessageId = UniqueKey().toString();
+  //
+  //   _isTypingSubject.add(true);
+  //
+  //   _messagesSubject.add([
+  //     ...messages,
+  //     {
+  //       'id': userMessageId,
+  //       'role': 'user',
+  //       'content': userMessage,
+  //       'isComplete': true,
+  //     },
+  //     {
+  //       'id': botMessageId,
+  //       'role': 'bot',
+  //       'content': '',
+  //       'isComplete': false,
+  //     }
+  //   ]);
+  //
+  //   try {
+  //     if (isFirstMessage) {
+  //       await updateSessionTitle(effectiveSessionId, userMessage);
+  //     }
+  //
+  //     final responseStream = await sendMessageWithStreaming(
+  //       sessionId: effectiveSessionId,
+  //       message: userMessage,
+  //     );
+  //
+  //     _currentStreamingId = '';
+  //
+  //     _streamSubscription = responseStream.listen((chatMessage) {
+  //       if (_currentStreamingId.isEmpty) {
+  //         _currentStreamingId = chatMessage.id;
+  //       }
+  //
+  //       final updated = [..._messagesSubject.value];
+  //       final lastIndex = updated.length - 1;
+  //
+  //       if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
+  //         final prev = Map<String, Object>.from(updated[lastIndex]);
+  //
+  //         Map<String, Object> messageData = <String, Object>{
+  //           ...prev,
+  //           'id': botMessageId,
+  //           'role': 'bot',
+  //           'content': chatMessage.text,
+  //           'isComplete': (prev['isComplete'] as bool?) ?? false,
+  //           'backendComplete': chatMessage.isComplete,
+  //           'currentStatus': chatMessage.currentStatus ?? '',
+  //         };
+  //
+  //         // ✅ FIXED: Handle table data with type preservation
+  //         if (chatMessage.isTable && chatMessage.structuredData != null) {
+  //           final sd = chatMessage.structuredData!;
+  //           final heading = sd['heading']?.toString() ?? 'Results';
+  //           final type = sd['type']?.toString() ?? 'cards'; // ✅ PRESERVE TYPE
+  //           final rows = (sd['rows'] as List?)
+  //               ?.whereType<Map>()
+  //               .map((e) => Map<String, dynamic>.from(e))
+  //               .toList() ??
+  //               <Map<String, dynamic>>[];
+  //
+  //           messageData['type'] = 'kv_table';
+  //           messageData['tableData'] = <String, Object>{
+  //             'heading': heading,
+  //             'rows': rows,
+  //             'type': type, // ✅ CRITICAL: Pass the type through
+  //             'columnOrder': (prev['tableData'] is Map &&
+  //                 (prev['tableData'] as Map)['columnOrder'] is List)
+  //                 ? List<String>.from((prev['tableData'] as Map)['columnOrder'])
+  //                 : <String>[],
+  //           };
+  //         } else if (prev.containsKey('tableData') && prev['tableData'] != null) {
+  //           // ✅ FIXED: Preserve existing tableData including type
+  //           final existingTableData = prev['tableData'] as Map;
+  //           messageData['tableData'] = Map<String, Object>.from(existingTableData);
+  //         }
+  //
+  //         // ✅ FIXED: Preserve existing type if no new type is set
+  //         if (prev.containsKey('type') &&
+  //             !messageData.containsKey('type') &&
+  //             prev['type'] != null) {
+  //           messageData['type'] = prev['type']!;
+  //         }
+  //
+  //         updated[lastIndex] = messageData;
+  //         _messagesSubject.add(updated);
+  //       }
+  //     }, onError: (e) {
+  //       debugPrint("❌ CHAT SERVICE ERROR: $e");
+  //       _isTypingSubject.add(false);
+  //
+  //       final updated = [..._messagesSubject.value];
+  //       final lastIndex = updated.length - 1;
+  //       if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
+  //         updated[lastIndex] = {
+  //           'id': botMessageId,
+  //           'role': 'bot',
+  //           'content': '❌ Failed to respond.',
+  //           'isComplete': true,
+  //           'retry': true,
+  //           'originalMessage': userMessage,
+  //         };
+  //         _messagesSubject.add(updated);
+  //       }
+  //     });
+  //   } catch (e) {
+  //     debugPrint("❌ SEND MESSAGE ERROR: $e");
+  //     _isTypingSubject.add(false);
+  //
+  //     final updated = [..._messagesSubject.value];
+  //     final lastIndex = updated.length - 1;
+  //     if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
+  //       updated[lastIndex] = {
+  //         'id': botMessageId,
+  //         'role': 'bot',
+  //         'content': '❌ Failed to send.',
+  //         'isComplete': true,
+  //         'retry': true,
+  //         'originalMessage': userMessage,
+  //       };
+  //       _messagesSubject.add(updated);
+  //     }
+  //   }
+  // }
 
 
+
+
+
+
+
+
+  // Add this updated sendMessageWithStreaming method to your ChatService
 
   Future<Stream<ChatMessage>> sendMessageWithStreaming({
     required String sessionId,
@@ -1315,8 +1627,9 @@ print("BHAIIII $responseStream");
     await SessionManager.checkTokenValidityAndRefresh();
 
     try {
-   final url = Uri.parse('https://fastapi-app-130321581049.asia-south1.run.app/chat/respond');
-   //   final url = Uri.parse('http://localhost:8000/chat/respond');
+    // final url = Uri.parse('https://fastapi-app-130321581049.asia-south1.run.app/chat/respond');
+      final url = Uri.parse('http://localhost:8000/chat/respond');
+      //     //final url = Uri.parse('http://192.168.1.2:8000/chat/respond');
       final request = http.Request('POST', url);
 
       request.headers.addAll({
@@ -1331,7 +1644,13 @@ print("BHAIIII $responseStream");
         'input': utf8.decode(message.codeUnits),
       });
 
-      final streamedResponse = await request.send();
+      // Add timeout to the request
+      final streamedResponse = await request.send().timeout(
+        Duration(seconds: 30), // 30-second connection timeout
+        onTimeout: () {
+          throw TimeoutException('Connection timeout after 30 seconds', Duration(seconds: 30));
+        },
+      );
 
       if (streamedResponse.statusCode != 200) {
         final errorBody = await streamedResponse.stream.bytesToString();
@@ -1351,20 +1670,38 @@ print("BHAIIII $responseStream");
       );
 
       String buffer = '';
-      String textBeforeTable = '';  // ✅ Text before any tables
-      String textAfterTable = '';   // ✅ Text after all tables
-      bool tableReceived = false;   // ✅ Track when first table arrives
+      String textBeforeTable = '';
+      String textAfterTable = '';
+      bool tableReceived = false;
 
-      // ✅ FIXED: Variables for combining multiple tables
-      List<Map<String, dynamic>> allTableRows = []; // Store all rows from all tables
-      String combinedHeading = 'Performance Comparison'; // Combined heading
+      List<Map<String, dynamic>> allTableRows = [];
+      String combinedHeading = 'Performance Comparison';
       Map<String, dynamic>? tableData;
 
       List<Map<String, dynamic>> allChunks = [];
       int chunkCounter = 0;
 
-      streamedResponse.stream.transform(utf8.decoder).listen(
+      // Add inactivity timeout
+      Timer? inactivityTimer;
+
+      void resetInactivityTimer() {
+        inactivityTimer?.cancel();
+        inactivityTimer = Timer(Duration(seconds: 60), () {
+          // 60 seconds of no data received
+          print("Stream inactive for 60 seconds, closing connection");
+          controller.addError(TimeoutException('Stream inactive timeout', Duration(seconds: 60)));
+          controller.close();
+        });
+      }
+
+      resetInactivityTimer();
+
+      StreamSubscription? streamSubscription;
+
+      streamSubscription = streamedResponse.stream.transform(utf8.decoder).listen(
             (chunk) {
+          resetInactivityTimer(); // Reset timer on each chunk received
+
           buffer += chunk;
           final lines = buffer.split('\n');
           buffer = lines.removeLast();
@@ -1383,20 +1720,19 @@ print("BHAIIII $responseStream");
               allChunks.add(Map<String, dynamic>.from(decoded));
               chunkCounter++;
 
-              // 🔥 PRINT EACH CHUNK AS IT ARRIVES
               print("\n" + "="*80);
-              print("📦 CHUNK #$chunkCounter");
-              print("🔍 Raw JSON: $jsonText");
-              print("📋 Parsed: ${JsonEncoder.withIndent('  ').convert(decoded)}");
-              print("🏷️  Type: ${decoded['type']}");
+              print("CHUNK #$chunkCounter");
+              print("Raw JSON: $jsonText");
+              print("Parsed: ${JsonEncoder.withIndent('  ').convert(decoded)}");
+              print("Type: ${decoded['type']}");
               if (decoded['payload'] != null) {
-                print("📄 Payload Type: ${decoded['payload']['type']}");
+                print("Payload Type: ${decoded['payload']['type']}");
                 if (decoded['payload']['data'] != null) {
                   final data = decoded['payload']['data'];
                   if (data is String) {
-                    print("📝 Data (String): '$data'");
+                    print("Data (String): '$data'");
                   } else {
-                    print("📊 Data (Object): ${JsonEncoder.withIndent('  ').convert(data)}");
+                    print("Data (Object): ${JsonEncoder.withIndent('  ').convert(data)}");
                   }
                 }
               }
@@ -1404,12 +1740,11 @@ print("BHAIIII $responseStream");
 
               final type = decoded['type'];
 
-              // ✅ Handle status updates
+              // Handle status updates
               if (type == 'status_update') {
                 final reason = (decoded['payload']?['reason'] ?? '').toString();
-                print("🟡 STATUS UPDATE: $reason");
+                print("STATUS UPDATE: $reason");
 
-                // Build display text with marker
                 String displayText = textBeforeTable;
                 if (tableReceived) {
                   displayText += '___TABLE_PLACEHOLDER___';
@@ -1430,23 +1765,22 @@ print("BHAIIII $responseStream");
                 continue;
               }
 
-              // ✅ Handle response chunks
+              // Handle response chunks
               if (type == 'response') {
                 final payload = decoded['payload'] as Map<String, dynamic>? ?? const {};
                 final pType = (payload['type'] ?? '').toString();
 
-                // ✅ Handle text chunks - route to correct bucket
+                // Handle text chunks
                 if (pType == 'text') {
                   final data = (payload['data'] ?? '').toString();
-                  print("📝 TEXT CHUNK: '$data' (goes to ${tableReceived ? 'AFTER' : 'BEFORE'} table)");
+                  print("TEXT CHUNK: '$data' (goes to ${tableReceived ? 'AFTER' : 'BEFORE'} table)");
 
                   if (tableReceived) {
-                    textAfterTable += data;  // Add to after-table text
+                    textAfterTable += data;
                   } else {
-                    textBeforeTable += data; // Add to before-table text
+                    textBeforeTable += data;
                   }
 
-                  // Build display text with table placeholder
                   String displayText = textBeforeTable;
                   if (tableReceived) {
                     displayText += '___TABLE_PLACEHOLDER___';
@@ -1467,108 +1801,59 @@ print("BHAIIII $responseStream");
                   continue;
                 }
 
-                // ✅ Handle table chunks - FIXED VERSION WITH COMBINED TABLES
+                // Handle table chunks - UNIFIED LOGIC
                 if (pType == 'json') {
                   final jsonData = payload['data'];
-                  print("📊 JSON CHUNK RECEIVED:");
+                  print("JSON CHUNK RECEIVED:");
                   print("   └─ Data: ${JsonEncoder.withIndent('    ').convert(jsonData)}");
 
-                  // 🔥 FIX: Check for 'table' (singular) as well as 'tables' and 'cards'
+                  // Check for all supported table types
                   if (jsonData is Map && (jsonData['type'] == 'cards' ||
-                      jsonData['type'] == 'card' || jsonData['type'] == 'tables' ||
+                      jsonData['type'] == 'card' ||
+                      jsonData['type'] == 'tables' ||
                       jsonData['type'] == 'table')) {
 
-                    print("🎯 TABLE DETECTED! Type: ${jsonData['type']}");
+                    print("TABLE DETECTED! Type: ${jsonData['type']}");
 
+                    // UNIFIED DATA EXTRACTION - same logic for all types
                     List<Map<String, dynamic>> rows = [];
                     String heading = 'Results';
 
-                    if (jsonData['type'] == 'cards' ||jsonData['type'] == 'cards' ) {
-                      final cardsList = (jsonData['list'] as List?) ?? const [];
-                      heading = (jsonData['heading']?.toString() ?? 'Results');
-                      rows = cardsList.map<Map<String, dynamic>>((e) {
-                        if (e is Map) return Map<String, dynamic>.from(e);
-                        return <String, dynamic>{};
-                      }).toList();
-                      print("🎴 CARDS: heading='$heading', ${rows.length} cards");
-                    } else if (jsonData['type'] == 'tables' || jsonData['type'] == 'table') {
-                      heading = (jsonData['heading']?.toString() ?? 'Market Data');
-                      final listData = jsonData['list'];
+                    // Extract data from the list regardless of type
+                    final dataList = (jsonData['list'] as List?) ?? const [];
+                    heading = (jsonData['heading']?.toString() ?? 'Results');
 
-                      List<dynamic> tableList = [];
-                      if (listData is Map && listData.containsKey('')) {
-                        final innerList = listData[''];
-                        if (innerList is List) {
-                          tableList = innerList;
-                        }
-                      } else if (listData is List) {
-                        tableList = listData;
-                      }
+                    rows = dataList.map<Map<String, dynamic>>((e) {
+                      if (e is Map) return Map<String, dynamic>.from(e);
+                      return <String, dynamic>{};
+                    }).toList();
 
-                      // 🔥 ENHANCED: Better data extraction for your backend format
-                      rows = tableList.map<Map<String, dynamic>>((item) {
-                        if (item is Map) {
-                          final itemMap = Map<String, dynamic>.from(item);
+                    print("DATA EXTRACTED: heading='$heading', ${rows.length} items, type='${jsonData['type']}'");
 
-                          // Extract nested data if present (like your ratios.returns structure)
-                          if (itemMap.containsKey('ratios') && itemMap['ratios'] is Map) {
-                            final ratios = itemMap['ratios'] as Map;
-                            if (ratios.containsKey('returns') && ratios['returns'] is Map) {
-                              final returns = ratios['returns'] as Map;
-
-                              // Flatten the returns data into the main item
-                              final flattened = Map<String, dynamic>.from(itemMap);
-                              flattened.remove('ratios'); // Remove nested structure
-
-                              // Add return metrics with proper formatting
-                              if (returns.containsKey('1m')) {
-                                flattened['1M Return'] = "${(returns['1m'] as num).toStringAsFixed(2)}%";
-                              }
-                              if (returns.containsKey('6m')) {
-                                flattened['6M Return'] = "${(returns['6m'] as num).toStringAsFixed(2)}%";
-                              }
-                              if (returns.containsKey('1y')) {
-                                flattened['1Y Return'] = "${(returns['1y'] as num).toStringAsFixed(2)}%";
-                              }
-                              if (returns.containsKey('1y_excess_over_Nifty')) {
-                                flattened['1Y vs Nifty'] = "${(returns['1y_excess_over_Nifty'] as num).toStringAsFixed(2)}%";
-                              }
-
-                              return flattened;
-                            }
-                          }
-
-                          return itemMap;
-                        }
-                        return <String, dynamic>{};
-                      }).toList();
-                      print("📊 TABLES: heading='$heading', ${rows.length} rows");
-                    }
-
-                    // ✅ FIXED: Combine multiple tables instead of overwriting
+                    // Set tableReceived flag
                     if (!tableReceived) {
-                      // First table - set the flag and use its heading
                       tableReceived = true;
                       combinedHeading = heading;
-                      print("🏁 FIRST TABLE: Setting tableReceived=true, heading='$combinedHeading'");
+                      print("FIRST TABLE: Setting tableReceived=true, heading='$combinedHeading'");
                     }
 
-                    // Add all rows to the combined list
+                    // Add rows to combined list
                     allTableRows.addAll(rows);
-                    print("📈 ACCUMULATED ROWS: ${allTableRows.length} total rows (added ${rows.length} from this chunk)");
+                    print("ACCUMULATED ROWS: ${allTableRows.length} total rows (added ${rows.length} from this chunk)");
+
+                    // Store the original type to determine widget rendering
                     final originalType = jsonData['type'].toString();
-                    // Create combined table data
                     tableData = {
                       'heading': combinedHeading,
                       'rows': allTableRows,
-                      'type': originalType,
+                      'type': originalType, // This determines which widget to use
                     };
 
-                    print("✅ Combined table data processed: ${allTableRows.length} total rows");
-                    for (int i = 0; i < allTableRows.length && i < 5; i++) {
+                    print("Combined table data processed: ${allTableRows.length} total rows");
+                    for (int i = 0; i < allTableRows.length && i < 3; i++) {
                       print("   Row $i: ${allTableRows[i]}");
                     }
-                    if (allTableRows.length > 5) print("   ... and ${allTableRows.length - 5} more rows");
+                    if (allTableRows.length > 3) print("   ... and ${allTableRows.length - 3} more rows");
 
                     // Send message with combined table placeholder
                     String displayText = textBeforeTable + '___TABLE_PLACEHOLDER___' + textAfterTable;
@@ -1584,14 +1869,14 @@ print("BHAIIII $responseStream");
                       structuredData: tableData,
                     );
                     controller.add(currentMessage);
-                    print("✅ Combined table chunk processed: heading='$combinedHeading', total_rows=${allTableRows.length}");
+                    print("Table chunk processed: heading='$combinedHeading', total_rows=${allTableRows.length}, type='$originalType'");
                   }
                   continue;
                 }
 
-                // ✅ Handle completion
+                // Handle completion
                 if (pType == 'complete') {
-                  print("🏁 COMPLETION CHUNK RECEIVED");
+                  print("COMPLETION CHUNK RECEIVED");
                   String displayText = textBeforeTable;
                   if (tableReceived) {
                     displayText += '___TABLE_PLACEHOLDER___';
@@ -1613,20 +1898,21 @@ print("BHAIIII $responseStream");
                 }
               }
             } catch (e) {
-              print("❌ Error parsing chunk #$chunkCounter: $e");
-              print("❌ Raw line: '$line'");
+              print("Error parsing chunk #$chunkCounter: $e");
+              print("Raw line: '$line'");
             }
           }
         },
         onDone: () {
-          print("\n" + "🎉"*30);
-          print("📊 STREAMING COMPLETE");
-          print("💬 Message: '$message'");
-          print("📦 Total chunks: ${allChunks.length}");
-          print("📝 Text before table: '$textBeforeTable'");
-          print("📝 Text after table: '$textAfterTable'");
-          print("📋 Table received: $tableReceived");
-          print("📊 Total combined rows: ${allTableRows.length}");
+          inactivityTimer?.cancel();
+          print("\n" + "="*30);
+          print("STREAMING COMPLETE");
+          print("Message: '$message'");
+          print("Total chunks: ${allChunks.length}");
+          print("Text before table: '$textBeforeTable'");
+          print("Text after table: '$textAfterTable'");
+          print("Table received: $tableReceived");
+          print("Total combined rows: ${allTableRows.length}");
 
           // Print summary of all chunk types
           Map<String, int> chunkTypes = {};
@@ -1636,10 +1922,10 @@ print("BHAIIII $responseStream");
             final key = payloadType.isEmpty ? type : "$type:$payloadType";
             chunkTypes[key] = (chunkTypes[key] ?? 0) + 1;
           }
-          print("📊 Chunk types summary: $chunkTypes");
-          print("🎉"*30 + "\n");
+          print("Chunk types summary: $chunkTypes");
+          print("="*30 + "\n");
 
-          // ✅ FIXED: Always send final complete message
+          // Always send final complete message
           String finalText = textBeforeTable;
           if (tableReceived) {
             finalText += '___TABLE_PLACEHOLDER___';
@@ -1652,8 +1938,8 @@ print("BHAIIII $responseStream");
             text: finalText,
             isUser: false,
             timestamp: currentMessage.timestamp,
-            isComplete: true,           // ✅ Force completion
-            currentStatus: null,        // ✅ Clear status
+            isComplete: true,
+            currentStatus: null,
             messageType: tableReceived ? 'kv_table' : null,
             structuredData: tableData,
           );
@@ -1662,7 +1948,8 @@ print("BHAIIII $responseStream");
           controller.close();
         },
         onError: (e) {
-          print("❌ Stream error: $e");
+          inactivityTimer?.cancel();
+          print("Stream error: $e");
           controller.addError(e);
           controller.close();
         },
@@ -1670,10 +1957,710 @@ print("BHAIIII $responseStream");
 
       return controller.stream;
     } catch (e) {
-      print("❌ sendMessageWithStreaming error: $e");
+      print("sendMessageWithStreaming error: $e");
       rethrow;
     }
   }
+
+
+
+
+
+
+
+
+  // Future<Stream<ChatMessage>> sendMessageWithStreaming({
+  //   required String sessionId,
+  //   required String message,
+  // }) async {
+  //   await SessionManager.checkTokenValidityAndRefresh();
+  //
+  //   try {
+  //     final url = Uri.parse('https://fastapi-app-130321581049.asia-south1.run.app/chat/respond');
+  //    // final url = Uri.parse('http://localhost:8000/chat/respond');
+  //     //final url = Uri.parse('http://192.168.1.2:8000/chat/respond');
+  //     final request = http.Request('POST', url);
+  //
+  //     request.headers.addAll({
+  //       'Content-Type': 'application/json',
+  //       'Accept': 'text/event-stream',
+  //       if (SessionManager.token != null)
+  //         'Authorization': 'Bearer ${SessionManager.token}',
+  //     });
+  //
+  //     request.body = jsonEncode({
+  //       'session_id': sessionId,
+  //       'input': utf8.decode(message.codeUnits),
+  //     });
+  //
+  //     final streamedResponse = await request.send();
+  //
+  //     if (streamedResponse.statusCode != 200) {
+  //       final errorBody = await streamedResponse.stream.bytesToString();
+  //       throw Exception("Streaming failed: $errorBody");
+  //     }
+  //
+  //     final controller = StreamController<ChatMessage>();
+  //     final messageId = DateTime.now().millisecondsSinceEpoch.toString();
+  //
+  //     var currentMessage = ChatMessage(
+  //       id: messageId,
+  //       text: '',
+  //       isUser: false,
+  //       timestamp: DateTime.now(),
+  //       isComplete: false,
+  //       currentStatus: null,
+  //     );
+  //
+  //     String buffer = '';
+  //     String textBeforeTable = '';
+  //     String textAfterTable = '';
+  //     bool tableReceived = false;
+  //
+  //     List<Map<String, dynamic>> allTableRows = [];
+  //     String combinedHeading = 'Performance Comparison';
+  //     Map<String, dynamic>? tableData;
+  //
+  //     List<Map<String, dynamic>> allChunks = [];
+  //     int chunkCounter = 0;
+  //
+  //     streamedResponse.stream.transform(utf8.decoder).listen(
+  //           (chunk) {
+  //         buffer += chunk;
+  //         final lines = buffer.split('\n');
+  //         buffer = lines.removeLast();
+  //
+  //         for (var raw in lines) {
+  //           var line = raw.trim();
+  //           if (line.isEmpty) continue;
+  //
+  //           if (!line.startsWith('data:')) continue;
+  //
+  //           final jsonText = line.substring(5).trim();
+  //           if (jsonText.isEmpty) continue;
+  //
+  //           try {
+  //             final decoded = jsonDecode(jsonText);
+  //             allChunks.add(Map<String, dynamic>.from(decoded));
+  //             chunkCounter++;
+  //
+  //             print("\n" + "="*80);
+  //             print("📦 CHUNK #$chunkCounter");
+  //             print("🔍 Raw JSON: $jsonText");
+  //             print("📋 Parsed: ${JsonEncoder.withIndent('  ').convert(decoded)}");
+  //             print("🏷️  Type: ${decoded['type']}");
+  //             if (decoded['payload'] != null) {
+  //               print("📄 Payload Type: ${decoded['payload']['type']}");
+  //               if (decoded['payload']['data'] != null) {
+  //                 final data = decoded['payload']['data'];
+  //                 if (data is String) {
+  //                   print("📝 Data (String): '$data'");
+  //                 } else {
+  //                   print("📊 Data (Object): ${JsonEncoder.withIndent('  ').convert(data)}");
+  //                 }
+  //               }
+  //             }
+  //             print("="*80 + "\n");
+  //
+  //             final type = decoded['type'];
+  //
+  //             // Handle status updates
+  //             if (type == 'status_update') {
+  //               final reason = (decoded['payload']?['reason'] ?? '').toString();
+  //               print("🟡 STATUS UPDATE: $reason");
+  //
+  //               String displayText = textBeforeTable;
+  //               if (tableReceived) {
+  //                 displayText += '___TABLE_PLACEHOLDER___';
+  //                 displayText += textAfterTable;
+  //               }
+  //
+  //               currentMessage = ChatMessage(
+  //                 id: messageId,
+  //                 text: displayText,
+  //                 isUser: false,
+  //                 timestamp: currentMessage.timestamp,
+  //                 isComplete: false,
+  //                 currentStatus: reason,
+  //                 messageType: tableReceived ? 'kv_table' : null,
+  //                 structuredData: tableData,
+  //               );
+  //               controller.add(currentMessage);
+  //               continue;
+  //             }
+  //
+  //             // Handle response chunks
+  //             if (type == 'response') {
+  //               final payload = decoded['payload'] as Map<String, dynamic>? ?? const {};
+  //               final pType = (payload['type'] ?? '').toString();
+  //
+  //               // Handle text chunks
+  //               if (pType == 'text') {
+  //                 final data = (payload['data'] ?? '').toString();
+  //                 print("📝 TEXT CHUNK: '$data' (goes to ${tableReceived ? 'AFTER' : 'BEFORE'} table)");
+  //
+  //                 if (tableReceived) {
+  //                   textAfterTable += data;
+  //                 } else {
+  //                   textBeforeTable += data;
+  //                 }
+  //
+  //                 String displayText = textBeforeTable;
+  //                 if (tableReceived) {
+  //                   displayText += '___TABLE_PLACEHOLDER___';
+  //                   displayText += textAfterTable;
+  //                 }
+  //
+  //                 currentMessage = ChatMessage(
+  //                   id: messageId,
+  //                   text: displayText,
+  //                   isUser: false,
+  //                   timestamp: currentMessage.timestamp,
+  //                   isComplete: false,
+  //                   currentStatus: null,
+  //                   messageType: tableReceived ? 'kv_table' : null,
+  //                   structuredData: tableData,
+  //                 );
+  //                 controller.add(currentMessage);
+  //                 continue;
+  //               }
+  //
+  //               // Handle table chunks - UNIFIED LOGIC
+  //               if (pType == 'json') {
+  //                 final jsonData = payload['data'];
+  //                 print("📊 JSON CHUNK RECEIVED:");
+  //                 print("   └─ Data: ${JsonEncoder.withIndent('    ').convert(jsonData)}");
+  //
+  //                 // Check for all supported table types
+  //                 if (jsonData is Map && (jsonData['type'] == 'cards' ||
+  //                     jsonData['type'] == 'card' ||
+  //                     jsonData['type'] == 'tables' ||
+  //                     jsonData['type'] == 'table')) {
+  //
+  //                   print("🎯 TABLE DETECTED! Type: ${jsonData['type']}");
+  //
+  //                   // UNIFIED DATA EXTRACTION - same logic for all types
+  //                   List<Map<String, dynamic>> rows = [];
+  //                   String heading = 'Results';
+  //
+  //                   // Extract data from the list regardless of type
+  //                   final dataList = (jsonData['list'] as List?) ?? const [];
+  //                   heading = (jsonData['heading']?.toString() ?? 'Results');
+  //
+  //                   rows = dataList.map<Map<String, dynamic>>((e) {
+  //                     if (e is Map) return Map<String, dynamic>.from(e);
+  //                     return <String, dynamic>{};
+  //                   }).toList();
+  //
+  //                   print("📊 DATA EXTRACTED: heading='$heading', ${rows.length} items, type='${jsonData['type']}'");
+  //
+  //                   // Set tableReceived flag
+  //                   if (!tableReceived) {
+  //                     tableReceived = true;
+  //                     combinedHeading = heading;
+  //                     print("🏁 FIRST TABLE: Setting tableReceived=true, heading='$combinedHeading'");
+  //                   }
+  //
+  //                   // Add rows to combined list
+  //                   allTableRows.addAll(rows);
+  //                   print("📈 ACCUMULATED ROWS: ${allTableRows.length} total rows (added ${rows.length} from this chunk)");
+  //
+  //                   // Store the original type to determine widget rendering
+  //                   final originalType = jsonData['type'].toString();
+  //                   tableData = {
+  //                     'heading': combinedHeading,
+  //                     'rows': allTableRows,
+  //                     'type': originalType, // This determines which widget to use
+  //                   };
+  //
+  //                   print("✅ Combined table data processed: ${allTableRows.length} total rows");
+  //                   for (int i = 0; i < allTableRows.length && i < 3; i++) {
+  //                     print("   Row $i: ${allTableRows[i]}");
+  //                   }
+  //                   if (allTableRows.length > 3) print("   ... and ${allTableRows.length - 3} more rows");
+  //
+  //                   // Send message with combined table placeholder
+  //                   String displayText = textBeforeTable + '___TABLE_PLACEHOLDER___' + textAfterTable;
+  //
+  //                   currentMessage = ChatMessage(
+  //                     id: messageId,
+  //                     text: displayText,
+  //                     isUser: false,
+  //                     timestamp: currentMessage.timestamp,
+  //                     isComplete: false,
+  //                     currentStatus: null,
+  //                     messageType: 'kv_table',
+  //                     structuredData: tableData,
+  //                   );
+  //                   controller.add(currentMessage);
+  //                   print("✅ Table chunk processed: heading='$combinedHeading', total_rows=${allTableRows.length}, type='$originalType'");
+  //                 }
+  //                 continue;
+  //               }
+  //
+  //               // Handle completion
+  //               if (pType == 'complete') {
+  //                 print("🏁 COMPLETION CHUNK RECEIVED");
+  //                 String displayText = textBeforeTable;
+  //                 if (tableReceived) {
+  //                   displayText += '___TABLE_PLACEHOLDER___';
+  //                   displayText += textAfterTable;
+  //                 }
+  //
+  //                 currentMessage = ChatMessage(
+  //                   id: currentMessage.id,
+  //                   text: displayText,
+  //                   isUser: currentMessage.isUser,
+  //                   timestamp: currentMessage.timestamp,
+  //                   isComplete: true,
+  //                   currentStatus: null,
+  //                   messageType: tableReceived ? 'kv_table' : null,
+  //                   structuredData: tableData,
+  //                 );
+  //                 controller.add(currentMessage);
+  //                 continue;
+  //               }
+  //             }
+  //           } catch (e) {
+  //             print("❌ Error parsing chunk #$chunkCounter: $e");
+  //             print("❌ Raw line: '$line'");
+  //           }
+  //         }
+  //       },
+  //       onDone: () {
+  //         print("\n" + "🎉"*30);
+  //         print("📊 STREAMING COMPLETE");
+  //         print("💬 Message: '$message'");
+  //         print("📦 Total chunks: ${allChunks.length}");
+  //         print("📝 Text before table: '$textBeforeTable'");
+  //         print("📝 Text after table: '$textAfterTable'");
+  //         print("📋 Table received: $tableReceived");
+  //         print("📊 Total combined rows: ${allTableRows.length}");
+  //
+  //         // Print summary of all chunk types
+  //         Map<String, int> chunkTypes = {};
+  //         for (var chunk in allChunks) {
+  //           final type = "${chunk['type']}";
+  //           final payloadType = chunk['payload']?['type'] ?? '';
+  //           final key = payloadType.isEmpty ? type : "$type:$payloadType";
+  //           chunkTypes[key] = (chunkTypes[key] ?? 0) + 1;
+  //         }
+  //         print("📊 Chunk types summary: $chunkTypes");
+  //         print("🎉"*30 + "\n");
+  //
+  //         // Always send final complete message
+  //         String finalText = textBeforeTable;
+  //         if (tableReceived) {
+  //           finalText += '___TABLE_PLACEHOLDER___';
+  //           finalText += textAfterTable;
+  //         }
+  //
+  //         // Create final complete message
+  //         final finalMessage = ChatMessage(
+  //           id: messageId,
+  //           text: finalText,
+  //           isUser: false,
+  //           timestamp: currentMessage.timestamp,
+  //           isComplete: true,
+  //           currentStatus: null,
+  //           messageType: tableReceived ? 'kv_table' : null,
+  //           structuredData: tableData,
+  //         );
+  //
+  //         controller.add(finalMessage);
+  //         controller.close();
+  //       },
+  //       onError: (e) {
+  //         print("❌ Stream error: $e");
+  //         controller.addError(e);
+  //         controller.close();
+  //       },
+  //     );
+  //
+  //     return controller.stream;
+  //   } catch (e) {
+  //     print("❌ sendMessageWithStreaming error: $e");
+  //     rethrow;
+  //   }
+  // }
+
+
+
+
+
+
+
+
+
+
+
+
+  // Future<Stream<ChatMessage>> sendMessageWithStreaming({
+  //   required String sessionId,
+  //   required String message,
+  // }) async {
+  //   await SessionManager.checkTokenValidityAndRefresh();
+  //
+  //   try {
+  //  //final url = Uri.parse('https://fastapi-app-130321581049.asia-south1.run.app/chat/respond');
+  //     final url = Uri.parse('http://localhost:8000/chat/respond');
+  //     final request = http.Request('POST', url);
+  //
+  //     request.headers.addAll({
+  //       'Content-Type': 'application/json',
+  //       'Accept': 'text/event-stream',
+  //       if (SessionManager.token != null)
+  //         'Authorization': 'Bearer ${SessionManager.token}',
+  //     });
+  //
+  //     request.body = jsonEncode({
+  //       'session_id': sessionId,
+  //       'input': utf8.decode(message.codeUnits),
+  //     });
+  //
+  //     final streamedResponse = await request.send();
+  //
+  //     if (streamedResponse.statusCode != 200) {
+  //       final errorBody = await streamedResponse.stream.bytesToString();
+  //       throw Exception("Streaming failed: $errorBody");
+  //     }
+  //
+  //     final controller = StreamController<ChatMessage>();
+  //     final messageId = DateTime.now().millisecondsSinceEpoch.toString();
+  //
+  //     var currentMessage = ChatMessage(
+  //       id: messageId,
+  //       text: '',
+  //       isUser: false,
+  //       timestamp: DateTime.now(),
+  //       isComplete: false,
+  //       currentStatus: null,
+  //     );
+  //
+  //     String buffer = '';
+  //     String textBeforeTable = '';  // ✅ Text before any tables
+  //     String textAfterTable = '';   // ✅ Text after all tables
+  //     bool tableReceived = false;   // ✅ Track when first table arrives
+  //
+  //     // ✅ FIXED: Variables for combining multiple tables
+  //     List<Map<String, dynamic>> allTableRows = []; // Store all rows from all tables
+  //     String combinedHeading = 'Performance Comparison'; // Combined heading
+  //     Map<String, dynamic>? tableData;
+  //
+  //     List<Map<String, dynamic>> allChunks = [];
+  //     int chunkCounter = 0;
+  //
+  //     streamedResponse.stream.transform(utf8.decoder).listen(
+  //           (chunk) {
+  //         buffer += chunk;
+  //         final lines = buffer.split('\n');
+  //         buffer = lines.removeLast();
+  //
+  //         for (var raw in lines) {
+  //           var line = raw.trim();
+  //           if (line.isEmpty) continue;
+  //
+  //           if (!line.startsWith('data:')) continue;
+  //
+  //           final jsonText = line.substring(5).trim();
+  //           if (jsonText.isEmpty) continue;
+  //
+  //           try {
+  //             final decoded = jsonDecode(jsonText);
+  //             allChunks.add(Map<String, dynamic>.from(decoded));
+  //             chunkCounter++;
+  //
+  //             // 🔥 PRINT EACH CHUNK AS IT ARRIVES
+  //             print("\n" + "="*80);
+  //             print("📦 CHUNK #$chunkCounter");
+  //             print("🔍 Raw JSON: $jsonText");
+  //             print("📋 Parsed: ${JsonEncoder.withIndent('  ').convert(decoded)}");
+  //             print("🏷️  Type: ${decoded['type']}");
+  //             if (decoded['payload'] != null) {
+  //               print("📄 Payload Type: ${decoded['payload']['type']}");
+  //               if (decoded['payload']['data'] != null) {
+  //                 final data = decoded['payload']['data'];
+  //                 if (data is String) {
+  //                   print("📝 Data (String): '$data'");
+  //                 } else {
+  //                   print("📊 Data (Object): ${JsonEncoder.withIndent('  ').convert(data)}");
+  //                 }
+  //               }
+  //             }
+  //             print("="*80 + "\n");
+  //
+  //             final type = decoded['type'];
+  //
+  //             // ✅ Handle status updates
+  //             if (type == 'status_update') {
+  //               final reason = (decoded['payload']?['reason'] ?? '').toString();
+  //               print("🟡 STATUS UPDATE: $reason");
+  //
+  //               // Build display text with marker
+  //               String displayText = textBeforeTable;
+  //               if (tableReceived) {
+  //                 displayText += '___TABLE_PLACEHOLDER___';
+  //                 displayText += textAfterTable;
+  //               }
+  //
+  //               currentMessage = ChatMessage(
+  //                 id: messageId,
+  //                 text: displayText,
+  //                 isUser: false,
+  //                 timestamp: currentMessage.timestamp,
+  //                 isComplete: false,
+  //                 currentStatus: reason,
+  //                 messageType: tableReceived ? 'kv_table' : null,
+  //                 structuredData: tableData,
+  //               );
+  //               controller.add(currentMessage);
+  //               continue;
+  //             }
+  //
+  //             // ✅ Handle response chunks
+  //             if (type == 'response') {
+  //               final payload = decoded['payload'] as Map<String, dynamic>? ?? const {};
+  //               final pType = (payload['type'] ?? '').toString();
+  //
+  //               // ✅ Handle text chunks - route to correct bucket
+  //               if (pType == 'text') {
+  //                 final data = (payload['data'] ?? '').toString();
+  //                 print("📝 TEXT CHUNK: '$data' (goes to ${tableReceived ? 'AFTER' : 'BEFORE'} table)");
+  //
+  //                 if (tableReceived) {
+  //                   textAfterTable += data;  // Add to after-table text
+  //                 } else {
+  //                   textBeforeTable += data; // Add to before-table text
+  //                 }
+  //
+  //                 // Build display text with table placeholder
+  //                 String displayText = textBeforeTable;
+  //                 if (tableReceived) {
+  //                   displayText += '___TABLE_PLACEHOLDER___';
+  //                   displayText += textAfterTable;
+  //                 }
+  //
+  //                 currentMessage = ChatMessage(
+  //                   id: messageId,
+  //                   text: displayText,
+  //                   isUser: false,
+  //                   timestamp: currentMessage.timestamp,
+  //                   isComplete: false,
+  //                   currentStatus: null,
+  //                   messageType: tableReceived ? 'kv_table' : null,
+  //                   structuredData: tableData,
+  //                 );
+  //                 controller.add(currentMessage);
+  //                 continue;
+  //               }
+  //
+  //               // ✅ Handle table chunks - FIXED VERSION WITH COMBINED TABLES
+  //               if (pType == 'json') {
+  //                 final jsonData = payload['data'];
+  //                 print("📊 JSON CHUNK RECEIVED:");
+  //                 print("   └─ Data: ${JsonEncoder.withIndent('    ').convert(jsonData)}");
+  //
+  //                 // 🔥 FIX: Check for 'table' (singular) as well as 'tables' and 'cards'
+  //                 if (jsonData is Map && (jsonData['type'] == 'cards' ||
+  //                     jsonData['type'] == 'card' || jsonData['type'] == 'tables' ||
+  //                     jsonData['type'] == 'table')) {
+  //
+  //                   print("🎯 TABLE DETECTED! Type: ${jsonData['type']}");
+  //
+  //                   List<Map<String, dynamic>> rows = [];
+  //                   String heading = 'Results';
+  //
+  //                   if (jsonData['type'] == 'cards' ||jsonData['type'] == 'cards' ) {
+  //                     final cardsList = (jsonData['list'] as List?) ?? const [];
+  //                     heading = (jsonData['heading']?.toString() ?? 'Results');
+  //                     rows = cardsList.map<Map<String, dynamic>>((e) {
+  //                       if (e is Map) return Map<String, dynamic>.from(e);
+  //                       return <String, dynamic>{};
+  //                     }).toList();
+  //                     print("🎴 CARDS: heading='$heading', ${rows.length} cards");
+  //                   } else if (jsonData['type'] == 'tables' || jsonData['type'] == 'table') {
+  //                     heading = (jsonData['heading']?.toString() ?? 'Market Data');
+  //                     final listData = jsonData['list'];
+  //
+  //                     List<dynamic> tableList = [];
+  //                     if (listData is Map && listData.containsKey('')) {
+  //                       final innerList = listData[''];
+  //                       if (innerList is List) {
+  //                         tableList = innerList;
+  //                       }
+  //                     } else if (listData is List) {
+  //                       tableList = listData;
+  //                     }
+  //
+  //                     // 🔥 ENHANCED: Better data extraction for your backend format
+  //                     rows = tableList.map<Map<String, dynamic>>((item) {
+  //                       if (item is Map) {
+  //                         final itemMap = Map<String, dynamic>.from(item);
+  //
+  //                         // Extract nested data if present (like your ratios.returns structure)
+  //                         if (itemMap.containsKey('ratios') && itemMap['ratios'] is Map) {
+  //                           final ratios = itemMap['ratios'] as Map;
+  //                           if (ratios.containsKey('returns') && ratios['returns'] is Map) {
+  //                             final returns = ratios['returns'] as Map;
+  //
+  //                             // Flatten the returns data into the main item
+  //                             final flattened = Map<String, dynamic>.from(itemMap);
+  //                             flattened.remove('ratios'); // Remove nested structure
+  //
+  //                             // Add return metrics with proper formatting
+  //                             if (returns.containsKey('1m')) {
+  //                               flattened['1M Return'] = "${(returns['1m'] as num).toStringAsFixed(2)}%";
+  //                             }
+  //                             if (returns.containsKey('6m')) {
+  //                               flattened['6M Return'] = "${(returns['6m'] as num).toStringAsFixed(2)}%";
+  //                             }
+  //                             if (returns.containsKey('1y')) {
+  //                               flattened['1Y Return'] = "${(returns['1y'] as num).toStringAsFixed(2)}%";
+  //                             }
+  //                             if (returns.containsKey('1y_excess_over_Nifty')) {
+  //                               flattened['1Y vs Nifty'] = "${(returns['1y_excess_over_Nifty'] as num).toStringAsFixed(2)}%";
+  //                             }
+  //
+  //                             return flattened;
+  //                           }
+  //                         }
+  //
+  //                         return itemMap;
+  //                       }
+  //                       return <String, dynamic>{};
+  //                     }).toList();
+  //                     print("📊 TABLES: heading='$heading', ${rows.length} rows");
+  //                   }
+  //
+  //                   // ✅ FIXED: Combine multiple tables instead of overwriting
+  //                   if (!tableReceived) {
+  //                     // First table - set the flag and use its heading
+  //                     tableReceived = true;
+  //                     combinedHeading = heading;
+  //                     print("🏁 FIRST TABLE: Setting tableReceived=true, heading='$combinedHeading'");
+  //                   }
+  //
+  //                   // Add all rows to the combined list
+  //                   allTableRows.addAll(rows);
+  //                   print("📈 ACCUMULATED ROWS: ${allTableRows.length} total rows (added ${rows.length} from this chunk)");
+  //                   final originalType = jsonData['type'].toString();
+  //                   // Create combined table data
+  //                   tableData = {
+  //                     'heading': combinedHeading,
+  //                     'rows': allTableRows,
+  //                     'type': originalType,
+  //                   };
+  //
+  //                   print("✅ Combined table data processed: ${allTableRows.length} total rows");
+  //                   for (int i = 0; i < allTableRows.length && i < 5; i++) {
+  //                     print("   Row $i: ${allTableRows[i]}");
+  //                   }
+  //                   if (allTableRows.length > 5) print("   ... and ${allTableRows.length - 5} more rows");
+  //
+  //                   // Send message with combined table placeholder
+  //                   String displayText = textBeforeTable + '___TABLE_PLACEHOLDER___' + textAfterTable;
+  //
+  //                   currentMessage = ChatMessage(
+  //                     id: messageId,
+  //                     text: displayText,
+  //                     isUser: false,
+  //                     timestamp: currentMessage.timestamp,
+  //                     isComplete: false,
+  //                     currentStatus: null,
+  //                     messageType: 'kv_table',
+  //                     structuredData: tableData,
+  //                   );
+  //                   controller.add(currentMessage);
+  //                   print("✅ Combined table chunk processed: heading='$combinedHeading', total_rows=${allTableRows.length}");
+  //                 }
+  //                 continue;
+  //               }
+  //
+  //               // ✅ Handle completion
+  //               if (pType == 'complete') {
+  //                 print("🏁 COMPLETION CHUNK RECEIVED");
+  //                 String displayText = textBeforeTable;
+  //                 if (tableReceived) {
+  //                   displayText += '___TABLE_PLACEHOLDER___';
+  //                   displayText += textAfterTable;
+  //                 }
+  //
+  //                 currentMessage = ChatMessage(
+  //                   id: currentMessage.id,
+  //                   text: displayText,
+  //                   isUser: currentMessage.isUser,
+  //                   timestamp: currentMessage.timestamp,
+  //                   isComplete: true,
+  //                   currentStatus: null,
+  //                   messageType: tableReceived ? 'kv_table' : null,
+  //                   structuredData: tableData,
+  //                 );
+  //                 controller.add(currentMessage);
+  //                 continue;
+  //               }
+  //             }
+  //           } catch (e) {
+  //             print("❌ Error parsing chunk #$chunkCounter: $e");
+  //             print("❌ Raw line: '$line'");
+  //           }
+  //         }
+  //       },
+  //       onDone: () {
+  //         print("\n" + "🎉"*30);
+  //         print("📊 STREAMING COMPLETE");
+  //         print("💬 Message: '$message'");
+  //         print("📦 Total chunks: ${allChunks.length}");
+  //         print("📝 Text before table: '$textBeforeTable'");
+  //         print("📝 Text after table: '$textAfterTable'");
+  //         print("📋 Table received: $tableReceived");
+  //         print("📊 Total combined rows: ${allTableRows.length}");
+  //
+  //         // Print summary of all chunk types
+  //         Map<String, int> chunkTypes = {};
+  //         for (var chunk in allChunks) {
+  //           final type = "${chunk['type']}";
+  //           final payloadType = chunk['payload']?['type'] ?? '';
+  //           final key = payloadType.isEmpty ? type : "$type:$payloadType";
+  //           chunkTypes[key] = (chunkTypes[key] ?? 0) + 1;
+  //         }
+  //         print("📊 Chunk types summary: $chunkTypes");
+  //         print("🎉"*30 + "\n");
+  //
+  //         // ✅ FIXED: Always send final complete message
+  //         String finalText = textBeforeTable;
+  //         if (tableReceived) {
+  //           finalText += '___TABLE_PLACEHOLDER___';
+  //           finalText += textAfterTable;
+  //         }
+  //
+  //         // Create final complete message
+  //         final finalMessage = ChatMessage(
+  //           id: messageId,
+  //           text: finalText,
+  //           isUser: false,
+  //           timestamp: currentMessage.timestamp,
+  //           isComplete: true,           // ✅ Force completion
+  //           currentStatus: null,        // ✅ Clear status
+  //           messageType: tableReceived ? 'kv_table' : null,
+  //           structuredData: tableData,
+  //         );
+  //
+  //         controller.add(finalMessage);
+  //         controller.close();
+  //       },
+  //       onError: (e) {
+  //         print("❌ Stream error: $e");
+  //         controller.addError(e);
+  //         controller.close();
+  //       },
+  //     );
+  //
+  //     return controller.stream;
+  //   } catch (e) {
+  //     print("❌ sendMessageWithStreaming error: $e");
+  //     rethrow;
+  //   }
+  // }
 
 
 
@@ -2102,3 +3089,142 @@ print("BHAIIII $responseStream");
     _streamSubscription?.cancel();
   }
 }
+
+
+
+
+
+
+
+//   Future<void> sendMessage(String? sessionId, String text) async {
+//     // 🔐 ensure we have a real session id (creates one if needed)
+//     final effectiveSessionId = await _ensureActiveSessionId(sessionId);
+//
+//     final userMessage = sanitizeMessage(text);
+//     final isFirstMessage = !messages.any((m) => m['role'] == 'user');
+//     final userMessageId = UniqueKey().toString();
+//     final botMessageId = UniqueKey().toString();
+//
+//     _isTypingSubject.add(true);
+//
+//     _messagesSubject.add([
+//       ...messages,
+//       {
+//         'id': userMessageId,
+//         'role': 'user',
+//         'content': userMessage,  // ✅ Changed 'msg' to 'content'
+//         'isComplete': true,
+//         // ✅ NEW messages are NOT historical
+//       },
+//       {
+//         'id': botMessageId,
+//         'role': 'bot',
+//         'content': '',  // ✅ Changed 'msg' to 'content'
+//         'isComplete': false,
+//         // ✅ NEW messages are NOT historical - will have typing animation
+//       }
+//     ]);
+//
+//     try {
+//       if (isFirstMessage) {
+//         // now we always have a valid id
+//         await updateSessionTitle(effectiveSessionId, userMessage);
+//       }
+//
+//       final responseStream = await sendMessageWithStreaming(
+//         sessionId: effectiveSessionId,
+//         message: userMessage,
+//       );
+// print("BHAIIII $responseStream");
+//       _currentStreamingId = '';
+//
+//       _streamSubscription = responseStream.listen((chatMessage) {
+//         if (_currentStreamingId.isEmpty) {
+//           _currentStreamingId = chatMessage.id;
+//         }
+//
+//         final updated = [..._messagesSubject.value];
+//         final lastIndex = updated.length - 1;
+//
+//         if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
+//           final prev = Map<String, Object>.from(updated[lastIndex]);
+//
+//           Map<String, Object> messageData = <String, Object>{
+//             ...prev,
+//             'id': botMessageId,
+//             'role': 'bot',
+//             'content': chatMessage.text,  // ✅ Changed 'msg' to 'content'
+//             'isComplete': (prev['isComplete'] as bool?) ?? false,
+//             'backendComplete': chatMessage.isComplete,
+//             'currentStatus': chatMessage.currentStatus ?? '',
+//             // ✅ Still NO isHistorical flag - keeps typing animation
+//           };
+//
+//           if (chatMessage.isTable && chatMessage.structuredData != null) {
+//             final sd = chatMessage.structuredData!;
+//             final heading = sd['heading']?.toString() ?? 'Results';
+//             final rows = (sd['rows'] as List?)
+//                 ?.whereType<Map>()
+//                 .map((e) => Map<String, dynamic>.from(e))
+//                 .toList() ??
+//                 <Map<String, dynamic>>[];
+//
+//             messageData['type'] = 'kv_table';
+//             messageData['tableData'] = <String, Object>{
+//               'heading': heading,
+//               'rows': rows,
+//               'columnOrder': (prev['tableData'] is Map &&
+//                   (prev['tableData'] as Map)['columnOrder'] is List)
+//                   ? List<String>.from((prev['tableData'] as Map)['columnOrder'])
+//                   : <String>[],
+//             };
+//           } else if (prev.containsKey('tableData') && prev['tableData'] != null) {
+//             messageData['tableData'] = prev['tableData']!;
+//           }
+//
+//           if (prev.containsKey('type') &&
+//               !messageData.containsKey('type') &&
+//               prev['type'] != null) {
+//             messageData['type'] = prev['type']!;
+//           }
+//
+//           updated[lastIndex] = messageData;
+//           _messagesSubject.add(updated);
+//         }
+//       }, onError: (e) {
+//         debugPrint("❌ CHAT SERVICE ERROR: $e");
+//         _isTypingSubject.add(false);
+//
+//         final updated = [..._messagesSubject.value];
+//         final lastIndex = updated.length - 1;
+//         if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
+//           updated[lastIndex] = {
+//             'id': botMessageId,
+//             'role': 'bot',
+//             'content': '❌ Failed to respond.',  // ✅ Changed 'msg' to 'content'
+//             'isComplete': true,
+//             'retry': true,
+//             'originalMessage': userMessage,
+//           };
+//           _messagesSubject.add(updated);
+//         }
+//       });
+//     } catch (e) {
+//       debugPrint("❌ SEND MESSAGE ERROR: $e");
+//       _isTypingSubject.add(false);
+//
+//       final updated = [..._messagesSubject.value];
+//       final lastIndex = updated.length - 1;
+//       if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
+//         updated[lastIndex] = {
+//           'id': botMessageId,
+//           'role': 'bot',
+//           'content': '❌ Failed to send.',  // ✅ Changed 'msg' to 'content'
+//           'isComplete': true,
+//           'retry': true,
+//           'originalMessage': userMessage,
+//         };
+//         _messagesSubject.add(updated);
+//       }
+//     }
+//   }
