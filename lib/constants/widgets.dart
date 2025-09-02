@@ -501,7 +501,7 @@ class PremiumShimmerWidget extends StatefulWidget {
     required this.text,
     this.isComplete = false,
     this.baseColor = const Color(0xFF9CA3AF),
-    this.highlightColor = const Color(0xFF6B7280),
+    this.highlightColor =  Colors.black,
   }) : super(key: key);
 
   @override
@@ -519,16 +519,17 @@ class _PremiumShimmerWidgetState extends State<PremiumShimmerWidget>
 
     // Shimmer animation - continuous wave effect
     _shimmerController = AnimationController(
-      duration: const Duration(milliseconds: 1500), // Faster shimmer cycle
+      duration: const Duration(milliseconds: 3000), // Faster shimmer cycle
       vsync: this,
     );
     _shimmerAnimation = Tween<double>(begin: -1.0, end: 2.0).animate(
       CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
     );
-
     // Start continuous shimmer for status
     if (!widget.isComplete) {
-      _shimmerController.repeat();
+      _shimmerController.repeat(
+
+      );
     }
   }
 
@@ -540,7 +541,9 @@ class _PremiumShimmerWidgetState extends State<PremiumShimmerWidget>
       if (widget.isComplete) {
         _shimmerController.stop();
       } else {
-        _shimmerController.repeat();
+        _shimmerController.repeat(
+          period: Duration(milliseconds: 200)
+        );
       }
     }
   }
@@ -576,10 +579,10 @@ class _PremiumShimmerWidgetState extends State<PremiumShimmerWidget>
           child: Text(
             widget.text,
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 16,
               color: Colors.white, // White color for shader mask
               fontFamily: 'SF Pro',
-              fontWeight: FontWeight.w500,
+              //fontWeight: FontWeight.w500,
             ),
           ),
         );

@@ -174,21 +174,21 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
         onTap?.call();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         margin: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
           border: Border.all(
-            color: selected ? theme.box : theme.box,
+            color: selected ? AppColors.black : AppColors.black.withOpacity(0.25),
           ),
-          color: selected ? AppColors.primary : theme.box,
+          color: selected ? AppColors.primary.withOpacity(0.2) : theme.box,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           label,
           style: TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: 14,
-            color: selected ? Colors.white : theme.text,
+            fontWeight: FontWeight.w600,
+            fontSize: 12  ,
+            color: selected ? Colors.black : theme.text,
             fontFamily: 'SF Pro',
           ),
         ),
@@ -246,12 +246,11 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
                   contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
                 ),
               ),
-              backgroundColor: theme.box,
+              backgroundColor: theme.background,
               surfaceTintColor: theme.background,
               shadowColor: Colors.transparent,
-              elevation: 0,
               systemOverlayStyle:  SystemUiOverlayStyle(
-                statusBarColor: theme.box,
+                statusBarColor: theme.background,
                 statusBarIconBrightness: Brightness.dark,
               ),
             ),
@@ -264,11 +263,12 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Divider(thickness: 0,color: Colors.grey.withOpacity(0.5),),
                       const SizedBox(height: 16),
           
                       // Filter chips
                       SizedBox(
-                        height: 40,
+                        height: 30,
                         child: ListView(
                           scrollDirection: Axis.horizontal,
                           children: [

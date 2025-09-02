@@ -40,7 +40,7 @@ class InputActionsBarWidget extends StatelessWidget {
   }) {
     final bool isFilled = bgColor != Colors.transparent;
 
-    return GestureDetector(
+    return InkWell(
       onTapDown: (_) => HapticFeedback.lightImpact(),
       onTap: disabled ? null : onTap,
       child: Container(
@@ -101,7 +101,7 @@ class InputActionsBarWidget extends StatelessWidget {
           const Spacer(),
 
           // Mic button
-          GestureDetector(
+          InkWell(
             onTap: onStartRecording,
             child: Image.asset(
               "assets/images/bold_mic.png",

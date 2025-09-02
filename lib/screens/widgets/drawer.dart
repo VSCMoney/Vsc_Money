@@ -112,7 +112,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   child: Container(
                     height: 42,
                     decoration: BoxDecoration(
-                      color: theme.searchBox,
+                      //color: theme.searchBox,
+                      color: Color(0xff734012).withOpacity(0.075),
                       borderRadius: BorderRadius.circular(15), // was 14 → more rectangular
                       border: Border.all(
                         color: theme.box, // subtle edge
