@@ -1634,7 +1634,9 @@ class ChatService{
     }
 
     try {
-      final String _baseUrl = 'https://fastapi-app-130321581049.asia-south1.run.app';
+     final String _baseUrl = 'https://fastapi-app-130321581049.asia-south1.run.app';
+      //final String _baseUrl = "http://localhost:8000";
+      //final String _baseUrl = 'http://192.168.1.5:8000';
       final url = Uri.parse('$_baseUrl/chat/respond');
 
       final req = http.Request('POST', url);
@@ -1659,7 +1661,7 @@ class ChatService{
       }
 
       final streamedResponse = await req.send().timeout(
-        const Duration(seconds: 30),
+        const Duration(seconds: 10),
         onTimeout: () => throw TimeoutException('Connection timeout after 30 seconds'),
       );
 
@@ -1853,10 +1855,10 @@ class ChatService{
                   print('response:json payload:\n$pretty');
                 }
 
-                if (jsonData is Map && (jsonData['type'] == 'cards' ||
-                    jsonData['type'] == 'card'  ||
-                    jsonData['type'] == 'tables'||
-                    jsonData['type'] == 'table')) {
+                if (jsonData is Map && (jsonData['type'] == 'cards_of_market' ||
+                    jsonData['type'] == 'cards_of_asset'  ||
+                    jsonData['type'] == 'table_of_asset'||
+                    jsonData['type'] == 'table_of_market')) {
 
                   final heading = (jsonData['heading']?.toString() ?? 'Results');
                   final dataList = (jsonData['list'] as List?) ?? const [];

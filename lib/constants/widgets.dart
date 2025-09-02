@@ -963,6 +963,9 @@ class _ComparisonTableWidgetState extends State<ComparisonTableWidget>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const SizedBox(height: 16),
+          Divider(height: 1,thickness: 0,color: Colors.grey.shade400,),
+          const SizedBox(height: 12),
           if ((widget.heading ?? '').isNotEmpty) ...[
             Row(
               children: [
@@ -1087,6 +1090,7 @@ class _ComparisonTableWidgetState extends State<ComparisonTableWidget>
                                     ),
                                 ],
                               ),
+                            const SizedBox(height: 12),
                           ],
                         ),
                       ),
@@ -1704,7 +1708,7 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
         const SizedBox(height: 3),
         Text(
           value,
-          maxLines: 1,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 14,
@@ -1757,11 +1761,12 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
             margin: EdgeInsets.only(
               bottom: i < widget.rows.length - 1 ? widget.cardSpacing : 0,
             ),
+
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: theme.box,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xffFAF9F7), width: 1),
+              border: Border.all(color: theme.background, width: 1),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.06),
@@ -1799,13 +1804,12 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
 
                     // 🔸 Single-row stats (max 3)
                     if (entries.isNotEmpty) ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 6),
                       _statsOneRow(entries),
                     ],
 
-                    // Overview line
                     if (overview.isNotEmpty) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       Padding(
                         padding: const EdgeInsets.only(left: 0),
                         child: Text(
@@ -1813,17 +1817,16 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
                           style: TextStyle(
                             fontFamily: 'SF Pro',
                             fontSize: 13,
-                            height: 1.45,
+                            height: 1.4,
                             color: theme.text.withOpacity(0.8),
                             fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
                     ],
-                  ],
-                ),
+    ]),
 
-                // Company logo/avatar
+                    // Company logo/avatar
                 Positioned(
                   top: 12,
                   left: 0,
@@ -1872,6 +1875,9 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
                 text,
                 maxLines: 2,
                 overflow: TextOverflow.visible,
+                textAlign: TextAlign.justify,
+                softWrap: true,
+                textWidthBasis: TextWidthBasis.parent,
                 style:  TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -1893,22 +1899,27 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if ((widget.heading ?? '').isNotEmpty) Column(
-          children: [
-            Divider(
-              thickness: 0.0,
-              color: Colors.grey,
-            ),
-            SizedBox(height: 5,),
-            _header(widget.heading!),
-            SizedBox(height: 20,)
-          ],
-        ),
+        if ((widget.heading ?? '').isNotEmpty)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
+              Divider( thickness: 0, color: Colors.grey.shade300),
+              const SizedBox(height: 8),
+              _header(widget.heading!),
+              const SizedBox(height: 12),
+            ],
+          ),
         ...widget.rows.asMap().entries.map((e) {
           final i = e.key;
           final anim =
           i < _fadeAnimations.length ? _fadeAnimations[i] : _headerAnimation;
-          return _card(e.value, anim, i);
+          return Column(
+            children: [
+              _card(e.value, anim, i),
+              const SizedBox(height: 8),
+            ],
+          );
         }),
       ],
     );

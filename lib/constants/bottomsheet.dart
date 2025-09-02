@@ -482,6 +482,7 @@ class BottomSheetManager {
     return AssetPage(
      assetId: assetId,
       onClose: onTap,
+
     );
   }
 

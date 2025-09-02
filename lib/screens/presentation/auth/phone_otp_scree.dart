@@ -11,6 +11,7 @@ import 'package:lottie/lottie.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:vscmoney/core/helpers/themes.dart';
 
+import '../../../constants/app_bar.dart';
 import '../../../constants/colors.dart';
 import '../../../constants/vitty_loader.dart';
 import '../../../services/auth_service.dart';
@@ -24,6 +25,9 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+
+
 
 
 class SignInPage extends StatefulWidget {
@@ -116,10 +120,14 @@ class _SignInPageState extends State<SignInPage> {
               SizedBox(height: screenHeight * 0.3),
               Hero(
                 tag: 'penny_logo',
-                child: Image.asset(
-                  'assets/images/ying yang full.png',
-                  width: screenWidth * 0.80,
-                  height: screenHeight * 0.2,
+                child: SizedBox(
+                  width: VittyLogoConfig.logoWidth,
+                  height: VittyLogoConfig.logoHeight,
+                  child: Image.asset(
+                    'assets/images/ying yang full.png',
+                    width: screenWidth * 0.80,
+                    height: screenHeight * 0.2,
+                  ),
                 ),
               ),
               SizedBox(height: screenHeight * 0.2),

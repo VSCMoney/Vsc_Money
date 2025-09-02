@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -599,22 +600,54 @@ class AuthService {
     );
   }
 
-  Future<void> handleSessionCheck(Function(AuthFlow) onFlow) async {
-    final firebaseUser = _firebaseAuth.currentUser;
 
-    if (firebaseUser != null) {
-      final idToken = await firebaseUser.getIdToken();
-      if (idToken == null) {
+  Future<void> handleSessionCheck(Function(AuthFlow) onFlow) async {
+    try {
+      final firebaseUser = _firebaseAuth.currentUser;
+
+      if (firebaseUser != null) {
+        // Set timeout for token retrieval
+        final idToken = await firebaseUser.getIdToken()
+            .timeout(Duration(seconds: 10));
+
+        if (idToken == null) {
+          onFlow(AuthFlow.login);
+          return;
+        }
+
+        await handleOtpTokenVerification(idToken, onFlow);
+      } else {
         onFlow(AuthFlow.login);
-        return;
       }
-      await handleOtpTokenVerification(idToken, onFlow);
-    } else {
+    } on TimeoutException {
+      print('⏰ Token retrieval timed out');
+      onFlow(AuthFlow.login);
+    } on SocketException {
+      print('📡 Network error during session check');
+      onFlow(AuthFlow.login);
+    } catch (e) {
+      print('❌ Session check error: $e');
       onFlow(AuthFlow.login);
     }
   }
 
-  // Continue with your existing methods...
+
+  // Future<void> handleSessionCheck(Function(AuthFlow) onFlow) async {
+  //   final firebaseUser = _firebaseAuth.currentUser;
+  //
+  //   if (firebaseUser != null) {
+  //     final idToken = await firebaseUser.getIdToken();
+  //     if (idToken == null) {
+  //       onFlow(AuthFlow.login);
+  //       return;
+  //     }
+  //     await handleOtpTokenVerification(idToken, onFlow);
+  //   } else {
+  //     onFlow(AuthFlow.login);
+  //   }
+  // }
+
+
 
   Future<void> completeUserProfile(String first, String last) async {
     _setLoading();
@@ -641,20 +674,7 @@ class AuthService {
     }
   }
 
-  // Future<void> completeUserProfile(String first, String last) async {
-  //   _setLoading();
-  //   try {
-  //     await _api.post(endpoint: "/api/v1/auth/update_profile", body: {
-  //       "first_name": first,
-  //       "last_name": last,
-  //     });
-  //     await fetchUserProfile();
-  //   } catch (e) {
-  //     _setError(e.toString());
-  //   } finally {
-  //     _setState(currentState.copyWith(status: AuthStatus.idle));
-  //   }
-  // }
+
 
   Future<void> completeUserProfileAndNavigate(Function(AuthFlow) onFlow) async {
     final user = currentState.user;
@@ -667,10 +687,98 @@ class AuthService {
     }
   }
 
-  // Future<void> fetchUserProfile() async {
+
+  Future<bool> fetchUserProfile({bool silent = false}) async {
+    if (!silent) _setLoading();
+
+    try {
+      // Skip if offline
+      final endpointService = locator<EndPointService>();
+      if (endpointService.currentNetworkStatus == NetworkStatus.noInternet) {
+        debugPrint('📡 No internet connection, skipping profile fetch');
+        if (!silent) _setState(currentState.copyWith(status: AuthStatus.idle));
+        return false;
+      }
+
+      // Real call (no isDebug branch)
+      final res = await _api.get(
+        endpoint: "/auth/get_profile",
+        extraHeaders: {"X-Refresh-Token": SessionManager.refreshToken ?? ''},
+        requireAuth: true,
+      );
+
+      // Ensure we have a Map to work with
+      final Map<String, dynamic> resMap =
+      res is Map<String, dynamic> ? Map<String, dynamic>.from(res) : <String, dynamic>{};
+
+      // Server may indicate profile completion needed
+      if ((resMap['needs_profile'] ?? false) == true) {
+        return true; // needs profile
+      }
+
+      // Normalize snake_case → camelCase
+      if (resMap.containsKey('first_name') && !resMap.containsKey('firstName')) {
+        resMap['firstName'] = resMap['first_name'];
+      }
+      if (resMap.containsKey('last_name') && !resMap.containsKey('lastName')) {
+        resMap['lastName'] = resMap['last_name'];
+      }
+      if (resMap.containsKey('_id') && !resMap.containsKey('uid')) {
+        resMap['uid'] = resMap['_id'];
+      }
+
+      _setUser(UserModel.fromJson(resMap));
+      return false; // profile present & set
+    } on SocketException {
+      debugPrint('📡 Network error while fetching profile');
+      if (!silent) _setState(currentState.copyWith(status: AuthStatus.idle));
+      return false;
+    } catch (e) {
+      final msg = e.toString();
+      if (msg.contains("404") || msg.contains("User not found")) {
+        logout();
+      } else if (!silent) {
+        _setError(msg);
+      }
+      // Preserve previous semantics (true => needs profile / go to flow)
+      return true;
+    }
+  }
+
+
+  // Future<bool> fetchUserProfile({bool silent = false}) async {
+  //   if (!silent) _setLoading();
   //   try {
-  //     final res = await _api.get(endpoint: "/api/v1/auth/get_profile");
-  //     _setUser(UserModel.fromJson(res));
+  //     var res;
+  //     if(_api.isDebug){
+  //        res = {
+  //        };
+  //     }else{
+  //        res = await _api.get(
+  //         endpoint: "/auth/get_profile",
+  //         extraHeaders: {"X-Refresh-Token": SessionManager.refreshToken ?? ''},
+  //       );
+  //     }
+  //
+  //     if (res is Map && res["needs_profile"] == true) {
+  //       // don’t clear user here; let UI keep fallbacks (email/displayName)
+  //       return true;
+  //     }
+  //
+  //     // 🔧 Normalize snake_case → camelCase so UserModel.fromJson can read it
+  //     final normalized = Map<String, dynamic>.from(res as Map);
+  //     if (normalized.containsKey('first_name') && !normalized.containsKey('firstName')) {
+  //       normalized['firstName'] = normalized['first_name'];
+  //     }
+  //     if (normalized.containsKey('last_name') && !normalized.containsKey('lastName')) {
+  //       normalized['lastName'] = normalized['last_name'];
+  //     }
+  //     if (normalized.containsKey('_id') && !normalized.containsKey('uid')) {
+  //       normalized['uid'] = normalized['_id'];
+  //     }
+  //
+  //     _setUser(UserModel.fromJson(normalized));
+  //     return false;
   //   } catch (e) {
   //     final msg = e.toString();
   //     if (msg.contains("404") || msg.contains("User not found")) {
@@ -678,53 +786,9 @@ class AuthService {
   //     } else {
   //       _setError(msg);
   //     }
+  //     return true;
   //   }
   // }
-
-
-  Future<bool> fetchUserProfile({bool silent = false}) async {
-    if (!silent) _setLoading();
-    try {
-      var res;
-      if(_api.isDebug){
-         res = {
-         };
-      }else{
-         res = await _api.get(
-          endpoint: "/auth/get_profile",
-          extraHeaders: {"X-Refresh-Token": SessionManager.refreshToken ?? ''},
-        );
-      }
-
-      if (res is Map && res["needs_profile"] == true) {
-        // don’t clear user here; let UI keep fallbacks (email/displayName)
-        return true;
-      }
-
-      // 🔧 Normalize snake_case → camelCase so UserModel.fromJson can read it
-      final normalized = Map<String, dynamic>.from(res as Map);
-      if (normalized.containsKey('first_name') && !normalized.containsKey('firstName')) {
-        normalized['firstName'] = normalized['first_name'];
-      }
-      if (normalized.containsKey('last_name') && !normalized.containsKey('lastName')) {
-        normalized['lastName'] = normalized['last_name'];
-      }
-      if (normalized.containsKey('_id') && !normalized.containsKey('uid')) {
-        normalized['uid'] = normalized['_id'];
-      }
-
-      _setUser(UserModel.fromJson(normalized));
-      return false;
-    } catch (e) {
-      final msg = e.toString();
-      if (msg.contains("404") || msg.contains("User not found")) {
-        logout();
-      } else {
-        _setError(msg);
-      }
-      return true;
-    }
-  }
 
 
   String? extractUidFromToken(String token) {
@@ -759,20 +823,36 @@ class AuthService {
   }
 
   Future<void> autoLogin(Function(AuthFlow) onResult) async {
-    await SessionManager.loadTokens();
-    final token = SessionManager.token;
-    if (token == null || isTokenExpired(token)) {
-      final refreshed = await SessionManager.tryRefreshToken();
-      if (refreshed) {
-        await fetchUserProfile();
-        completeUserProfileAndNavigate(onResult);
+    try {
+      await SessionManager.loadTokens();
+      final token = SessionManager.token;
+
+      if (token == null || SessionManager.isTokenExpired(token)) {
+        final refreshed = await SessionManager.tryRefreshToken();
+        if (refreshed) {
+          // Don't block on profile fetch if network is poor
+          final needsProfile = await fetchUserProfile(silent: true);
+          if (needsProfile) {
+            onResult(AuthFlow.nameEntry);
+          } else {
+            completeUserProfileAndNavigate(onResult);
+          }
+        } else {
+          logout();
+          onResult(AuthFlow.login);
+        }
       } else {
-        logout();
-        onResult(AuthFlow.login);
+        // Token is valid, try to fetch profile but don't block
+        final needsProfile = await fetchUserProfile(silent: true);
+        if (needsProfile) {
+          onResult(AuthFlow.nameEntry);
+        } else {
+          completeUserProfileAndNavigate(onResult);
+        }
       }
-    } else {
-      await fetchUserProfile();
-      completeUserProfileAndNavigate(onResult);
+    } catch (e) {
+      print('❌ Auto-login error: $e');
+      onResult(AuthFlow.login);
     }
   }
 
@@ -782,29 +862,19 @@ class AuthService {
   //   if (token == null || isTokenExpired(token)) {
   //     final refreshed = await SessionManager.tryRefreshToken();
   //     if (refreshed) {
-  //          await fetchUserProfile();
-  //          completeUserProfileAndNavigate(onResult);
-  //       final needsProfile = await fetchUserProfile();
-  //      if (needsProfile) {
-  //        onResult(AuthFlow.nameEntry);
-  //        } else {
-  //          completeUserProfileAndNavigate(onResult);
-  //        }
+  //       await fetchUserProfile();
+  //       completeUserProfileAndNavigate(onResult);
+  //     } else {
+  //       logout();
+  //       onResult(AuthFlow.login);
+  //     }
   //   } else {
-  //   logout();
-  //   onResult(AuthFlow.login);
-  //   }
-  //   } else {
-  //      await fetchUserProfile();
-  //      completeUserProfileAndNavigate(onResult);
-  //      final needsProfile = await fetchUserProfile();
-  //      if (needsProfile) {
-  //        onResult(AuthFlow.nameEntry);
-  //      } else {
-  //        completeUserProfileAndNavigate(onResult);
-  //      }
+  //     await fetchUserProfile();
+  //     completeUserProfileAndNavigate(onResult);
   //   }
   // }
+
+
 
 
   bool isTokenExpired(String token) {

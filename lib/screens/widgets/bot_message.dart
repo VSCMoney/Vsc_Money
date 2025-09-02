@@ -58,9 +58,20 @@ class BotMessageWidget extends StatefulWidget {
 
 class _BotMessageWidgetState extends State<BotMessageWidget>
     with AutomaticKeepAliveClientMixin {
+  // --------------------------------- spacing + typing ---------------------------------
   static const _kPlaceholder = '___TABLE_PLACEHOLDER___';
   static const int _cps = 130;
   static const int _postHoldMs = 900;
+
+  // compact, controlled gaps between segments
+  static const double _kGapTextToBlock = 6.0;
+  static const double _kGapBlockToText = 8.0;
+
+  // trim extra ascent/descent so lines don't add hidden top/bottom space
+  static const TextHeightBehavior _thb = TextHeightBehavior(
+    applyHeightToFirstAscent: false,
+    applyHeightToLastDescent: false,
+  );
 
   Timer? _timer;
   bool _isTyping = false;
@@ -183,23 +194,11 @@ class _BotMessageWidgetState extends State<BotMessageWidget>
 
   void _recomputeSegments(String full) {
     final parts = full.split(_kPlaceholder);
-    final newPre = parts.isNotEmpty ? parts.first : '';
-    final newPost = parts.length > 1 ? parts.sublist(1).join(_kPlaceholder) : '';
+    _preFull = parts.isNotEmpty ? parts.first : '';
+    _postFull = parts.length > 1 ? parts.sublist(1).join(_kPlaceholder) : '';
 
-    if (_preFull == newPre && _postFull == newPost) return;
-
-    final oldPreLen = _preFull.length;
-    _preFull = newPre;
-    _postFull = newPost;
-
-    if (_preFull.length >= oldPreLen &&
-        oldPreLen > 0 &&
-        _preFull.startsWith(_preFull.substring(0, oldPreLen.clamp(0, _preFull.length)))) {
-      _preShown = _preShown.clamp(0, _preFull.length);
-    } else {
-      _preShown = _preShown.clamp(0, _preFull.length);
-      _postShown = _postShown.clamp(0, _postFull.length);
-    }
+    _preShown = _preShown.clamp(0, _preFull.length);
+    _postShown = _postShown.clamp(0, _postFull.length);
   }
 
   void _updateTableData() {
@@ -217,7 +216,6 @@ class _BotMessageWidgetState extends State<BotMessageWidget>
     }
   }
 
-  // Ignore isLatest flips; they shouldn't trigger rebuild
   bool _shouldRebuild(BotMessageWidget oldWidget) {
     if (widget.message == oldWidget.message &&
         widget.isComplete == oldWidget.isComplete &&
@@ -239,7 +237,6 @@ class _BotMessageWidgetState extends State<BotMessageWidget>
       return;
     }
 
-    // Demotion guard: when last bubble stops being latest, freeze current view.
     if (old.isLatest && !widget.isLatest) {
       debugPrint("🧍 BotMessage: Demoted from latest → non-latest, freezing state");
       _timer?.cancel();
@@ -290,14 +287,12 @@ class _BotMessageWidgetState extends State<BotMessageWidget>
       setState(() {});
     }
 
-    // Force stop
     final stopTsChanged = widget.stopTs != old.stopTs && widget.stopTs != null;
     if ((widget.forceStop == true && old.forceStop != true) || stopTsChanged) {
       _handleForceStop();
       return;
     }
 
-    // Completion flips: finish whatever is left right now.
     if (widget.isComplete && !old.isComplete && !_hasCompletedTyping) {
       _finishStreaming();
     }
@@ -418,11 +413,31 @@ class _BotMessageWidgetState extends State<BotMessageWidget>
   void dispose() {
     debugPrint("🧹 BotMessage: Disposing timer");
     _timer?.cancel();
-    // Clean up completed states to prevent memory leaks
     if (_hasCompletedTyping || _wasForceStopped) {
       _streamingStates.remove(_stateKey);
     }
     super.dispose();
+  }
+
+  // --------------------------------- UI helpers ---------------------------------
+
+  TextStyle _bodyStyle(BuildContext context) {
+    final textColor = Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black;
+    return TextStyle(
+      fontFamily: 'SF Pro',
+      fontSize: 16,
+     //fontWeight: FontWeight.w600,
+      height: 1.5,
+      color: textColor,
+    );
+  }
+
+  String _trimRightSoft(String s) {
+    return s.replaceAll(RegExp(r'[\n\s]+$'), '');
+  }
+
+  String _trimLeftSoft(String s) {
+    return s.replaceAll(RegExp(r'^\s+'), '');
   }
 
   Widget _buildStatusIndicator() {
@@ -458,7 +473,7 @@ class _BotMessageWidgetState extends State<BotMessageWidget>
           opacity: (value * 2) % 1.0 > 0.5 ? 1.0 : 0.3,
           child: Container(
             width: 2,
-            height: 20,
+            height: 18,
             decoration: BoxDecoration(
               color: Colors.grey.shade600,
               borderRadius: BorderRadius.circular(1),
@@ -479,7 +494,7 @@ class _BotMessageWidgetState extends State<BotMessageWidget>
       }
       spans.add(TextSpan(
         text: m.group(1),
-        style: base.copyWith(fontWeight: FontWeight.w700, height: 1.5, fontFamily: "SF Pro"),
+        style: base.copyWith(fontWeight: FontWeight.w400, height: 2, fontFamily: "SF Pro"),
       ));
       last = m.end;
     }
@@ -533,18 +548,25 @@ class _BotMessageWidgetState extends State<BotMessageWidget>
 
     final dataType = (widget.tableData!['type']?.toString().toLowerCase() ?? '').trim();
 
-    if (dataType == 'tables' || dataType == 'table') {
+    // ✅ Only allow tap when type is for assets; block for market lists
+    final allowTap = dataType == 'table_of_asset' || dataType == 'cards_of_asset';
+
+    if (dataType.startsWith('table')) {
       return ComparisonTableWidget(
         heading: _availableTableHeading,
         rows: _availableTableRows,
-        onRowTap: widget.onStockTap,
+        onRowTap: allowTap ? widget.onStockTap : null, // <- disable taps for market
       );
     }
+
+    // Cards (key-value)
     return KeyValueTableWidget(
       heading: _availableTableHeading,
       rows: _availableTableRows,
       columnOrder: widget.tableData?['columnOrder']?.cast<String>(),
-      onCardTap: widget.onStockTap,
+      onCardTap: allowTap ? widget.onStockTap : null, // <- disable taps for market
+      cardSpacing: 6,
+      headerBottomSpacing: 6,
     );
   }
 
@@ -560,19 +582,18 @@ class _BotMessageWidgetState extends State<BotMessageWidget>
     );
   }
 
+  // --------------------------------- build ---------------------------------
   @override
   Widget build(BuildContext context) {
-    super.build(context); // important for keep-alive
-    final textColor = Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black;
-    final style = TextStyle(
-      fontFamily: 'SF Pro',
-      fontSize: 16,
-      fontWeight: FontWeight.w500,
-      height: 1.75,
-      color: textColor,
-    );
+    super.build(context); // for keep-alive
+    final style = _bodyStyle(context);
 
-    final hasPostText = _postDisplay.isNotEmpty;
+    // Trim only the edges around the placeholder to kill invisible gaps.
+    final preForView = _trimRightSoft(_preDisplay);
+    final postForView = _trimLeftSoft(_postDisplay);
+
+    final hasPreText = preForView.isNotEmpty;
+    final hasPostText = postForView.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 4, top: 20),
@@ -581,13 +602,14 @@ class _BotMessageWidgetState extends State<BotMessageWidget>
         children: [
           _buildStatusIndicator(),
 
-          if (_preDisplay.isNotEmpty)
+          if (hasPreText)
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Expanded(
                   child: SelectableText.rich(
-                    TextSpan(style: style, children: _buildFormattedSpans(_preDisplay, style)),
+                    TextSpan(style: style, children: _buildFormattedSpans(preForView, style)),
+                    textHeightBehavior: _thb,
                     contextMenuBuilder: _buildContextMenu,
                   ),
                 ),
@@ -597,15 +619,20 @@ class _BotMessageWidgetState extends State<BotMessageWidget>
               ],
             ),
 
-          if (_shouldShowTable && _availableTableRows.isNotEmpty) _buildTableWidget(),
+          if (_shouldShowTable && _availableTableRows.isNotEmpty) ...[
+            if (hasPreText) const SizedBox(height: _kGapTextToBlock),
+            _buildTableWidget(),
+          ],
 
-          if (hasPostText)
+          if (hasPostText) ...[
+            if (_shouldShowTable) const SizedBox(height: _kGapBlockToText),
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Expanded(
                   child: SelectableText.rich(
-                    TextSpan(style: style, children: _buildFormattedSpans(_postDisplay, style)),
+                    TextSpan(style: style, children: _buildFormattedSpans(postForView, style)),
+                    textHeightBehavior: _thb,
                     contextMenuBuilder: _buildContextMenu,
                   ),
                 ),
@@ -617,9 +644,10 @@ class _BotMessageWidgetState extends State<BotMessageWidget>
                   _buildTypewriterCursor(),
               ],
             ),
+          ],
 
           if ((_hasCompletedTyping || widget.isComplete || _wasForceStopped) && !_isTyping) ...[
-            const SizedBox(height: 15),
+            const SizedBox(height: 12),
             _buildActionButtons(),
           ],
         ],
@@ -670,17 +698,15 @@ class _AnimatedActionButton extends StatelessWidget {
 
 
 // class BotMessageWidget extends StatefulWidget {
-//   final String message;                   // full message with ___TABLE_PLACEHOLDER___
-//   final bool isComplete;                  // backend finished
-//   final bool isLatest;                    // last bubble
-//   final bool isHistorical;                // loaded from history
-//   final String? currentStatus;            // live status text (optional)
-//   final Function(String)? onAskVitty;     // context menu action (optional)
-//   final Map<String, dynamic>? tableData;  // {heading, rows, type, columnOrder?}
-//   final Function(String)? onStockTap;     // tap handler for rows/cards
-//   final VoidCallback? onRenderComplete;   // notify ChatService when fully painted
-//
-//   // Force-stop support from ChatService
+//   final String message;
+//   final bool isComplete;
+//   final bool isLatest;
+//   final bool isHistorical;
+//   final String? currentStatus;
+//   final Function(String)? onAskVitty;
+//   final Map<String, dynamic>? tableData;
+//   final Function(String)? onStockTap;
+//   final VoidCallback? onRenderComplete;
 //   final bool? forceStop;
 //   final String? stopTs;
 //
@@ -703,13 +729,23 @@ class _AnimatedActionButton extends StatelessWidget {
 //   State<BotMessageWidget> createState() => _BotMessageWidgetState();
 // }
 //
-// class _BotMessageWidgetState extends State<BotMessageWidget> {
-//   // ——— config ———
+// class _BotMessageWidgetState extends State<BotMessageWidget>
+//     with AutomaticKeepAliveClientMixin {
+//   // --------------------------------- spacing + typing ---------------------------------
 //   static const _kPlaceholder = '___TABLE_PLACEHOLDER___';
-//   static const int _cps = 90;         // characters per second
-//   static const int _postHoldMs = 900; // small pause after table shows
+//   static const int _cps = 130;
+//   static const int _postHoldMs = 900;
 //
-//   // ——— runtime state ———
+//   // compact, controlled gaps between segments
+//   static const double _kGapTextToBlock = 6.0;
+//   static const double _kGapBlockToText = 8.0;
+//
+//   // trim extra ascent/descent so lines don't add hidden top/bottom space
+//   static const TextHeightBehavior _thb = TextHeightBehavior(
+//     applyHeightToFirstAscent: false,
+//     applyHeightToLastDescent: false,
+//   );
+//
 //   Timer? _timer;
 //   bool _isTyping = false;
 //   bool _hasCompletedTyping = false;
@@ -726,9 +762,12 @@ class _AnimatedActionButton extends StatelessWidget {
 //   bool _shouldShowTable = false;
 //   bool _postDelayApplied = false;
 //
-//   // resume across rebuilds
+//   // Stable state by message content (+ historical flag). DO NOT include isLatest.
 //   static final Map<String, _StreamingState> _streamingStates = {};
-//   String get _stateKey => '${widget.message.hashCode}_${widget.isLatest}';
+//   String get _stateKey {
+//     final base = widget.message.hashCode;
+//     return '${base}_${widget.isHistorical}';
+//   }
 //
 //   int get _intervalMs => 1000 ~/ _cps;
 //   String get _preDisplay => _preFull.substring(0, _preShown.clamp(0, _preFull.length));
@@ -736,41 +775,63 @@ class _AnimatedActionButton extends StatelessWidget {
 //   bool get _reachedPlaceholder => _preShown >= _preFull.length;
 //
 //   @override
+//   bool get wantKeepAlive => true;
+//
+//   @override
 //   void initState() {
 //     super.initState();
-//     debugPrint("🎬 BotMessage: initState called");
+//     debugPrint("🎬 BotMessage: initState message hash: ${widget.message.hashCode}");
 //     _initializeWidget();
 //   }
-//
 //
 //   void _initializeWidget() {
 //     _recomputeSegments(widget.message);
 //     _updateTableData();
 //
-//     // try resume
-//     final existing = _streamingStates[_stateKey];
-//     if (existing != null && !existing.wasCompleted) {
-//       _restoreStreamingState(existing);
+//     final shouldRestoreState = _streamingStates.containsKey(_stateKey) &&
+//         !_streamingStates[_stateKey]!.wasCompleted &&
+//         !_streamingStates[_stateKey]!.wasForceStopped;
+//
+//     if (shouldRestoreState) {
+//       debugPrint("🔄 BotMessage: Restoring existing state for key: $_stateKey");
+//       _restoreStreamingState(_streamingStates[_stateKey]!);
 //       return;
 //     }
 //
-//     final shouldInstant =
-//         widget.forceStop == true || widget.isComplete || widget.isHistorical;
+//     if (_streamingStates.containsKey(_stateKey) &&
+//         (_streamingStates[_stateKey]!.wasCompleted ||
+//             _streamingStates[_stateKey]!.wasForceStopped)) {
+//       _streamingStates.remove(_stateKey);
+//     }
 //
-//     if (shouldInstant) {
+//     // Show instantly only if historical or explicitly force-stopped
+//     if (widget.forceStop == true || widget.isHistorical) {
+//       debugPrint("🚀 BotMessage: Showing instantly (historical/forceStop)");
 //       _showInstantly();
 //       return;
 //     }
 //
-//     // FIXED: Always start streaming for latest non-complete messages
-//     // Don't wait for content - start immediately for live messages
-//     if (widget.isLatest && !widget.isComplete && !widget.isHistorical) {
+//     // Latest message always typewriters (even if isComplete already true)
+//     if (widget.isLatest) {
 //       debugPrint("🚀 BotMessage: Starting streaming for latest message");
 //       _startContinuousStreaming();
-//     } else {
-//       // Historical or complete messages show instantly
-//       _showInstantly();
+//       return;
 //     }
+//
+//     // Non-latest messages render instantly
+//     debugPrint("🚀 BotMessage: Showing instantly (non-latest)");
+//     _showInstantly();
+//   }
+//
+//   void _saveStreamingState() {
+//     _streamingStates[_stateKey] = _StreamingState(
+//       preShown: _preShown,
+//       postShown: _postShown,
+//       shouldShowTable: _shouldShowTable,
+//       postDelayApplied: _postDelayApplied,
+//       wasCompleted: _hasCompletedTyping,
+//       wasForceStopped: _wasForceStopped,
+//     );
 //   }
 //
 //   void _restoreStreamingState(_StreamingState s) {
@@ -790,53 +851,35 @@ class _AnimatedActionButton extends StatelessWidget {
 //     }
 //   }
 //
-//   void _saveStreamingState() {
-//     _streamingStates[_stateKey] = _StreamingState(
-//       preShown: _preShown,
-//       postShown: _postShown,
-//       shouldShowTable: _shouldShowTable,
-//       postDelayApplied: _postDelayApplied,
-//       wasCompleted: _hasCompletedTyping,
-//       wasForceStopped: _wasForceStopped,
-//     );
-//   }
-//
 //   void _showInstantly() {
 //     _preShown = _preFull.length;
 //     _postShown = _postFull.length;
 //     _hasCompletedTyping = true;
 //     _shouldShowTable = _hasTableDataAvailable;
 //     _wasForceStopped = widget.forceStop == true;
+//
 //     _saveStreamingState();
+//
 //     WidgetsBinding.instance.addPostFrameCallback((_) {
 //       if (mounted) widget.onRenderComplete?.call();
 //     });
 //   }
 //
 //   void _recomputeSegments(String full) {
+//     // Split once; trimming is handled at render-time to preserve typing cadence.
 //     final parts = full.split(_kPlaceholder);
-//     final newPre = parts.isNotEmpty ? parts.first : '';
-//     final newPost = parts.length > 1 ? parts.sublist(1).join(_kPlaceholder) : '';
+//     _preFull = parts.isNotEmpty ? parts.first : '';
+//     _postFull = parts.length > 1 ? parts.sublist(1).join(_kPlaceholder) : '';
 //
-//     if (_preFull == newPre && _postFull == newPost) return;
-//
-//     final oldPreLen = _preFull.length;
-//     _preFull = newPre;
-//     _postFull = newPost;
-//
-//     // if text extended forward, keep current progress
-//     if (_preFull.length >= oldPreLen && _preFull.startsWith(full.substring(0, oldPreLen))) {
-//       _preShown = _preShown.clamp(0, _preFull.length);
-//     } else {
-//       _preShown = _preShown.clamp(0, _preFull.length);
-//       _postShown = _postShown.clamp(0, _postFull.length);
-//     }
+//     _preShown = _preShown.clamp(0, _preFull.length);
+//     _postShown = _postShown.clamp(0, _postFull.length);
 //   }
 //
 //   void _updateTableData() {
 //     if (widget.tableData != null) {
 //       final rowsRaw = (widget.tableData!['rows'] as List?) ?? const [];
-//       _availableTableRows = rowsRaw.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+//       _availableTableRows =
+//           rowsRaw.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
 //       _availableTableHeading = widget.tableData!['heading']?.toString();
 //       _hasTableDataAvailable = _availableTableRows.isNotEmpty;
 //     } else {
@@ -847,56 +890,86 @@ class _AnimatedActionButton extends StatelessWidget {
 //     }
 //   }
 //
-//
+//   bool _shouldRebuild(BotMessageWidget oldWidget) {
+//     if (widget.message == oldWidget.message &&
+//         widget.isComplete == oldWidget.isComplete &&
+//         /* isLatest intentionally ignored */
+//         widget.isHistorical == oldWidget.isHistorical &&
+//         widget.forceStop == oldWidget.forceStop &&
+//         widget.tableData == oldWidget.tableData &&
+//         widget.currentStatus == oldWidget.currentStatus) {
+//       return false;
+//     }
+//     return true;
+//   }
 //
 //   @override
 //   void didUpdateWidget(BotMessageWidget old) {
 //     super.didUpdateWidget(old);
+//     if (!_shouldRebuild(old)) {
+//       debugPrint("⏭️ BotMessage: Skipping unnecessary update");
+//       return;
+//     }
 //
-//     // message text updates
+//     // Demotion guard: when last bubble stops being latest, freeze current view.
+//     if (old.isLatest && !widget.isLatest) {
+//       debugPrint("🧍 BotMessage: Demoted from latest → non-latest, freezing state");
+//       _timer?.cancel();
+//       _isTyping = false;
+//       if (widget.isComplete && !_hasCompletedTyping) {
+//         _finishStreaming();
+//         return;
+//       }
+//       _saveStreamingState();
+//       setState(() {});
+//       return;
+//     }
+//
+//     debugPrint(
+//         "🔄 UPDATE - Key: $_stateKey, Message changed: ${widget.message != old.message}, Complete changed: ${widget.isComplete != old.isComplete}");
+//
 //     if (widget.message != old.message) {
 //       debugPrint("📝 BotMessage: Message content updated during streaming");
 //       _recomputeSegments(widget.message);
 //
-//       // if we were waiting for first content, start now
-//       final hasAnyContent = _preFull.isNotEmpty || _postFull.isNotEmpty || _hasTableDataAvailable;
-//       if (!_isTyping &&
-//           !_hasCompletedTyping &&
-//           !_wasForceStopped &&
-//           hasAnyContent) {
-//         _startContinuousStreaming();
+//       if (!_hasCompletedTyping && !_wasForceStopped && !_isTyping) {
+//         final hasAnyContent =
+//             _preFull.isNotEmpty || _postFull.isNotEmpty || _hasTableDataAvailable;
+//         if (hasAnyContent && widget.isLatest && !widget.isHistorical) {
+//           _startContinuousStreaming();
+//         }
 //       }
 //       _saveStreamingState();
 //       setState(() {});
 //     }
 //
-//     // table updates
 //     if (widget.tableData != old.tableData) {
 //       _updateTableData();
-//       if (_reachedPlaceholder && _hasTableDataAvailable) {
+//       if (_reachedPlaceholder && _hasTableDataAvailable && !_shouldShowTable) {
 //         _shouldShowTable = true;
 //       }
 //       setState(() {});
 //     }
 //
-//     // status pause/resume (do not tie to scroll)
 //     if (widget.currentStatus != old.currentStatus) {
-//       if (widget.currentStatus != null && widget.currentStatus!.isNotEmpty) {
-//         _pauseForStatus();
-//       } else if (!_hasCompletedTyping && !_wasForceStopped) {
-//         _resumeFromStatus();
+//       if (!_hasCompletedTyping) {
+//         if (widget.currentStatus != null && widget.currentStatus!.isNotEmpty) {
+//           _pauseForStatus();
+//         } else if (!_wasForceStopped) {
+//           _resumeFromStatus();
+//         }
 //       }
 //       setState(() {});
 //     }
 //
-//     // force stop
+//     // Force stop
 //     final stopTsChanged = widget.stopTs != old.stopTs && widget.stopTs != null;
 //     if ((widget.forceStop == true && old.forceStop != true) || stopTsChanged) {
 //       _handleForceStop();
 //       return;
 //     }
 //
-//     // completion -> reveal everything
+//     // Completion flips: finish whatever is left right now.
 //     if (widget.isComplete && !old.isComplete && !_hasCompletedTyping) {
 //       _finishStreaming();
 //     }
@@ -917,13 +990,12 @@ class _AnimatedActionButton extends StatelessWidget {
 //   void _startContinuousStreaming() {
 //     if (_hasCompletedTyping || _wasForceStopped || widget.forceStop == true) return;
 //
-//     // start only when there is something to animate
-//     final hasAnyContent = _preFull.isNotEmpty || _postFull.isNotEmpty || _hasTableDataAvailable;
+//     final hasAnyContent =
+//         _preFull.isNotEmpty || _postFull.isNotEmpty || _hasTableDataAvailable;
 //     if (!hasAnyContent) return;
-//
 //     if (_isTyping) return;
 //
-//     debugPrint("🚀 BotMessage: Starting continuous streaming (scroll-resistant)");
+//     debugPrint("🚀 BotMessage: Starting continuous streaming");
 //     _isTyping = true;
 //     _timer?.cancel();
 //     _timer = Timer.periodic(Duration(milliseconds: _intervalMs), _continuousStreamingTick);
@@ -934,7 +1006,7 @@ class _AnimatedActionButton extends StatelessWidget {
 //       _timer?.cancel();
 //       _isTyping = false;
 //       _saveStreamingState();
-//       debugPrint("⏸️ BotMessage: Paused for status (saving state)");
+//       debugPrint("⏸️ BotMessage: Paused for status");
 //     }
 //   }
 //
@@ -945,15 +1017,12 @@ class _AnimatedActionButton extends StatelessWidget {
 //     }
 //   }
 //
-//   /// 🔧 MAIN FIX: when the backend signals completion, reveal the rest of the text
-//   /// and show the table immediately so the bubble never stays empty.
 //   void _finishStreaming() {
-//     debugPrint("✅ BotMessage: Finishing continuous streaming");
+//     debugPrint("✅ BotMessage: Finishing streaming");
 //
 //     _recomputeSegments(widget.message);
 //     _updateTableData();
 //
-//     // reveal all remaining content
 //     _preShown = _preFull.length;
 //     if (_hasTableDataAvailable) _shouldShowTable = true;
 //     _postShown = _postFull.length;
@@ -964,10 +1033,7 @@ class _AnimatedActionButton extends StatelessWidget {
 //
 //     _saveStreamingState();
 //     if (mounted) setState(() {});
-//
-//     if (!_wasForceStopped) {
-//       widget.onRenderComplete?.call();
-//     }
+//     if (!_wasForceStopped) widget.onRenderComplete?.call();
 //   }
 //
 //   void _applyPostDelayOnce() {
@@ -975,7 +1041,6 @@ class _AnimatedActionButton extends StatelessWidget {
 //     _postDelayApplied = true;
 //     Future.delayed(const Duration(milliseconds: _postHoldMs), () {
 //       if (!mounted || _hasCompletedTyping || _wasForceStopped) return;
-//       // after the hold, normal ticking continues
 //     });
 //   }
 //
@@ -993,14 +1058,12 @@ class _AnimatedActionButton extends StatelessWidget {
 //       return;
 //     }
 //
-//     // stream pre text
 //     if (_preShown < _preFull.length) {
 //       setState(() => _preShown++);
 //       _saveStreamingState();
 //       return;
 //     }
 //
-//     // show table when placeholder reached
 //     if (_reachedPlaceholder && _hasTableDataAvailable && !_shouldShowTable) {
 //       setState(() => _shouldShowTable = true);
 //       _applyPostDelayOnce();
@@ -1008,14 +1071,12 @@ class _AnimatedActionButton extends StatelessWidget {
 //       return;
 //     }
 //
-//     // after small delay, stream post text
 //     if (_postDelayApplied && _postShown < _postFull.length) {
 //       setState(() => _postShown++);
 //       _saveStreamingState();
 //       return;
 //     }
 //
-//     // all done?
 //     final allPreDone = _preShown >= _preFull.length;
 //     final allPostDone = _postFull.isEmpty || _postShown >= _postFull.length;
 //     final tableOk = !_hasTableDataAvailable || _shouldShowTable;
@@ -1029,32 +1090,42 @@ class _AnimatedActionButton extends StatelessWidget {
 //   void dispose() {
 //     debugPrint("🧹 BotMessage: Disposing timer");
 //     _timer?.cancel();
-//     // keep state only if still streaming; otherwise clean up
 //     if (_hasCompletedTyping || _wasForceStopped) {
 //       _streamingStates.remove(_stateKey);
 //     }
 //     super.dispose();
 //   }
 //
-//   // ——— UI ———
+//   // --------------------------------- UI helpers ---------------------------------
 //
+//   TextStyle _bodyStyle(BuildContext context) {
+//     final textColor = Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black;
+//     return TextStyle(
+//       fontFamily: 'SF Pro',
+//       fontSize: 16,
+//       fontWeight: FontWeight.w400,
+//       height: 1.4, // 🔻 tighter line-height
+//       color: textColor,
+//     );
+//   }
+//
+//   String _trimRightSoft(String s) {
+//     // remove trailing newlines/spaces only; keeps typing natural
+//     return s.replaceAll(RegExp(r'[\n\s]+$'), '');
+//   }
+//
+//   String _trimLeftSoft(String s) {
+//     // remove leading newlines/spaces only
+//     return s.replaceAll(RegExp(r'^\s+'), '');
+//     // (keeps interior spacing/paragraphs)
+//   }
 //
 //   Widget _buildStatusIndicator() {
-//     // FIXED: Handle both null and string 'null'
 //     final status = widget.currentStatus;
-//     final hasValidStatus = status != null &&
-//         status.isNotEmpty &&
-//         status != 'null' &&           // Handle string 'null'
-//         status != 'undefined';        // Handle string 'undefined'
+//     final hasValidStatus =
+//         status != null && status.isNotEmpty && status != 'null' && status != 'undefined';
+//     if (!hasValidStatus) return const SizedBox.shrink();
 //
-//     //print("BotMessage _buildStatusIndicator: currentStatus='$status', hasValidStatus=$hasValidStatus");
-//
-//     if (!hasValidStatus) {
-//      // print("BotMessage: No valid status to show");
-//       return const SizedBox.shrink();
-//     }
-//
-//     //print("BotMessage: Showing status: '$status'");
 //     return Padding(
 //       padding: const EdgeInsets.only(bottom: 8.0),
 //       child: PremiumShimmerWidget(
@@ -1065,7 +1136,6 @@ class _AnimatedActionButton extends StatelessWidget {
 //       ),
 //     );
 //   }
-//
 //
 //   Widget _buildTypewriterCursor() {
 //     final show = _isTyping &&
@@ -1083,7 +1153,7 @@ class _AnimatedActionButton extends StatelessWidget {
 //           opacity: (value * 2) % 1.0 > 0.5 ? 1.0 : 0.3,
 //           child: Container(
 //             width: 2,
-//             height: 20,
+//             height: 18,
 //             decoration: BoxDecoration(
 //               color: Colors.grey.shade600,
 //               borderRadius: BorderRadius.circular(1),
@@ -1104,7 +1174,7 @@ class _AnimatedActionButton extends StatelessWidget {
 //       }
 //       spans.add(TextSpan(
 //         text: m.group(1),
-//         style: base.copyWith(fontWeight: FontWeight.w700, height: 1.5, fontFamily: "SF Pro"),
+//         style: base.copyWith(fontWeight: FontWeight.w700, height: 1.4, fontFamily: "SF Pro"),
 //       ));
 //       last = m.end;
 //     }
@@ -1141,7 +1211,8 @@ class _AnimatedActionButton extends StatelessWidget {
 //         TextButton(
 //           onPressed: () {
 //             Clipboard.setData(ClipboardData(text: selected));
-//             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied!')));
+//             ScaffoldMessenger.of(context)
+//                 .showSnackBar(const SnackBar(content: Text('Copied!')));
 //             ContextMenuController.removeAny();
 //           },
 //           child: const Text('Copy', style: TextStyle(color: Colors.black)),
@@ -1151,30 +1222,27 @@ class _AnimatedActionButton extends StatelessWidget {
 //   }
 //
 //   Widget _buildTableWidget() {
-//     // DEBUG: Add this print
-//     //print("BotMessage _buildTableWidget: tableData=${widget.tableData != null ? 'Present' : 'Null'}, rows=${_availableTableRows.length}");
-//
 //     if (widget.tableData == null || _availableTableRows.isEmpty) {
-//       print("BotMessage: No table data to show");
 //       return const SizedBox.shrink();
 //     }
 //
 //     final dataType = (widget.tableData!['type']?.toString().toLowerCase() ?? '').trim();
-//    // print("BotMessage: Showing table with type='$dataType', rows=${_availableTableRows.length}");
 //
-//     if (dataType == 'tables' || dataType == 'table') {
+//     if (dataType == 'table_of_market' || dataType == 'table_of_asset') {
 //       return ComparisonTableWidget(
 //         heading: _availableTableHeading,
 //         rows: _availableTableRows,
 //         onRowTap: widget.onStockTap,
 //       );
 //     }
-//     // 'cards' | 'card' | unknown -> fall back to KV cards
+//     // ✅ pass compact spacing to KeyValueTableWidget
 //     return KeyValueTableWidget(
 //       heading: _availableTableHeading,
 //       rows: _availableTableRows,
 //       columnOrder: widget.tableData?['columnOrder']?.cast<String>(),
 //       onCardTap: widget.onStockTap,
+//       cardSpacing: 6,
+//       headerBottomSpacing: 6,
 //     );
 //   }
 //
@@ -1190,33 +1258,35 @@ class _AnimatedActionButton extends StatelessWidget {
 //     );
 //   }
 //
+//   // --------------------------------- build ---------------------------------
 //   @override
 //   Widget build(BuildContext context) {
-//     final textColor = Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black;
-//     final style = TextStyle(
-//       fontFamily: 'SF Pro',
-//       fontSize: 16,
-//       fontWeight: FontWeight.w500,
-//       height: 1.75,
-//       color: textColor,
-//     );
+//     super.build(context); // for keep-alive
+//     final style = _bodyStyle(context);
 //
-//     final hasPostText = _postDisplay.isNotEmpty;
+//     // Trim only the edges around the placeholder to kill invisible gaps.
+//     final preForView = _trimRightSoft(_preDisplay);
+//     final postForView = _trimLeftSoft(_postDisplay);
+//
+//     final hasPreText = preForView.isNotEmpty;
+//     final hasPostText = postForView.isNotEmpty;
 //
 //     return Padding(
+//       // keep bubble top modest; most "gap" users see is inside the bubble, not here
 //       padding: const EdgeInsets.only(bottom: 4, top: 20),
 //       child: Column(
 //         crossAxisAlignment: CrossAxisAlignment.start,
 //         children: [
 //           _buildStatusIndicator(),
 //
-//           if (_preDisplay.isNotEmpty)
+//           if (hasPreText)
 //             Row(
 //               crossAxisAlignment: CrossAxisAlignment.end,
 //               children: [
 //                 Expanded(
 //                   child: SelectableText.rich(
-//                     TextSpan(style: style, children: _buildFormattedSpans(_preDisplay, style)),
+//                     TextSpan(style: style, children: _buildFormattedSpans(preForView, style)),
+//                     textHeightBehavior: _thb,
 //                     contextMenuBuilder: _buildContextMenu,
 //                   ),
 //                 ),
@@ -1226,25 +1296,35 @@ class _AnimatedActionButton extends StatelessWidget {
 //               ],
 //             ),
 //
-//           if (_shouldShowTable && _availableTableRows.isNotEmpty) _buildTableWidget(),
+//           if (_shouldShowTable && _availableTableRows.isNotEmpty) ...[
+//             if (hasPreText) const SizedBox(height: _kGapTextToBlock),
+//             _buildTableWidget(),
+//           ],
 //
-//           if (hasPostText)
+//           if (hasPostText) ...[
+//             if (_shouldShowTable) const SizedBox(height: _kGapBlockToText),
 //             Row(
 //               crossAxisAlignment: CrossAxisAlignment.end,
 //               children: [
 //                 Expanded(
 //                   child: SelectableText.rich(
-//                     TextSpan(style: style, children: _buildFormattedSpans(_postDisplay, style)),
+//                     TextSpan(style: style, children: _buildFormattedSpans(postForView, style)),
+//                     textHeightBehavior: _thb,
 //                     contextMenuBuilder: _buildContextMenu,
 //                   ),
 //                 ),
-//                 if (_shouldShowTable && _isTyping && !_hasCompletedTyping && !_wasForceStopped && _postShown < _postFull.length)
+//                 if (_shouldShowTable &&
+//                     _isTyping &&
+//                     !_hasCompletedTyping &&
+//                     !_wasForceStopped &&
+//                     _postShown < _postFull.length)
 //                   _buildTypewriterCursor(),
 //               ],
 //             ),
+//           ],
 //
 //           if ((_hasCompletedTyping || widget.isComplete || _wasForceStopped) && !_isTyping) ...[
-//             const SizedBox(height: 15),
+//             const SizedBox(height: 12),
 //             _buildActionButtons(),
 //           ],
 //         ],
@@ -1285,17 +1365,17 @@ class _AnimatedActionButton extends StatelessWidget {
 //
 //   @override
 //   Widget build(BuildContext context) {
-//     return Visibility(
-//       visible: true,
-//       maintainSize: true,
-//       maintainAnimation: true,
-//       maintainState: true,
-//       child: AnimatedOpacity(
-//         duration: const Duration(milliseconds: 300),
-//         opacity: isVisible ? 1 : 0,
-//         child: Icon(icon, size: size, color: Colors.grey),
-//       ),
+//     return AnimatedOpacity(
+//       opacity: isVisible ? 1.0 : 0.0,
+//       duration: const Duration(milliseconds: 300),
+//       child: Icon(icon, size: size, color: Colors.grey.shade600),
 //     );
 //   }
 // }
+
+
+
+
+
+
 

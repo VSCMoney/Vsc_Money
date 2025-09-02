@@ -189,7 +189,7 @@ import 'input_actions_widget.dart';
 //               keyboardType: TextInputType.multiline,
 //               textInputAction: TextInputAction.newline,
 //               style: TextStyle(
-//                 fontFamily: "Inter",
+//                 fontFamily: "SF Pro",
 //                 fontSize: 20.5, // large like the mock
 //                 fontWeight: FontWeight.w400,
 //                 color: _isOverwritingTranscript ? Colors.grey.shade400 : appTheme.text,
@@ -199,7 +199,7 @@ import 'input_actions_widget.dart';
 //                 isCollapsed: true,
 //                 hintText: 'Ask anything',
 //                 hintStyle: TextStyle(
-//                   fontFamily: "Inter",
+//                   fontFamily: "SF Pro",
 //                   fontSize: 20.5,
 //                   color: Colors.black.withOpacity(0.35),
 //                   height: 1.25,
@@ -568,7 +568,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
                 : Scrollbar(
               child: TextField(
                 style: TextStyle(
-                  fontFamily: "Inter",
+                  fontFamily: "SF Pro",
                   fontSize: 17.5,
                   fontWeight: FontWeight.w400,
                   color: _isOverwritingTranscript ? Colors.grey.shade400 : theme.text,

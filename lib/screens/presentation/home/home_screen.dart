@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -48,16 +49,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _closeSheet() async {
-    debugPrint("🧹 HomeScreen._closeSheet() called");
+    debugPrint("🏠 HomeScreen._closeSheet() called - START");
     final wrapper = _sheetKey.currentState;
-    debugPrint("🧹 wrapper: $wrapper, isSheetOpen: ${wrapper?.isSheetOpen}");
+    debugPrint("🏠 wrapper: $wrapper, isSheetOpen: ${wrapper?.isSheetOpen}");
+
     if (wrapper != null && wrapper.isSheetOpen) {
-      debugPrint("🧹 Calling wrapper.closeSheet()");
+      debugPrint("🏠 Calling wrapper.closeSheet()");
+
+      if (Platform.isIOS) {
+        HapticFeedback.lightImpact();
+      }
+
       await wrapper.closeSheet();
-      debugPrint("🧹 wrapper.closeSheet() finished");
+      debugPrint("🏠 wrapper.closeSheet() finished - SUCCESS");
     } else {
-      debugPrint("🧹 No sheet to close");
+      debugPrint("🏠 No sheet to close or wrapper null");
     }
+    debugPrint("🏠 HomeScreen._closeSheet() - END");
   }
 
 
@@ -125,12 +133,19 @@ class _HomeScreenState extends State<HomeScreen> {
   // }
 
   void _openStockDetailSheet(String assetId) {
-    print("Opening stock detail for: $assetId");
+    print("📈 Opening stock detail for: $assetId - DEBUG");
+
     final stockSheet = BottomSheetManager.buildStockDetailSheet(
       assetId: assetId,
-      onTap: _closeSheet, // Make sure this is _closeSheet, not () => _closeSheet()
+      onTap: () {
+        print("📈 Stock sheet onTap called - about to close");
+        _closeSheet();
+      },
     );
+
+    print("📈 About to call openSheet");
     _sheetKey.currentState?.openSheet(stockSheet);
+    print("📈 openSheet called successfully");
   }
 
 

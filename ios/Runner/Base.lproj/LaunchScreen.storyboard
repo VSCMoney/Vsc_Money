@@ -18,7 +18,7 @@
             <subviews>
               <!-- Background fills the screen -->
               <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleToFill" image="LaunchBackground" translatesAutoresizingMaskIntoConstraints="NO" id="tWc-Dq-wcI"/>
-              <!-- Foreground logo: centered, fixed size, aspect fit -->
+              <!-- Foreground logo: centered, fixed 200x200 size, aspect fit -->
               <imageView opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleAspectFit" image="LaunchImage" translatesAutoresizingMaskIntoConstraints="NO" id="YRO-k0-Ey4"/>
             </subviews>
 
@@ -32,7 +32,7 @@
               <constraint firstAttribute="trailing" secondItem="tWc-Dq-wcI" secondAttribute="trailing" id="Swv-Gf-Rwn"/>
               <constraint firstItem="tWc-Dq-wcI" firstAttribute="bottom" secondItem="Ze5-6b-2t3" secondAttribute="bottom" id="RPx-PI-7Xg"/>
 
-              <!-- Foreground logo centered with fixed size -->
+              <!-- Foreground logo centered with EXACT 200x200 size -->
               <constraint firstItem="YRO-k0-Ey4" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="ctrX-logo"/>
               <constraint firstItem="YRO-k0-Ey4" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="ctrY-logo"/>
               <constraint firstItem="YRO-k0-Ey4" firstAttribute="width" secondItem="nil" secondAttribute="notAnAttribute" constant="200" id="w-logo"/>
@@ -46,7 +46,7 @@
     </scene>
   </scenes>
   <resources>
-    <image name="LaunchImage" width="325" height="372"/>
+    <image name="LaunchImage" width="200" height="200"/>
     <image name="LaunchBackground" width="1" height="1"/>
   </resources>
 </document>

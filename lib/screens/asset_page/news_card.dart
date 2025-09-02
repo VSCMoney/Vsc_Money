@@ -110,7 +110,7 @@ class _NewsCardState extends State<NewsCard> with TickerProviderStateMixin {
       margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.background,
+        color: theme.box,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(

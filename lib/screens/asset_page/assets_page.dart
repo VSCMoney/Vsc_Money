@@ -1,15 +1,18 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../constants/colors.dart';
 import '../../models/asset_model.dart' as models;
 import '../../services/asset_service.dart';
+import '../../services/locator.dart';
 import '../../services/theme_service.dart';
 import 'asset_appbar.dart';
 import 'expandble_tiles.dart';
@@ -18,8 +21,6 @@ import 'for_you_card.dart';
 import 'fundamentals.dart';
 import 'news_card.dart';
 import 'performance.dart';
-
-
 
 class AssetPage extends StatefulWidget {
   final String assetId;
@@ -185,74 +186,81 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
     final currency = d?.additionalData?.currencySymbol ?? '₹';
     final screenSize = MediaQuery.of(context).size;
 
-    return Scaffold(
-      backgroundColor: theme.background,
-      body: DefaultTabController(
-        length: 5,
-        child: NestedScrollView(
-          headerSliverBuilder: (context, innerBoxIsScrolled) => [
-            // App Bar
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _SliverAppBarDelegate(
-                child: StockAppBar(
-                  onClose: widget.onClose,
-                  fallbackTitle: d?.basicInfo.symbol.isNotEmpty == true
-                      ? d!.basicInfo.symbol
-                      : "",
-                ),
-              ),
-            ),
+    const toolbarHeight = 60.0;
 
-            // Stock Header
-            SliverToBoxAdapter(
-              child: _buildResponsiveStockHeader(d, currency, screenSize),
-            ),
-
-            // Chart
-            SliverToBoxAdapter(
-              child: _buildResponsiveChart(currency, screenSize),
-            ),
-
-            // Period Selector
-            SliverToBoxAdapter(
-              child: _buildPeriodSelector(),
-            ),
-
-            // Portfolio Card
-            SliverToBoxAdapter(
-              child: _buildPortfolioCardFromService(),
-            ),
-
-            // Tab Section
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _SliverAppBarDelegate(
-                height: 48,
-                child: Container(
-                  color: theme.background,
-                  padding: EdgeInsets.symmetric(
-                      horizontal: screenSize.width < 350 ? 8 : 12
+    return MediaQuery.removePadding(
+      context: context,
+      removeTop: true,
+      child: Scaffold(
+        backgroundColor: theme.background,
+        body: DefaultTabController(
+          length: 5,
+          child: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) => [
+              // ✅ App Bar without any top padding
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _SliverAppBarDelegate(
+                  height: toolbarHeight,
+                  child: Container(
+                    color: theme.background,
+                    child: StockAppBar(
+                      onClose: widget.onClose,
+                      fallbackTitle: d?.basicInfo.symbol.isNotEmpty == true
+                          ? d!.basicInfo.symbol
+                          : "",
+                    ),
                   ),
-                  child: _buildResponsiveTabSection(screenSize),
                 ),
               ),
-            ),
-          ],
-          body: TabBarView(
-            controller: _tabController,
-            children: [
-              _wrapWithScroll(_buildSummaryTab()),
-              _wrapWithScroll(_buildOverviewTab()),
-              _wrapWithScroll(_buildNewsTab()),
-              _wrapWithScroll(_buildEventsTab()),
-              _wrapWithScroll(_buildFOTab()),
+
+              // Stock Header
+              SliverToBoxAdapter(
+                child: _buildResponsiveStockHeader(d, currency, screenSize),
+              ),
+
+              // Chart
+              SliverToBoxAdapter(
+                child: _buildResponsiveChart(currency, screenSize),
+              ),
+
+              // Period Selector
+              SliverToBoxAdapter(child: _buildPeriodSelector()),
+
+              // Portfolio Card
+              SliverToBoxAdapter(child: _buildPortfolioCardFromService()),
+
+              // Tabs
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _SliverAppBarDelegate(
+                  height: 48,
+                  child: Container(
+                    color: theme.background,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenSize.width < 350 ? 8 : 12,
+                    ),
+                    child: _buildResponsiveTabSection(screenSize),
+                  ),
+                ),
+              ),
             ],
+            body: TabBarView(
+              controller: _tabController,
+              children: [
+                _wrapWithScroll(_buildSummaryTab()),
+                _wrapWithScroll(_buildOverviewTab()),
+                _wrapWithScroll(_buildNewsTab()),
+                _wrapWithScroll(_buildEventsTab()),
+                _wrapWithScroll(_buildFOTab()),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+
 
   Widget _buildResponsiveStockHeader(models.AssetData? data, String currency, Size screenSize) {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
@@ -298,7 +306,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
                         fontSize: isSmallScreen ? 14 : 16,
                         fontWeight: FontWeight.w500,
                         color: const Color(0xFF7E7E7E),
-                        fontFamily: "Inter",
+                        fontFamily: "SF Pro",
                         height: 1.2,
                       ),
                       maxLines: 2,
@@ -340,7 +348,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
                                 fontSize: isSmallScreen ? 10 : 12,
                                 color: AppColors.black,
                                 fontWeight: FontWeight.w500,
-                                fontFamily: "Inter",
+                                fontFamily: "SF Pro",
                               ),
                             ),
                           ],
@@ -391,7 +399,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
               fontSize: priceFontSize,
               fontWeight: FontWeight.w600,
               color: theme.text,
-              fontFamily: "Inter",
+              fontFamily: "SF Pro",
             ),
           ),
 
@@ -413,7 +421,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
                         fontSize: isSmallScreen ? 12 : 14,
                         fontWeight: FontWeight.w500,
                         color: color,
-                        fontFamily: "Inter",
+                        fontFamily: "SF Pro",
                       ),
                     ),
                   ],
@@ -424,7 +432,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
                     fontSize: isSmallScreen ? 12 : 14,
                     fontWeight: FontWeight.w500,
                     color: theme.text,
-                    fontFamily: "Inter",
+                    fontFamily: "SF Pro",
                   ),
                 ),
                 Text(
@@ -433,7 +441,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
                     fontSize: isSmallScreen ? 10 : 12,
                     fontWeight: FontWeight.w500,
                     color: theme.text.withOpacity(0.7),
-                    fontFamily: "Inter",
+                    fontFamily: "SF Pro",
                   ),
                 ),
               ],
@@ -551,7 +559,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
                           fontSize: screenSize.width < 350 ? 12 : 14,
-                          fontFamily: "Inter",
+                          fontFamily: "SF Pro",
                         ),
                         textAlign: TextAlign.center,
                       );
@@ -606,21 +614,21 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
                 final longLabel = _svc.longPeriodLabel;
 
                 return GestureDetector(
-                    onTap: () {
-                      print("👆 Tapped period: $period");
-                      setState(() => selectedPeriod = period);
+                  onTap: () {
+                    print("👆 Tapped period: $period");
+                    setState(() => selectedPeriod = period);
 
-                      final longLabel = _svc.longPeriodLabel;
+                    final longLabel = _svc.longPeriodLabel;
 
-                      if (period == longLabel && period != 'ALL' && period != '1Y') {
-                        print("🎯 Using setLongPeriod");
-                        _svc.setLongPeriod();
-                      } else {
-                        print("🎯 Using setPeriod");
-                        _svc.setPeriod(period);
-                      }
-                      _startStreamingAnimation();
-                    },
+                    if (period == longLabel && period != 'ALL' && period != '1Y') {
+                      print("🎯 Using setLongPeriod");
+                      _svc.setLongPeriod();
+                    } else {
+                      print("🎯 Using setPeriod");
+                      _svc.setPeriod(period);
+                    }
+                    _startStreamingAnimation();
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
@@ -662,13 +670,13 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
       unselectedLabelColor: Colors.grey[600],
       labelPadding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 2 : 4),
       labelStyle: TextStyle(
-        fontFamily: "Inter",
+        fontFamily: "SF Pro",
         fontSize: isSmallScreen ? 10 : 12,
         fontWeight: FontWeight.w500,
         height: 1.2,
       ),
       unselectedLabelStyle: TextStyle(
-        fontFamily: "Inter",
+        fontFamily: "SF Pro",
         fontSize: isSmallScreen ? 10 : 12,
         fontWeight: FontWeight.w500,
         height: 1.2,
@@ -1037,13 +1045,42 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 }
 
 
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double height;
+
+  _SliverAppBarDelegate({required this.child, required this.height});
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(covariant _SliverAppBarDelegate oldDelegate) {
+    return oldDelegate.height != height || oldDelegate.child != child;
+  }
+}
+
+
+
+
+
+
 // class AssetPage extends StatefulWidget {
-// final String assetId;
+//   final String assetId;
 //   final VoidCallback onClose;
 //
 //   const AssetPage({
 //     Key? key,
-// required this.assetId,
+//     required this.assetId,
 //     required this.onClose,
 //   }) : super(key: key);
 //
@@ -1052,29 +1089,27 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 // }
 //
 // class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
-//   // ───────── Service wiring ─────────
+//   // Service wiring
 //   late final AssetService _svc = GetIt.I<AssetService>();
 //   StreamSubscription<AssetViewState>? _sub;
 //   AssetViewState _view = AssetViewState.loading('ALL');
 //
-//   // ───────── UI state ─────────
+//   // UI state
 //   String selectedPeriod = 'ALL';
 //   List<FlSpot> chartData = [];
 //   List<models.ChartPoint> _lastRawPoints = [];
-//
 //
 //   // Tooltip state
 //   double? touchedPrice;
 //   String? touchedTime;
 //   bool showTooltip = false;
 //
-//   // Streaming animation
+//   // Animations
 //   late AnimationController _streamingController;
 //   late Animation<double> _streamingAnimation;
 //   bool isAnimating = false;
 //   Timer? _ticker;
 //
-//   // Appear animation
 //   late AnimationController _animationController;
 //   late Animation<double> _animation;
 //
@@ -1087,21 +1122,27 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //
 //     _tabController = TabController(length: 5, vsync: this);
 //
-//     _streamingController =
-//         AnimationController(duration: const Duration(milliseconds: 1500), vsync: this);
+//     _streamingController = AnimationController(
+//         duration: const Duration(milliseconds: 1500),
+//         vsync: this
+//     );
 //     _streamingAnimation = CurvedAnimation(
 //       parent: _streamingController,
 //       curve: Curves.easeOutCubic,
 //     );
 //
-//     _animationController =
-//         AnimationController(duration: const Duration(milliseconds: 300), vsync: this);
-//     _animation = CurvedAnimation(parent: _animationController, curve: Curves.easeInOut);
+//     _animationController = AnimationController(
+//         duration: const Duration(milliseconds: 300),
+//         vsync: this
+//     );
+//     _animation = CurvedAnimation(
+//         parent: _animationController,
+//         curve: Curves.easeInOut
+//     );
 //     _animationController.forward();
 //
 //     _sub = _svc.state.listen(_onState);
 //
-//     // kick off fetch (no dummy values)
 //     _svc.init(
 //       assetId: widget.assetId,
 //       sections: {
@@ -1114,13 +1155,8 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //         Section.financials,
 //         Section.portfolio
 //       },
-//       initialPeriod: _svc.getDefaultPeriod(), // Smart default
+//       initialPeriod: _svc.getDefaultPeriod(),
 //     );
-//     // _ticker = Timer.periodic(const Duration(seconds: 10), (_) {
-//     //   if (!mounted) return;
-//     //   print("Refreshed");
-//     //   _svc.refresh();
-//     // });
 //   }
 //
 //   @override
@@ -1132,74 +1168,58 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //     super.dispose();
 //   }
 //
-//   // ───────── Service state sync ─────────
+//   DateTime _convertUtcToIst(DateTime utcTime) {
+//     // Convert UTC to IST (UTC+5:30)
+//     return utcTime.add(const Duration(hours: 5, minutes: 30));
+//   }
+//
 //   void _onState(AssetViewState s) {
 //     _view = s;
-//
-//     // Period + chart from service
 //     selectedPeriod = s.activePeriod;
 //     _setChartFromService(s.currentChart);
-//
 //     if (mounted) setState(() {});
 //   }
 //
-//
-//
-//
-// // Replace your _periods getter in AssetPage with this:
 //   List<String> get _periods {
-//     // Get the actual available periods from the service
 //     final available = _svc.getAvailablePeriods();
-//
-//     // Return them in a logical order, but only include what's actually available
 //     final order = ['1D', '1W', '1M', '1Y', '2Y', '3Y', '4Y', '5Y', '6Y', '7Y', '8Y', '9Y', '10Y', 'ALL'];
-//
-//     // Filter order to only include periods that are actually available
 //     final result = order.where((period) => available.contains(period)).toList();
 //
-//     // Add any available periods that weren't in our predefined order
 //     for (final period in available) {
 //       if (!result.contains(period)) {
 //         result.add(period);
 //       }
 //     }
-//
 //     return result;
 //   }
 //
-//
-// // REPLACE WITH:
-// // Replace your _setChartFromService method in AssetPage:
-//
 //   void _setChartFromService(List<models.ChartPoint> points) {
-//     print("🎯 Setting chart from service: ${points.length} points");
+//     if (points.isEmpty) return;
 //
-//     if (points.isEmpty) {
-//       print("❌ No points received");
-//       return;
-//     }
+//     _lastRawPoints = points.map((point) {
+//       // Convert UTC timestamp to IST before storing
+//       final istTimestamp = _convertUtcToIst(point.timestamp);
+//       return models.ChartPoint(
+//         timestamp: istTimestamp,
+//         price: point.price,
+//       );
+//     }).toList();
 //
-//     _lastRawPoints = points;
-//
-//     // ✅ SORT THE DATA BY TIMESTAMP (OLDEST TO NEWEST)
-//     final sortedPoints = List<models.ChartPoint>.from(points)
+//     final sortedPoints = List<models.ChartPoint>.from(_lastRawPoints)
 //       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 //
-//     // Create FlSpot data for the chart with correct chronological order
 //     chartData = sortedPoints.asMap().entries.map((entry) {
 //       final index = entry.key;
 //       final point = entry.value;
 //       return FlSpot(index.toDouble(), point.price);
 //     }).toList();
 //
-//     print("📊 Chart FlSpots created: ${chartData.length}");
-//     print("📈 First point: ${chartData.first.y}, Last point: ${chartData.last.y}");
-//
 //     if (mounted) {
 //       setState(() {});
 //     }
 //     _startStreamingAnimation();
 //   }
+//
 //
 //   void _startStreamingAnimation() {
 //     if (!mounted) return;
@@ -1211,16 +1231,12 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //     });
 //   }
 //
-//   // // dynamic periods including long chip (e.g., 3Y)
-//   // List<String> get _periods =>
-//   //     ['1D', '1W', '1M', '1Y', _svc.longPeriodLabel, 'ALL'];
-//
 //   @override
 //   Widget build(BuildContext context) {
 //     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 //     final d = _view.data;
 //     final currency = d?.additionalData?.currencySymbol ?? '₹';
-//
+//     final screenSize = MediaQuery.of(context).size;
 //
 //     return Scaffold(
 //       backgroundColor: theme.background,
@@ -1228,6 +1244,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //         length: 5,
 //         child: NestedScrollView(
 //           headerSliverBuilder: (context, innerBoxIsScrolled) => [
+//             // App Bar
 //             SliverPersistentHeader(
 //               pinned: true,
 //               delegate: _SliverAppBarDelegate(
@@ -1239,32 +1256,38 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //                 ),
 //               ),
 //             ),
-//             SliverToBoxAdapter(child: _buildStockHeader(d, currency)),
-//             SliverToBoxAdapter(child: _buildChart(currency)),
-//             SliverToBoxAdapter(child: _buildPeriodSelector()),
-//             // SliverToBoxAdapter(
-//             //   child: const StockPortfolioCard(
-//             //     // stays static for now (we'll wire later)
-//             //     shares: 15,
-//             //     avgPrice: 2450.30,
-//             //     currentValue: 42500.75,
-//             //     changePercent: 8.5,
-//             //     changeAmount: 12.3,
-//             //     isPositive: true,
-//             //   ),
-//             // ),
+//
+//             // Stock Header
+//             SliverToBoxAdapter(
+//               child: _buildResponsiveStockHeader(d, currency, screenSize),
+//             ),
+//
+//             // Chart
+//             SliverToBoxAdapter(
+//               child: _buildResponsiveChart(currency, screenSize),
+//             ),
+//
+//             // Period Selector
+//             SliverToBoxAdapter(
+//               child: _buildPeriodSelector(),
+//             ),
+//
+//             // Portfolio Card
 //             SliverToBoxAdapter(
 //               child: _buildPortfolioCardFromService(),
 //             ),
 //
+//             // Tab Section
 //             SliverPersistentHeader(
 //               pinned: true,
 //               delegate: _SliverAppBarDelegate(
 //                 height: 48,
 //                 child: Container(
-//                   color:theme.background,
-//                   padding: const EdgeInsets.symmetric(horizontal: 12),
-//                   child: _buildTabSection(),
+//                   color: theme.background,
+//                   padding: EdgeInsets.symmetric(
+//                       horizontal: screenSize.width < 350 ? 8 : 12
+//                   ),
+//                   child: _buildResponsiveTabSection(screenSize),
 //                 ),
 //               ),
 //             ),
@@ -1284,32 +1307,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //     );
 //   }
 //
-//
-//   Widget _buildPortfolioCardFromService() {
-//
-//     final p = _view.data?.portfolioData;
-//     if (p == null) {
-//       // no portfolio section from API → hide the card (or return a placeholder if you prefer)
-//       return const SizedBox.shrink();
-//     }
-//
-//     return StockPortfolioCard(
-//       shares: p.shares,
-//       avgPrice: p.avgPrice,
-//       currentValue: p.currentValue,
-//       changePercent: p.changePercent,
-//       changeAmount: p.changeAmount,
-//       isPositive: p.isPositive,
-//     );
-//   }
-//
-//
-//   Widget _wrapWithScroll(Widget child) {
-//     return SingleChildScrollView(physics: const BouncingScrollPhysics(), child: child);
-//   }
-//
-//
-//   Widget _buildStockHeader(models.AssetData? data, String currency) {
+//   Widget _buildResponsiveStockHeader(models.AssetData? data, String currency, Size screenSize) {
 //     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 //     final name = data?.basicInfo.name;
 //     final price = data?.priceData.currentPrice;
@@ -1322,9 +1320,18 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //     final arrow = isUp ? Icons.arrow_drop_up : Icons.arrow_drop_down;
 //     final color = isUp ? upColor : downColor;
 //
+//     // Responsive sizing
+//     final isSmallScreen = screenSize.width < 350;
+//     final horizontalPadding = isSmallScreen ? 16.0 : 20.0;
+//     final logoSize = isSmallScreen ? 45.0 : 50.0;
+//     final priceFontSize = isSmallScreen ? 24.0 : 28.0;
+//
 //     return Container(
 //       width: double.infinity,
-//       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+//       padding: EdgeInsets.symmetric(
+//           horizontal: horizontalPadding,
+//           vertical: 16
+//       ),
 //       child: Column(
 //         crossAxisAlignment: CrossAxisAlignment.start,
 //         children: [
@@ -1332,7 +1339,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //           Row(
 //             crossAxisAlignment: CrossAxisAlignment.start,
 //             children: [
-//               // Company name + Notes button (takes available space)
+//               // Company name + Notes button (flexible)
 //               Expanded(
 //                 child: Column(
 //                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1340,11 +1347,12 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //                     // Company name with proper wrapping
 //                     Text(
 //                       name ?? "",
-//                       style: const TextStyle(
-//                         fontSize: 16,
+//                       style: TextStyle(
+//                         fontSize: isSmallScreen ? 14 : 16,
 //                         fontWeight: FontWeight.w500,
-//                         color: Color(0xFF7E7E7E),
+//                         color: const Color(0xFF7E7E7E),
 //                         fontFamily: "SF Pro",
+//                         height: 1.2,
 //                       ),
 //                       maxLines: 2,
 //                       overflow: TextOverflow.ellipsis,
@@ -1352,15 +1360,19 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //                     const SizedBox(height: 8),
 //
 //                     // Notes button
-//                     GestureDetector(
+//                     InkWell(
 //                       onTap: () {
 //                         // context.go("/premium");
 //                       },
+//                       borderRadius: BorderRadius.circular(6),
 //                       child: Container(
-//                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+//                         padding: EdgeInsets.symmetric(
+//                             horizontal: isSmallScreen ? 6 : 8,
+//                             vertical: isSmallScreen ? 4 : 6
+//                         ),
 //                         decoration: BoxDecoration(
 //                           gradient: const LinearGradient(
-//                             colors: [Color(0xFFF1EAE4), Color(0xFFFFFFFF)],
+//                             colors: [Color(0xFFF8F4F0), Color(0xFFFFFFFF)],
 //                             begin: Alignment.topLeft,
 //                             end: Alignment.bottomRight,
 //                           ),
@@ -1370,17 +1382,18 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //                           mainAxisSize: MainAxisSize.min,
 //                           children: [
 //                             Image.asset(
-//                                 "assets/images/notes.png",
-//                                 width: 10,
-//                                 height: 10
+//                               "assets/images/notes.png",
+//                               width: 10,
+//                               height: 10,
 //                             ),
 //                             const SizedBox(width: 4),
-//                             const Text(
+//                             Text(
 //                               'Notes',
 //                               style: TextStyle(
-//                                 fontSize: 12,
+//                                 fontSize: isSmallScreen ? 10 : 12,
 //                                 color: AppColors.black,
 //                                 fontWeight: FontWeight.w500,
+//                                 fontFamily: "SF Pro",
 //                               ),
 //                             ),
 //                           ],
@@ -1391,12 +1404,12 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //                 ),
 //               ),
 //
-//               const SizedBox(width: 12),
+//               SizedBox(width: isSmallScreen ? 8 : 12),
 //
-//               // Company logo (fixed size, always visible)
+//               // Company logo (responsive size)
 //               Container(
-//                 width: 50,
-//                 height: 50,
+//                 width: logoSize,
+//                 height: logoSize,
 //                 decoration: BoxDecoration(
 //                   borderRadius: BorderRadius.circular(8),
 //                   color: Colors.grey.withOpacity(0.1),
@@ -1409,10 +1422,10 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //                     errorBuilder: (context, error, stackTrace) {
 //                       return Container(
 //                         color: Colors.grey.withOpacity(0.2),
-//                         child: const Icon(
+//                         child: Icon(
 //                           Icons.business,
 //                           color: Colors.grey,
-//                           size: 24,
+//                           size: logoSize * 0.5,
 //                         ),
 //                       );
 //                     },
@@ -1428,7 +1441,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //           Text(
 //             price == null ? '—' : '$currency${price.toStringAsFixed(2)}',
 //             style: TextStyle(
-//               fontSize: 28,
+//               fontSize: priceFontSize,
 //               fontWeight: FontWeight.w600,
 //               color: theme.text,
 //               fontFamily: "SF Pro",
@@ -1437,19 +1450,20 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //
 //           const SizedBox(height: 8),
 //
-//           // Change percentage and amount with responsive layout
+//           // Change data with responsive layout
 //           if (price != null && changePct != null && changeAmt != null)
 //             Wrap(
 //               crossAxisAlignment: WrapCrossAlignment.center,
+//               spacing: 4,
 //               children: [
 //                 Row(
 //                   mainAxisSize: MainAxisSize.min,
 //                   children: [
-//                     Icon(arrow, color: color, size: 20),
+//                     Icon(arrow, color: color, size: isSmallScreen ? 18 : 20),
 //                     Text(
-//                       '${changePct.toStringAsFixed(2)}% ',
+//                       '${changePct.toStringAsFixed(2)}%',
 //                       style: TextStyle(
-//                         fontSize: 14,
+//                         fontSize: isSmallScreen ? 12 : 14,
 //                         fontWeight: FontWeight.w500,
 //                         color: color,
 //                         fontFamily: "SF Pro",
@@ -1458,9 +1472,9 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //                   ],
 //                 ),
 //                 Text(
-//                   '(${changeAmt >= 0 ? '+' : ''}${changeAmt.toStringAsFixed(1)}) ',
+//                   '(${changeAmt >= 0 ? '+' : ''}${changeAmt.toStringAsFixed(1)})',
 //                   style: TextStyle(
-//                     fontSize: 14,
+//                     fontSize: isSmallScreen ? 12 : 14,
 //                     fontWeight: FontWeight.w500,
 //                     color: theme.text,
 //                     fontFamily: "SF Pro",
@@ -1469,7 +1483,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //                 Text(
 //                   'Today',
 //                   style: TextStyle(
-//                     fontSize: 12,
+//                     fontSize: isSmallScreen ? 10 : 12,
 //                     fontWeight: FontWeight.w500,
 //                     color: theme.text.withOpacity(0.7),
 //                     fontFamily: "SF Pro",
@@ -1484,15 +1498,17 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //     );
 //   }
 //
-//   // ───────── Chart (API-driven; no dummy) ─────────
-//   Widget _buildChart(String currency) {
+//   Widget _buildResponsiveChart(String currency, Size screenSize) {
+//     final chartHeight = screenSize.height * 0.25; // 25% of screen height
+//     final horizontalPadding = screenSize.width < 350 ? 12.0 : 16.0;
+//
 //     return AnimatedBuilder(
 //       animation: _animation,
 //       builder: (context, child) {
 //         if (chartData.isEmpty) {
 //           return Container(
-//             height: 200,
-//             padding: const EdgeInsets.symmetric(horizontal: 16),
+//             height: chartHeight,
+//             padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
 //             alignment: Alignment.center,
 //             child: const SizedBox(
 //               width: 20,
@@ -1502,9 +1518,10 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //           );
 //         }
 //
-//         // Determine chart color based on price movement
 //         final isPositive = _isPricePositive();
-//         final chartColor = isPositive ? const Color(0xFF00E676) : const Color(0xFFEF4444);
+//         final chartColor = isPositive
+//             ? const Color(0xFF00E676)
+//             : const Color(0xFFEF4444);
 //         final gradientColors = isPositive
 //             ? [
 //           const Color(0xFF00E676).withOpacity(0.3),
@@ -1518,12 +1535,12 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //         ];
 //
 //         return Container(
-//           height: 200,
-//           padding: const EdgeInsets.symmetric(horizontal: 16),
+//           height: chartHeight,
+//           padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
 //           child: LineChart(
 //             LineChartData(
-//               gridData: FlGridData(show: false),
-//               titlesData: FlTitlesData(show: false),
+//               gridData: const FlGridData(show: false),
+//               titlesData: const FlTitlesData(show: false),
 //               borderData: FlBorderData(show: false),
 //               clipData: const FlClipData.all(),
 //               minX: 0,
@@ -1538,24 +1555,20 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //                     s.y * _animation.value + _paddedMinY() * (1 - _animation.value),
 //                   ))
 //                       .toList(),
-//
-//                   // Enhanced curve settings for smoother appearance
 //                   isCurved: true,
-//                   curveSmoothness: 0.4,          // More aggressive smoothing
+//                   curveSmoothness: 0.4,
 //                   preventCurveOverShooting: true,
 //                   preventCurveOvershootingThreshold: 10.0,
-//
-//                   barWidth: 2.8,                 // Slightly thicker line
+//                   barWidth: screenSize.width < 350 ? 2.0 : 2.8,
 //                   isStrokeCapRound: true,
-//                   color: chartColor,             // Dynamic color based on trend
-//                   dotData: FlDotData(show: false),
-//
+//                   color: chartColor,
+//                   dotData: const FlDotData(show: false),
 //                   belowBarData: BarAreaData(
 //                     show: true,
 //                     gradient: LinearGradient(
 //                       begin: Alignment.topCenter,
 //                       end: Alignment.bottomCenter,
-//                       colors: gradientColors,     // Dynamic gradient colors
+//                       colors: gradientColors,
 //                       stops: const [0.0, 0.4, 1.0],
 //                     ),
 //                   ),
@@ -1587,10 +1600,11 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //                       final time = _getTimeFromIndex(t.x.toInt());
 //                       return LineTooltipItem(
 //                         '$currency${price.toStringAsFixed(2)}\n$time',
-//                         const TextStyle(
+//                         TextStyle(
 //                           color: Colors.white,
 //                           fontWeight: FontWeight.w600,
-//                           fontSize: 14,
+//                           fontSize: screenSize.width < 350 ? 12 : 14,
+//                           fontFamily: "SF Pro",
 //                         ),
 //                         textAlign: TextAlign.center,
 //                       );
@@ -1601,15 +1615,15 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //                   return spotIndexes.map((index) {
 //                     return TouchedSpotIndicatorData(
 //                       FlLine(
-//                           color: chartColor, // Match the chart color
-//                           strokeWidth: 2,
-//                           dashArray: [3, 3]
+//                         color: chartColor,
+//                         strokeWidth: 2,
+//                         dashArray: [3, 3],
 //                       ),
 //                       FlDotData(
 //                         getDotPainter: (spot, percent, barData, i) {
 //                           return FlDotCirclePainter(
 //                             radius: 6,
-//                             color: chartColor, // Match the chart color
+//                             color: chartColor,
 //                             strokeWidth: 3,
 //                             strokeColor: Colors.white,
 //                           );
@@ -1628,39 +1642,6 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //     );
 //   }
 //
-//   bool _isPricePositive() {
-//     if (chartData.length < 2) return true; // Default to positive if insufficient data
-//
-//     // Since data is now sorted chronologically, compare first (oldest) and last (newest)
-//     final firstPrice = chartData.first.y;  // oldest price
-//     final lastPrice = chartData.last.y;    // newest price
-//
-//     return lastPrice >= firstPrice;        // positive if price went up over time
-//   }
-//
-//
-//   double _paddedMinY() {
-//     if (chartData.isEmpty) return 0;
-//     final ys = chartData.map((s) => s.y);
-//     final min = ys.reduce((a, b) => a < b ? a : b);
-//     final max = ys.reduce((a, b) => a > b ? a : b);
-//     final range = (max - min).abs();
-//     final pad = range == 0 ? (max == 0 ? 1 : max * 0.05) : range * 0.08;
-//     return min - pad;
-//   }
-//
-//   double _paddedMaxY() {
-//     if (chartData.isEmpty) return 0;
-//     final ys = chartData.map((s) => s.y);
-//     final min = ys.reduce((a, b) => a < b ? a : b);
-//     final max = ys.reduce((a, b) => a > b ? a : b);
-//     final range = (max - min).abs();
-//     final pad = range == 0 ? (max == 0 ? 1 : max * 0.05) : range * 0.08;
-//     return max + pad;
-//   }
-//
-//
-//   // Period selector → tells service (with dynamic long chip)
 //   Widget _buildPeriodSelector() {
 //     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 //     final periods = _periods;
@@ -1678,21 +1659,21 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //                 final longLabel = _svc.longPeriodLabel;
 //
 //                 return GestureDetector(
-//                     onTap: () {
-//                       print("👆 Tapped period: $period");
-//                       setState(() => selectedPeriod = period);
+//                   onTap: () {
+//                     print("👆 Tapped period: $period");
+//                     setState(() => selectedPeriod = period);
 //
-//                       final longLabel = _svc.longPeriodLabel;
+//                     final longLabel = _svc.longPeriodLabel;
 //
-//                       if (period == longLabel && period != 'ALL' && period != '1Y') {
-//                         print("🎯 Using setLongPeriod");
-//                         _svc.setLongPeriod();
-//                       } else {
-//                         print("🎯 Using setPeriod");
-//                         _svc.setPeriod(period);
-//                       }
-//                       _startStreamingAnimation();
-//                     },
+//                     if (period == longLabel && period != 'ALL' && period != '1Y') {
+//                       print("🎯 Using setLongPeriod");
+//                       _svc.setLongPeriod();
+//                     } else {
+//                       print("🎯 Using setPeriod");
+//                       _svc.setPeriod(period);
+//                     }
+//                     _startStreamingAnimation();
+//                   },
 //                   child: Container(
 //                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
 //                     decoration: BoxDecoration(
@@ -1717,9 +1698,11 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //       ),
 //     );
 //   }
-//   // Tabs (static for now; we’ll wire next)
-//   TabBar _buildTabSection() {
+//
+//   TabBar _buildResponsiveTabSection(Size screenSize) {
 //     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+//     final isSmallScreen = screenSize.width < 350;
+//
 //     return TabBar(
 //       controller: _tabController,
 //       onTap: (index) => setState(() => selectedTabIndex = index),
@@ -1730,16 +1713,16 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //       indicatorPadding: EdgeInsets.zero,
 //       labelColor: theme.text,
 //       unselectedLabelColor: Colors.grey[600],
-//       labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-//       labelStyle: const TextStyle(
+//       labelPadding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 2 : 4),
+//       labelStyle: TextStyle(
 //         fontFamily: "SF Pro",
-//         fontSize: 12,
+//         fontSize: isSmallScreen ? 10 : 12,
 //         fontWeight: FontWeight.w500,
 //         height: 1.2,
 //       ),
-//       unselectedLabelStyle: const TextStyle(
+//       unselectedLabelStyle: TextStyle(
 //         fontFamily: "SF Pro",
-//         fontSize: 12,
+//         fontSize: isSmallScreen ? 10 : 12,
 //         fontWeight: FontWeight.w500,
 //         height: 1.2,
 //       ),
@@ -1754,7 +1737,6 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //       ],
 //     );
 //   }
-//
 //
 //   List<FundamentalData> _fundamentalsFromService() {
 //     final f = _view.data?.fundamentals;
@@ -1798,43 +1780,60 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //     return 'assets/images/eye.png';
 //   }
 //
-//   Widget _buildSummaryTab() {
-//     // For You card content (prefer for_you_card -> fallback to market_insight)
-//     final forYouTitle =
-//         _view.data?.fundamentals?.forYouCard?.title ?? 'Market Insight';
-//     final forYouContent =
-//         _view.data?.fundamentals?.forYouCard?.content ??
-//             _view.data?.fundamentals?.marketInsight ??
-//             "Loading latest insight…";
 //
-//     // Map insights to UI cards
+//   Widget _buildSummaryTab() {
+//     final forYouCard = _view.data?.fundamentals?.forYouCard;
+//     final marketInsight = _view.data?.fundamentals?.marketInsight;
 //     final fundamentalsList = _fundamentalsFromService();
-//     final technicalsList   = _technicalsFromService();
+//     final technicalsList = _technicalsFromService();
+//
+//     // Check if we have any actual content to show
+//     final hasForYouContent = forYouCard?.content?.isNotEmpty == true;
+//     final hasMarketInsight = marketInsight?.isNotEmpty == true;
+//     final hasAnyContent = hasForYouContent || hasMarketInsight ||
+//         fundamentalsList.isNotEmpty || technicalsList.isNotEmpty;
+//
+//     if (!hasAnyContent) {
+//       return const Center(
+//         child: Padding(
+//           padding: EdgeInsets.all(32.0),
+//           child: Text(
+//             'No summary data available yet.',
+//             style: TextStyle(
+//               fontFamily: 'SF Pro',
+//               fontSize: 14,
+//               color: Color(0xFF9CA3AF),
+//             ),
+//           ),
+//         ),
+//       );
+//     }
 //
 //     return SingleChildScrollView(
 //       child: Column(
 //         crossAxisAlignment: CrossAxisAlignment.start,
 //         children: [
-//           // --- For You card (always shown with fallback copy) ---
-//           ForYouCard(title: forYouTitle, content: forYouContent),
+//           // Only show ForYouCard if there's actual content
+//           if (hasForYouContent || hasMarketInsight)
+//             ForYouCard(
+//               title: forYouCard?.title ?? 'Market Insight',
+//               content: forYouCard?.content ?? marketInsight ?? '',
+//             ),
 //
-//
-//           // --- Fundamentals section (only if we have items) ---
 //           if (fundamentalsList.isNotEmpty)
 //             CustomFundamentalsSection(
 //               title: "Fundamentals",
 //               fundamentals: fundamentalsList,
 //             ),
 //
-//           // --- Technical section (only if we have items) ---
 //           if (technicalsList.isNotEmpty)
 //             CustomFundamentalsSection(
 //               title: "Technical",
 //               fundamentals: technicalsList,
 //             ),
 //
-//           // Optional: tiny spacer so the last card breathes
-//           const SizedBox(height: 16),
+//           // Only add spacing if we actually have content
+//           if (hasAnyContent) const SizedBox(height: 16),
 //         ],
 //       ),
 //     );
@@ -1849,7 +1848,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //     return Column(
 //       crossAxisAlignment: CrossAxisAlignment.start,
 //       children: [
-//        _buildPerformanceFromService(),
+//         _buildPerformanceFromService(),
 //         ExpandableTilesSection(
 //           marketDepth: tiles == null
 //               ? null
@@ -1936,7 +1935,6 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //     final items = _view.data?.news ?? const <models.AssetNewsItem>[];
 //
 //     if (items.isEmpty) {
-//       // loading ya empty state
 //       return Padding(
 //         padding: const EdgeInsets.all(16),
 //         child: Column(
@@ -1967,6 +1965,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //               timeAgo: timeAgo,
 //               title: n.title,
 //               description: (n.description ?? '').isEmpty ? ' ' : n.description!,
+//               maxLines: 3, // Collapse after 3 lines
 //             ),
 //           );
 //         }).toList(),
@@ -2016,13 +2015,64 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 //     );
 //   }
 //
+//   // Keep all your existing helper methods unchanged
+//   bool _isPricePositive() {
+//     if (chartData.length < 2) return true;
+//     final firstPrice = chartData.first.y;
+//     final lastPrice = chartData.last.y;
+//     return lastPrice >= firstPrice;
+//   }
 //
+//   double _paddedMinY() {
+//     if (chartData.isEmpty) return 0;
+//     final ys = chartData.map((s) => s.y);
+//     final min = ys.reduce((a, b) => a < b ? a : b);
+//     final max = ys.reduce((a, b) => a > b ? a : b);
+//     final range = (max - min).abs();
+//     final pad = range == 0 ? (max == 0 ? 1 : max * 0.05) : range * 0.08;
+//     return min - pad;
+//   }
+//
+//   double _paddedMaxY() {
+//     if (chartData.isEmpty) return 0;
+//     final ys = chartData.map((s) => s.y);
+//     final min = ys.reduce((a, b) => a < b ? a : b);
+//     final max = ys.reduce((a, b) => a > b ? a : b);
+//     final range = (max - min).abs();
+//     final pad = range == 0 ? (max == 0 ? 1 : max * 0.05) : range * 0.08;
+//     return max + pad;
+//   }
+//
+//   Widget _buildPortfolioCardFromService() {
+//     final p = _view.data?.portfolioData;
+//     if (p == null) {
+//       return const SizedBox.shrink();
+//     }
+//
+//     return StockPortfolioCard(
+//       shares: p.shares,
+//       avgPrice: p.avgPrice,
+//       currentValue: p.currentValue,
+//       changePercent: p.changePercent,
+//       changeAmount: p.changeAmount,
+//       isPositive: p.isPositive,
+//     );
+//   }
+//
+//   Widget _wrapWithScroll(Widget child) {
+//     return SingleChildScrollView(
+//         physics: const BouncingScrollPhysics(),
+//         child: child
+//     );
+//   }
+//
+//   // Keep all other existing methods (_buildSummaryTab, _buildOverviewTab, etc.)
+//   // ... [All other existing methods remain the same]
 //
 //   String _getTimeFromIndex(int index) {
 //     if (index < 0 || index >= _lastRawPoints.length) return '';
-//     final ts = _lastRawPoints[index].timestamp;
+//     final ts = _lastRawPoints[index].timestamp; // Now already in IST
 //
-//     // Format based on selectedPeriod (or dynamic long “nY”)
 //     final isLong = selectedPeriod.endsWith('Y') && selectedPeriod != '1Y';
 //     if (selectedPeriod == '1D') {
 //       return '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}';
@@ -2040,30 +2090,10 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
 // }
 
 
-class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  _SliverAppBarDelegate({required this.child, this.height});
 
-  final Widget child;
-  final double? height;
 
-  @override
-  double get minExtent => height ?? 60;
-  @override
-  double get maxExtent => height ?? 60;
 
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
-    return Material(               // 👈 not transparent anymore
-      color: theme.background,
-      child: child,
-    );
-  }
 
-  @override
-  bool shouldRebuild(_SliverAppBarDelegate old) =>
-      old.child != child || old.height != height;
-}
 
 
 

@@ -49,25 +49,16 @@ class _StockAppBarState extends State<StockAppBar> {
 
     final d = s.data;
     if (d != null) {
-      if (d.basicInfo.name.trim().isNotEmpty) {
-        newTitle = d.basicInfo.name.trim();
-      }
+      if (d.basicInfo.name.trim().isNotEmpty) newTitle = d.basicInfo.name.trim();
       newWatch = d.additionalData?.userWatchlisted ?? false;
     }
-
     if (newTitle != _title || newWatch != _watchlisted) {
-      setState(() {
-        _title = newTitle;
-        _watchlisted = newWatch;
-      });
+      setState(() { _title = newTitle; _watchlisted = newWatch; });
     }
   }
 
   @override
-  void dispose() {
-    _sub?.cancel();
-    super.dispose();
-  }
+  void dispose() { _sub?.cancel(); super.dispose(); }
 
   void _toggleWatchlist() {
     setState(() => _watchlisted = !_watchlisted);
@@ -75,142 +66,113 @@ class _StockAppBarState extends State<StockAppBar> {
   }
 
   Future<void> _handleClose() async {
-    print("🔄 StockAppBar._handleClose() called");
-
-    try {
-      HapticFeedback.heavyImpact();
-    } catch (_) {}
-
-    // Simply call the provided callback - don't overthink it
+    try { if (Platform.isIOS) HapticFeedback.lightImpact(); } catch (_) {}
     widget.onClose();
-
-    // Give iOS a moment to process
-    await Future.delayed(const Duration(milliseconds: 100));
   }
-
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
-    return SafeArea( // ensure not under the notch
-      top: false,
-      bottom: false,
-      child: Container(
-        height: 60,
-        decoration: BoxDecoration(
-          color: theme.background,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+    return Container(
+      height: 60,
+      decoration: BoxDecoration(
+        color: theme.background,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            // Left side - Cancel button (reduced width)
+            Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: _handleClose,
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  width: 40, // Reduced from 56
+                  height: 40, // Reduced from 56
+                  alignment: Alignment.center,
+                  child: const _CancelIconAsset(),
+                ),
+              ),
+            ),
+
+            // Center - Title (expanded to take available space)
+            Expanded(
+              child: Text(
+                _title.isNotEmpty ? _title : widget.fallbackTitle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: theme.text,
+                  fontFamily: "SF Pro",
+                ),
+              ),
+            ),
+
+            // Right side - Notification and Bookmark icons (reduced spacing)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    onTap: () {},
+                    borderRadius: BorderRadius.circular(22),
+                    child: Container(
+                      width: 40, // Reduced from 44
+                      height: 40, // Reduced from 44
+                      alignment: Alignment.center,
+                      child: Icon(Icons.notifications_outlined, size: 22, color: theme.icon),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 2), // Reduced from 4
+                Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    onTap: _toggleWatchlist,
+                    borderRadius: BorderRadius.circular(22),
+                    child: Container(
+                      width: 40, // Reduced from 44
+                      height: 40, // Reduced from 44
+                      alignment: Alignment.center,
+                      child: Icon(
+                        _watchlisted ? Icons.bookmark : Icons.bookmark_border,
+                        size: 22,
+                        color: theme.icon,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Stack(
-            children: [
-              // CENTER title first so buttons paint on top (no accidental overlay)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 80),
-                  child: Text(
-                    _title.isNotEmpty ? _title : widget.fallbackTitle,
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: theme.text,
-                      fontFamily: "Inter",
-                      height: 1.0,
-                      letterSpacing: 0.0,
-                    ),
-                  ),
-                ),
-              ),
-
-              // LEFT close button (now always tappable, bigger hit area, on top)
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: Material(
-                    type: MaterialType.transparency,
-                    child: InkWell(
-                      onTap: _handleClose,
-                      borderRadius: BorderRadius.circular(28),
-                      child: SizedBox(
-
-                        child: Center(
-                          child: Image.asset(
-                            "assets/images/cancel.png",
-                            height: 32,
-                            color: theme.icon,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              // RIGHT icons
-              Positioned(
-                right: 0,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Material(
-                        type: MaterialType.transparency,
-                        child: InkWell(
-                          onTap: () {
-                            // TODO: open alerts/notifications sheet
-                          },
-                          borderRadius: BorderRadius.circular(28),
-                          child: const SizedBox(
-                            width: 44,
-                            height: 44,
-                            child: Icon(Icons.notifications_outlined, size: 22),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Material(
-                        type: MaterialType.transparency,
-                        child: InkWell(
-                          onTap: _toggleWatchlist,
-                          borderRadius: BorderRadius.circular(28),
-                          child: SizedBox(
-                            width: 44, height: 44,
-                            child: Icon(
-                              _watchlisted ? Icons.bookmark : Icons.bookmark_border,
-                              size: 22,
-                              color: theme.icon,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
   }
 }
 
+class _CancelIconAsset extends StatelessWidget {
+  const _CancelIconAsset();
 
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+    return Image.asset(
+      "assets/images/cancel.png",
+      height: 27,
+      width: 27,
+      color: theme.icon,
+    );
+  }
+}
 
 class StockPortfolioCard extends StatelessWidget {
   final int shares;
