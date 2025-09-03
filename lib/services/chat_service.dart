@@ -1425,185 +1425,6 @@ class ChatService{
     _isTypingSubject.add(false);
   }
 
-  // Future<void> stopResponse(String sessionId) async {
-  //   // 1) Ask server to cancel the live stream first
-  //   if (_currentStreamingId.isNotEmpty) {
-  //     try {
-  //       await _apiService.post(endpoint: '/chat/message/stop', body: {
-  //         'session_id': sessionId,
-  //         'message_id': _currentStreamingId, // server ignores if not used
-  //       });
-  //     } catch (e) {
-  //       debugPrint('❌ Stop (server) failed: $e'); // fine, we'll still freeze UI
-  //     }
-  //   }
-  //
-  //   // 2) Now cancel local SSE subscription
-  //   _streamSubscription?.cancel();
-  //   _streamSubscription = null;
-  //   _currentStreamingId = '';
-  //
-  //   // 3) Freeze the last bot message at current progress (no isComplete=true)
-  //   final updated = [..._messagesSubject.value];
-  //   final lastIndex = updated.length - 1;
-  //   if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
-  //     updated[lastIndex] = {
-  //       ...updated[lastIndex],
-  //       'currentStatus': '',
-  //       'forceStop': true,                     // BotMessageWidget will finish animation
-  //       'stopTs': DateTime.now().toIso8601String(),
-  //     };
-  //     _messagesSubject.add(updated);
-  //   }
-  //
-  //   // 4) Hide stop button (typing false). Do NOT call _checkAndNotifyFirstMessageComplete() here.
-  //   _isTypingSubject.add(false);
-  // }
-  //
-  //
-  // Future<void> sendMessage(String? sessionId, String text) async {
-  //   // 🔐 ensure we have a real session id (creates one if needed)
-  //   final effectiveSessionId = await _ensureActiveSessionId(sessionId);
-  //
-  //   final userMessage = sanitizeMessage(text);
-  //   final isFirstMessage = !messages.any((m) => m['role'] == 'user');
-  //   final userMessageId = UniqueKey().toString();
-  //   final botMessageId = UniqueKey().toString();
-  //
-  //   _isTypingSubject.add(true);
-  //
-  //   _messagesSubject.add([
-  //     ...messages,
-  //     {
-  //       'id': userMessageId,
-  //       'role': 'user',
-  //       'content': userMessage,
-  //       'isComplete': true,
-  //     },
-  //     {
-  //       'id': botMessageId,
-  //       'role': 'bot',
-  //       'content': '',
-  //       'isComplete': false,
-  //     }
-  //   ]);
-  //
-  //   try {
-  //     if (isFirstMessage) {
-  //       await updateSessionTitle(effectiveSessionId, userMessage);
-  //     }
-  //
-  //     final responseStream = await sendMessageWithStreaming(
-  //       sessionId: effectiveSessionId,
-  //       message: userMessage,
-  //     );
-  //
-  //     _currentStreamingId = '';
-  //
-  //     _streamSubscription = responseStream.listen((chatMessage) {
-  //       if (_currentStreamingId.isEmpty) {
-  //         _currentStreamingId = chatMessage.id;
-  //       }
-  //
-  //       final updated = [..._messagesSubject.value];
-  //       final lastIndex = updated.length - 1;
-  //
-  //       if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
-  //         final prev = Map<String, Object>.from(updated[lastIndex]);
-  //
-  //         Map<String, Object> messageData = <String, Object>{
-  //           ...prev,
-  //           'id': botMessageId,
-  //           'role': 'bot',
-  //           'content': chatMessage.text,
-  //           'isComplete': (prev['isComplete'] as bool?) ?? false,
-  //           'backendComplete': chatMessage.isComplete,
-  //           'currentStatus': chatMessage.currentStatus ?? '',
-  //         };
-  //
-  //         // ✅ FIXED: Handle table data with type preservation
-  //         if (chatMessage.isTable && chatMessage.structuredData != null) {
-  //           final sd = chatMessage.structuredData!;
-  //           final heading = sd['heading']?.toString() ?? 'Results';
-  //           final type = sd['type']?.toString() ?? 'cards'; // ✅ PRESERVE TYPE
-  //           final rows = (sd['rows'] as List?)
-  //               ?.whereType<Map>()
-  //               .map((e) => Map<String, dynamic>.from(e))
-  //               .toList() ??
-  //               <Map<String, dynamic>>[];
-  //
-  //           messageData['type'] = 'kv_table';
-  //           messageData['tableData'] = <String, Object>{
-  //             'heading': heading,
-  //             'rows': rows,
-  //             'type': type, // ✅ CRITICAL: Pass the type through
-  //             'columnOrder': (prev['tableData'] is Map &&
-  //                 (prev['tableData'] as Map)['columnOrder'] is List)
-  //                 ? List<String>.from((prev['tableData'] as Map)['columnOrder'])
-  //                 : <String>[],
-  //           };
-  //         } else if (prev.containsKey('tableData') && prev['tableData'] != null) {
-  //           // ✅ FIXED: Preserve existing tableData including type
-  //           final existingTableData = prev['tableData'] as Map;
-  //           messageData['tableData'] = Map<String, Object>.from(existingTableData);
-  //         }
-  //
-  //         // ✅ FIXED: Preserve existing type if no new type is set
-  //         if (prev.containsKey('type') &&
-  //             !messageData.containsKey('type') &&
-  //             prev['type'] != null) {
-  //           messageData['type'] = prev['type']!;
-  //         }
-  //
-  //         updated[lastIndex] = messageData;
-  //         _messagesSubject.add(updated);
-  //       }
-  //     }, onError: (e) {
-  //       debugPrint("❌ CHAT SERVICE ERROR: $e");
-  //       _isTypingSubject.add(false);
-  //
-  //       final updated = [..._messagesSubject.value];
-  //       final lastIndex = updated.length - 1;
-  //       if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
-  //         updated[lastIndex] = {
-  //           'id': botMessageId,
-  //           'role': 'bot',
-  //           'content': '❌ Failed to respond.',
-  //           'isComplete': true,
-  //           'retry': true,
-  //           'originalMessage': userMessage,
-  //         };
-  //         _messagesSubject.add(updated);
-  //       }
-  //     });
-  //   } catch (e) {
-  //     debugPrint("❌ SEND MESSAGE ERROR: $e");
-  //     _isTypingSubject.add(false);
-  //
-  //     final updated = [..._messagesSubject.value];
-  //     final lastIndex = updated.length - 1;
-  //     if (lastIndex >= 0 && updated[lastIndex]['role'] == 'bot') {
-  //       updated[lastIndex] = {
-  //         'id': botMessageId,
-  //         'role': 'bot',
-  //         'content': '❌ Failed to send.',
-  //         'isComplete': true,
-  //         'retry': true,
-  //         'originalMessage': userMessage,
-  //       };
-  //       _messagesSubject.add(updated);
-  //     }
-  //   }
-  // }
-
-
-
-
-
-
-
-
-  // Add this updated sendMessageWithStreaming method to your ChatService
 
 
 
@@ -1613,14 +1434,14 @@ class ChatService{
 
 
 
-
+// Updated sendMessageWithStreamingRespond method for your ChatService class
 
   Future<Stream<ChatMessage>> sendMessageWithStreamingRespond({
     required String uid,
     String? sessionId,
     required String message,
     String? firstMessageForTitle,
-    bool debugLog = false,
+    bool debugLog = true,
   }) async {
     await SessionManager.checkTokenValidityAndRefresh();
 
@@ -1634,7 +1455,7 @@ class ChatService{
     }
 
     try {
-     final String _baseUrl = 'https://fastapi-app-130321581049.asia-south1.run.app';
+      final String _baseUrl = 'https://fastapi-app-130321581049.asia-south1.run.app';
       //final String _baseUrl = "http://localhost:8000";
       //final String _baseUrl = 'http://192.168.1.5:8000';
       final url = Uri.parse('$_baseUrl/chat/respond');
@@ -1688,7 +1509,7 @@ class ChatService{
       String buffer = '';
       String textBeforeTable = '';
       String textAfterTable = '';
-      bool tableReceived = false;
+      bool tableReceived = false;  // Track if we've encountered any table event (even empty)
 
       List<Map<String, dynamic>> allTableRows = [];
       String combinedHeading = 'Results';
@@ -1860,16 +1681,24 @@ class ChatService{
                     jsonData['type'] == 'table_of_asset'||
                     jsonData['type'] == 'table_of_market')) {
 
+                  // ✅ CRITICAL FIX: Always set tableReceived = true when we encounter ANY table event
+                  if (!tableReceived) {
+                    tableReceived = true;
+                    if (debugLog) print('🏁 TABLE EVENT RECEIVED: Setting tableReceived=true (even if empty)');
+                  }
+
                   final heading = (jsonData['heading']?.toString() ?? 'Results');
                   final dataList = (jsonData['list'] as List?) ?? const [];
                   final rows = dataList.map<Map<String, dynamic>>((e) =>
                   (e is Map) ? Map<String, dynamic>.from(e) : <String, dynamic>{}
                   ).toList();
 
-                  if (!tableReceived) {
-                    tableReceived = true;
+                  // Set heading only if we don't have one yet
+                  if (combinedHeading == 'Results') {
                     combinedHeading = heading;
                   }
+
+                  // Add rows (even if empty)
                   allTableRows.addAll(rows);
                   stats.jsonRowsAccumulated = allTableRows.length;
 
@@ -1884,6 +1713,8 @@ class ChatService{
                     if (rows.isNotEmpty) {
                       final sample = rows.first;
                       print('   sample row keys: ${sample.keys.toList()}');
+                    } else {
+                      print('   EMPTY TABLE - but tableReceived flag is set, text will continue to textAfterTable');
                     }
                   }
 
@@ -1978,40 +1809,62 @@ class ChatService{
   }
 
 
-
-
-
-
-
-
-  // Future<Stream<ChatMessage>> sendMessageWithStreaming({
-  //   required String sessionId,
+  // Future<Stream<ChatMessage>> sendMessageWithStreamingRespond({
+  //   required String uid,
+  //   String? sessionId,
   //   required String message,
+  //   String? firstMessageForTitle,
+  //   bool debugLog = false,
   // }) async {
   //   await SessionManager.checkTokenValidityAndRefresh();
   //
-  //   try {
-  //     final url = Uri.parse('https://fastapi-app-130321581049.asia-south1.run.app/chat/respond');
-  //    // final url = Uri.parse('http://localhost:8000/chat/respond');
-  //     //final url = Uri.parse('http://192.168.1.2:8000/chat/respond');
-  //     final request = http.Request('POST', url);
+  //   final stats = _StreamDebugStats();
+  //   if (debugLog) {
+  //     final preview = message.length > 120 ? '${message.substring(0, 120)}…' : message;
+  //     print('START STREAM - /chat/respond');
+  //     print('uid: $uid');
+  //     print('sessionId: ${sessionId ?? "<null - will be created by server>"}');
+  //     print('user message: "$preview"');
+  //   }
   //
-  //     request.headers.addAll({
+  //   try {
+  //    //final String _baseUrl = 'https://fastapi-app-130321581049.asia-south1.run.app';
+  //     final String _baseUrl = "http://localhost:8000";
+  //     //final String _baseUrl = 'http://192.168.1.5:8000';
+  //     final url = Uri.parse('$_baseUrl/chat/respond');
+  //
+  //     final req = http.Request('POST', url);
+  //     req.headers.addAll({
   //       'Content-Type': 'application/json',
   //       'Accept': 'text/event-stream',
-  //       if (SessionManager.token != null)
-  //         'Authorization': 'Bearer ${SessionManager.token}',
+  //       if (SessionManager.token != null) 'Authorization': 'Bearer ${SessionManager.token}',
+  //       if (SessionManager.refreshToken != null) 'X-Refresh-Token': SessionManager.refreshToken!,
   //     });
   //
-  //     request.body = jsonEncode({
-  //       'session_id': sessionId,
+  //     final body = <String, dynamic>{
+  //       'uid': uid,
   //       'input': utf8.decode(message.codeUnits),
-  //     });
+  //       if (sessionId != null && sessionId.isNotEmpty) 'session_id': sessionId,
+  //     };
+  //     req.body = jsonEncode(body);
   //
-  //     final streamedResponse = await request.send();
+  //     if (debugLog) {
+  //       print('POST $_baseUrl/chat/respond');
+  //       print('headers: ${req.headers}');
+  //       print('body: ${req.body}');
+  //     }
   //
-  //     if (streamedResponse.statusCode != 200) {
+  //     final streamedResponse = await req.send().timeout(
+  //       const Duration(seconds: 10),
+  //       onTimeout: () => throw TimeoutException('Connection timeout after 30 seconds'),
+  //     );
+  //
+  //     if (streamedResponse.statusCode < 200 || streamedResponse.statusCode >= 300) {
   //       final errorBody = await streamedResponse.stream.bytesToString();
+  //       if (debugLog) {
+  //         print('Non-2xx status: ${streamedResponse.statusCode}');
+  //         print('Body: $errorBody');
+  //       }
   //       throw Exception("Streaming failed: $errorBody");
   //     }
   //
@@ -2024,7 +1877,6 @@ class ChatService{
   //       isUser: false,
   //       timestamp: DateTime.now(),
   //       isComplete: false,
-  //       currentStatus: null,
   //     );
   //
   //     String buffer = '';
@@ -2033,56 +1885,140 @@ class ChatService{
   //     bool tableReceived = false;
   //
   //     List<Map<String, dynamic>> allTableRows = [];
-  //     String combinedHeading = 'Performance Comparison';
+  //     String combinedHeading = 'Results';
   //     Map<String, dynamic>? tableData;
   //
-  //     List<Map<String, dynamic>> allChunks = [];
-  //     int chunkCounter = 0;
+  //     Timer? inactivityTimer;
+  //     void resetInactivityTimer() {
+  //       inactivityTimer?.cancel();
+  //       inactivityTimer = Timer(const Duration(seconds: 60), () {
+  //         if (debugLog) print('Inactivity timeout (60s) - closing stream');
+  //         controller.addError(TimeoutException('Stream inactive timeout', const Duration(seconds: 60)));
+  //         controller.close();
+  //       });
+  //     }
+  //     resetInactivityTimer();
   //
   //     streamedResponse.stream.transform(utf8.decoder).listen(
   //           (chunk) {
+  //         stats.onRawChunk(chunk);
+  //         if (debugLog) print('CHUNK bytes=${chunk.length}');
+  //
+  //         resetInactivityTimer();
   //         buffer += chunk;
+  //
   //         final lines = buffer.split('\n');
   //         buffer = lines.removeLast();
   //
-  //         for (var raw in lines) {
-  //           var line = raw.trim();
-  //           if (line.isEmpty) continue;
+  //         for (final raw in lines) {
+  //           stats.onLine(raw);
+  //           final line = raw.trim();
   //
-  //           if (!line.startsWith('data:')) continue;
+  //           if (line.isEmpty) {
+  //             if (debugLog) print('(empty line)');
+  //             continue;
+  //           }
+  //           if (!line.startsWith('data:')) {
+  //             if (debugLog) print('(non-data line) "$line"');
+  //             continue;
+  //           }
   //
   //           final jsonText = line.substring(5).trim();
-  //           if (jsonText.isEmpty) continue;
+  //           if (debugLog) {
+  //             print('\n' + '=' * 80);
+  //             print('SSE DATA LINE (#${stats.dataLines})');
+  //             print('raw: $jsonText');
+  //           }
+  //           if (jsonText.isEmpty) {
+  //             if (debugLog) print('empty data payload');
+  //             continue;
+  //           }
   //
+  //           Map<String, dynamic> decoded;
   //           try {
-  //             final decoded = jsonDecode(jsonText);
-  //             allChunks.add(Map<String, dynamic>.from(decoded));
-  //             chunkCounter++;
+  //             decoded = jsonDecode(jsonText) as Map<String, dynamic>;
+  //           } catch (e) {
+  //             stats.badJsonLines++;
+  //             if (debugLog) print('JSON parse error: $e');
+  //             continue;
+  //           }
   //
-  //             print("\n" + "="*80);
-  //             print("📦 CHUNK #$chunkCounter");
-  //             print("🔍 Raw JSON: $jsonText");
-  //             print("📋 Parsed: ${JsonEncoder.withIndent('  ').convert(decoded)}");
-  //             print("🏷️  Type: ${decoded['type']}");
-  //             if (decoded['payload'] != null) {
-  //               print("📄 Payload Type: ${decoded['payload']['type']}");
-  //               if (decoded['payload']['data'] != null) {
-  //                 final data = decoded['payload']['data'];
-  //                 if (data is String) {
-  //                   print("📝 Data (String): '$data'");
-  //                 } else {
-  //                   print("📊 Data (Object): ${JsonEncoder.withIndent('  ').convert(data)}");
-  //                 }
+  //           final type = (decoded['type'] ?? '').toString();
+  //           final payload = decoded['payload'] as Map<String, dynamic>? ?? const {};
+  //           final payloadType = (payload['type'] ?? '').toString();
+  //
+  //           stats.onParsedEvent(type: type, payloadType: payloadType);
+  //           stats.markFirstChunkIfNeeded();
+  //
+  //           if (debugLog) {
+  //             print('event.type: "$type"');
+  //             if (payload.isNotEmpty) print('payload.type: "$payloadType"');
+  //           }
+  //
+  //           // 1) Handle session_created
+  //           if (type == 'session_created') {
+  //             stats.sessionCreated++;
+  //             final sid = decoded['session_id']?.toString();
+  //             if (debugLog) print('session_created: session_id=$sid');
+  //             if (sid != null && sid.isNotEmpty) {
+  //               _adoptServerSession(sid);
+  //               if (firstMessageForTitle != null && firstMessageForTitle.trim().isNotEmpty) {
+  //                 updateSessionTitle(sid, firstMessageForTitle);
   //               }
   //             }
-  //             print("="*80 + "\n");
+  //             continue;
+  //           }
   //
-  //             final type = decoded['type'];
+  //           // 2) Handle status_update
+  //           if (type == 'status_update') {
+  //             stats.statusUpdates++;
+  //             final reason = (payload['reason'] ?? '').toString();
+  //             if (debugLog) print('status_update: "$reason"');
   //
-  //             // Handle status updates
-  //             if (type == 'status_update') {
-  //               final reason = (decoded['payload']?['reason'] ?? '').toString();
-  //               print("🟡 STATUS UPDATE: $reason");
+  //             String displayText = textBeforeTable;
+  //             if (tableReceived) {
+  //               displayText += '___TABLE_PLACEHOLDER___';
+  //               displayText += textAfterTable;
+  //             }
+  //
+  //             currentMessage = ChatMessage(
+  //               id: messageId,
+  //               text: displayText,
+  //               isUser: false,
+  //               timestamp: currentMessage.timestamp,
+  //               isComplete: false,
+  //               currentStatus: reason,
+  //               isTable: tableReceived,
+  //               structuredData: tableData,
+  //               messageType: tableReceived ? 'kv_table' : null,
+  //             );
+  //             controller.add(currentMessage);
+  //             continue;
+  //           }
+  //
+  //           // 3) Handle response events
+  //           if (type == 'response') {
+  //             if (payloadType == 'text') {
+  //               stats.responseTextChunks++;
+  //               final data = (payload['data'] ?? '').toString();
+  //               final prevLenBefore = textBeforeTable.length;
+  //               final prevLenAfter = textAfterTable.length;
+  //
+  //               if (tableReceived) {
+  //                 textAfterTable += data;
+  //                 stats.textAfterChars += (textAfterTable.length - prevLenAfter);
+  //               } else {
+  //                 textBeforeTable += data;
+  //                 stats.textBeforeChars += (textBeforeTable.length - prevLenBefore);
+  //               }
+  //
+  //               if (debugLog) {
+  //                 final where = tableReceived ? 'AFTER_TABLE' : 'BEFORE_TABLE';
+  //                 final preview = data.length > 140 ? '${data.substring(0, 140)}…' : data;
+  //                 print('response:text [$where] +${data.length} chars');
+  //                 print('   preview: "$preview"');
+  //                 print('   totals so far - before:${stats.textBeforeChars}, after:${stats.textAfterChars}');
+  //               }
   //
   //               String displayText = textBeforeTable;
   //               if (tableReceived) {
@@ -2096,35 +2032,56 @@ class ChatService{
   //                 isUser: false,
   //                 timestamp: currentMessage.timestamp,
   //                 isComplete: false,
-  //                 currentStatus: reason,
-  //                 messageType: tableReceived ? 'kv_table' : null,
+  //                 currentStatus: null, // Clear status when text arrives
+  //                 isTable: tableReceived,
   //                 structuredData: tableData,
+  //                 messageType: tableReceived ? 'kv_table' : null,
   //               );
   //               controller.add(currentMessage);
   //               continue;
   //             }
   //
-  //             // Handle response chunks
-  //             if (type == 'response') {
-  //               final payload = decoded['payload'] as Map<String, dynamic>? ?? const {};
-  //               final pType = (payload['type'] ?? '').toString();
+  //             if (payloadType == 'json') {
+  //               stats.responseJsonChunks++;
+  //               final jsonData = payload['data'];
+  //               if (debugLog) {
+  //                 final pretty = const JsonEncoder.withIndent('  ').convert(jsonData);
+  //                 print('response:json payload:\n$pretty');
+  //               }
   //
-  //               // Handle text chunks
-  //               if (pType == 'text') {
-  //                 final data = (payload['data'] ?? '').toString();
-  //                 print("📝 TEXT CHUNK: '$data' (goes to ${tableReceived ? 'AFTER' : 'BEFORE'} table)");
+  //               if (jsonData is Map && (jsonData['type'] == 'cards_of_market' ||
+  //                   jsonData['type'] == 'cards_of_asset'  ||
+  //                   jsonData['type'] == 'table_of_asset'||
+  //                   jsonData['type'] == 'table_of_market')) {
   //
-  //                 if (tableReceived) {
-  //                   textAfterTable += data;
-  //                 } else {
-  //                   textBeforeTable += data;
+  //                 final heading = (jsonData['heading']?.toString() ?? 'Results');
+  //                 final dataList = (jsonData['list'] as List?) ?? const [];
+  //                 final rows = dataList.map<Map<String, dynamic>>((e) =>
+  //                 (e is Map) ? Map<String, dynamic>.from(e) : <String, dynamic>{}
+  //                 ).toList();
+  //
+  //                 if (!tableReceived) {
+  //                   tableReceived = true;
+  //                   combinedHeading = heading;
+  //                 }
+  //                 allTableRows.addAll(rows);
+  //                 stats.jsonRowsAccumulated = allTableRows.length;
+  //
+  //                 tableData = {
+  //                   'heading': combinedHeading,
+  //                   'rows': allTableRows,
+  //                   'type': jsonData['type'].toString(),
+  //                 };
+  //
+  //                 if (debugLog) {
+  //                   print('table/cards chunk - heading="$combinedHeading", added=${rows.length}, totalRows=${allTableRows.length}, type=${jsonData['type']}');
+  //                   if (rows.isNotEmpty) {
+  //                     final sample = rows.first;
+  //                     print('   sample row keys: ${sample.keys.toList()}');
+  //                   }
   //                 }
   //
-  //                 String displayText = textBeforeTable;
-  //                 if (tableReceived) {
-  //                   displayText += '___TABLE_PLACEHOLDER___';
-  //                   displayText += textAfterTable;
-  //                 }
+  //                 final displayText = textBeforeTable + '___TABLE_PLACEHOLDER___' + textAfterTable;
   //
   //                 currentMessage = ChatMessage(
   //                   id: messageId,
@@ -2132,161 +2089,76 @@ class ChatService{
   //                   isUser: false,
   //                   timestamp: currentMessage.timestamp,
   //                   isComplete: false,
-  //                   currentStatus: null,
-  //                   messageType: tableReceived ? 'kv_table' : null,
+  //                   currentStatus: null, // Clear status when table arrives
+  //                   isTable: true,
   //                   structuredData: tableData,
+  //                   messageType: 'kv_table',
   //                 );
   //                 controller.add(currentMessage);
-  //                 continue;
   //               }
-  //
-  //               // Handle table chunks - UNIFIED LOGIC
-  //               if (pType == 'json') {
-  //                 final jsonData = payload['data'];
-  //                 print("📊 JSON CHUNK RECEIVED:");
-  //                 print("   └─ Data: ${JsonEncoder.withIndent('    ').convert(jsonData)}");
-  //
-  //                 // Check for all supported table types
-  //                 if (jsonData is Map && (jsonData['type'] == 'cards' ||
-  //                     jsonData['type'] == 'card' ||
-  //                     jsonData['type'] == 'tables' ||
-  //                     jsonData['type'] == 'table')) {
-  //
-  //                   print("🎯 TABLE DETECTED! Type: ${jsonData['type']}");
-  //
-  //                   // UNIFIED DATA EXTRACTION - same logic for all types
-  //                   List<Map<String, dynamic>> rows = [];
-  //                   String heading = 'Results';
-  //
-  //                   // Extract data from the list regardless of type
-  //                   final dataList = (jsonData['list'] as List?) ?? const [];
-  //                   heading = (jsonData['heading']?.toString() ?? 'Results');
-  //
-  //                   rows = dataList.map<Map<String, dynamic>>((e) {
-  //                     if (e is Map) return Map<String, dynamic>.from(e);
-  //                     return <String, dynamic>{};
-  //                   }).toList();
-  //
-  //                   print("📊 DATA EXTRACTED: heading='$heading', ${rows.length} items, type='${jsonData['type']}'");
-  //
-  //                   // Set tableReceived flag
-  //                   if (!tableReceived) {
-  //                     tableReceived = true;
-  //                     combinedHeading = heading;
-  //                     print("🏁 FIRST TABLE: Setting tableReceived=true, heading='$combinedHeading'");
-  //                   }
-  //
-  //                   // Add rows to combined list
-  //                   allTableRows.addAll(rows);
-  //                   print("📈 ACCUMULATED ROWS: ${allTableRows.length} total rows (added ${rows.length} from this chunk)");
-  //
-  //                   // Store the original type to determine widget rendering
-  //                   final originalType = jsonData['type'].toString();
-  //                   tableData = {
-  //                     'heading': combinedHeading,
-  //                     'rows': allTableRows,
-  //                     'type': originalType, // This determines which widget to use
-  //                   };
-  //
-  //                   print("✅ Combined table data processed: ${allTableRows.length} total rows");
-  //                   for (int i = 0; i < allTableRows.length && i < 3; i++) {
-  //                     print("   Row $i: ${allTableRows[i]}");
-  //                   }
-  //                   if (allTableRows.length > 3) print("   ... and ${allTableRows.length - 3} more rows");
-  //
-  //                   // Send message with combined table placeholder
-  //                   String displayText = textBeforeTable + '___TABLE_PLACEHOLDER___' + textAfterTable;
-  //
-  //                   currentMessage = ChatMessage(
-  //                     id: messageId,
-  //                     text: displayText,
-  //                     isUser: false,
-  //                     timestamp: currentMessage.timestamp,
-  //                     isComplete: false,
-  //                     currentStatus: null,
-  //                     messageType: 'kv_table',
-  //                     structuredData: tableData,
-  //                   );
-  //                   controller.add(currentMessage);
-  //                   print("✅ Table chunk processed: heading='$combinedHeading', total_rows=${allTableRows.length}, type='$originalType'");
-  //                 }
-  //                 continue;
-  //               }
-  //
-  //               // Handle completion
-  //               if (pType == 'complete') {
-  //                 print("🏁 COMPLETION CHUNK RECEIVED");
-  //                 String displayText = textBeforeTable;
-  //                 if (tableReceived) {
-  //                   displayText += '___TABLE_PLACEHOLDER___';
-  //                   displayText += textAfterTable;
-  //                 }
-  //
-  //                 currentMessage = ChatMessage(
-  //                   id: currentMessage.id,
-  //                   text: displayText,
-  //                   isUser: currentMessage.isUser,
-  //                   timestamp: currentMessage.timestamp,
-  //                   isComplete: true,
-  //                   currentStatus: null,
-  //                   messageType: tableReceived ? 'kv_table' : null,
-  //                   structuredData: tableData,
-  //                 );
-  //                 controller.add(currentMessage);
-  //                 continue;
-  //               }
+  //               continue;
   //             }
-  //           } catch (e) {
-  //             print("❌ Error parsing chunk #$chunkCounter: $e");
-  //             print("❌ Raw line: '$line'");
+  //
+  //             if (payloadType == 'complete') {
+  //               stats.responseCompletes++;
+  //               if (debugLog) print('response:complete');
+  //
+  //               String displayText = textBeforeTable;
+  //               if (tableReceived) {
+  //                 displayText += '___TABLE_PLACEHOLDER___';
+  //                 displayText += textAfterTable;
+  //               }
+  //
+  //               currentMessage = ChatMessage(
+  //                 id: currentMessage.id,
+  //                 text: displayText,
+  //                 isUser: currentMessage.isUser,
+  //                 timestamp: currentMessage.timestamp,
+  //                 isComplete: true,
+  //                 currentStatus: null,
+  //                 isTable: tableReceived,
+  //                 structuredData: tableData,
+  //                 messageType: tableReceived ? 'kv_table' : null,
+  //               );
+  //               controller.add(currentMessage);
+  //               continue;
+  //             }
+  //           }
+  //
+  //           if (debugLog) {
+  //             print('Unhandled event. type="$type" payload.type="$payloadType"');
   //           }
   //         }
   //       },
   //       onDone: () {
-  //         print("\n" + "🎉"*30);
-  //         print("📊 STREAMING COMPLETE");
-  //         print("💬 Message: '$message'");
-  //         print("📦 Total chunks: ${allChunks.length}");
-  //         print("📝 Text before table: '$textBeforeTable'");
-  //         print("📝 Text after table: '$textAfterTable'");
-  //         print("📋 Table received: $tableReceived");
-  //         print("📊 Total combined rows: ${allTableRows.length}");
+  //         resetInactivityTimer();
+  //         inactivityTimer?.cancel();
   //
-  //         // Print summary of all chunk types
-  //         Map<String, int> chunkTypes = {};
-  //         for (var chunk in allChunks) {
-  //           final type = "${chunk['type']}";
-  //           final payloadType = chunk['payload']?['type'] ?? '';
-  //           final key = payloadType.isEmpty ? type : "$type:$payloadType";
-  //           chunkTypes[key] = (chunkTypes[key] ?? 0) + 1;
-  //         }
-  //         print("📊 Chunk types summary: $chunkTypes");
-  //         print("🎉"*30 + "\n");
-  //
-  //         // Always send final complete message
   //         String finalText = textBeforeTable;
   //         if (tableReceived) {
   //           finalText += '___TABLE_PLACEHOLDER___';
   //           finalText += textAfterTable;
   //         }
   //
-  //         // Create final complete message
-  //         final finalMessage = ChatMessage(
-  //           id: messageId,
+  //         controller.add(ChatMessage(
+  //           id: currentMessage.id,
   //           text: finalText,
   //           isUser: false,
   //           timestamp: currentMessage.timestamp,
   //           isComplete: true,
   //           currentStatus: null,
-  //           messageType: tableReceived ? 'kv_table' : null,
+  //           isTable: tableReceived,
   //           structuredData: tableData,
-  //         );
-  //
-  //         controller.add(finalMessage);
+  //           messageType: tableReceived ? 'kv_table' : null,
+  //         ));
   //         controller.close();
+  //
+  //         stats.printSummary(debugLog: debugLog);
   //       },
   //       onError: (e) {
-  //         print("❌ Stream error: $e");
+  //         inactivityTimer?.cancel();
+  //         if (debugLog) print('STREAM ERROR: $e');
+  //         stats.printSummary(debugLog: debugLog);
   //         controller.addError(e);
   //         controller.close();
   //       },
@@ -2294,7 +2166,7 @@ class ChatService{
   //
   //     return controller.stream;
   //   } catch (e) {
-  //     print("❌ sendMessageWithStreaming error: $e");
+  //     if (debugLog) print('sendMessageWithStreamingRespond setup error: $e');
   //     rethrow;
   //   }
   // }
@@ -2302,380 +2174,6 @@ class ChatService{
 
 
 
-
-
-
-
-
-
-
-
-  // Future<Stream<ChatMessage>> sendMessageWithStreaming({
-  //   required String sessionId,
-  //   required String message,
-  // }) async {
-  //   await SessionManager.checkTokenValidityAndRefresh();
-  //
-  //   try {
-  //  //final url = Uri.parse('https://fastapi-app-130321581049.asia-south1.run.app/chat/respond');
-  //     final url = Uri.parse('http://localhost:8000/chat/respond');
-  //     final request = http.Request('POST', url);
-  //
-  //     request.headers.addAll({
-  //       'Content-Type': 'application/json',
-  //       'Accept': 'text/event-stream',
-  //       if (SessionManager.token != null)
-  //         'Authorization': 'Bearer ${SessionManager.token}',
-  //     });
-  //
-  //     request.body = jsonEncode({
-  //       'session_id': sessionId,
-  //       'input': utf8.decode(message.codeUnits),
-  //     });
-  //
-  //     final streamedResponse = await request.send();
-  //
-  //     if (streamedResponse.statusCode != 200) {
-  //       final errorBody = await streamedResponse.stream.bytesToString();
-  //       throw Exception("Streaming failed: $errorBody");
-  //     }
-  //
-  //     final controller = StreamController<ChatMessage>();
-  //     final messageId = DateTime.now().millisecondsSinceEpoch.toString();
-  //
-  //     var currentMessage = ChatMessage(
-  //       id: messageId,
-  //       text: '',
-  //       isUser: false,
-  //       timestamp: DateTime.now(),
-  //       isComplete: false,
-  //       currentStatus: null,
-  //     );
-  //
-  //     String buffer = '';
-  //     String textBeforeTable = '';  // ✅ Text before any tables
-  //     String textAfterTable = '';   // ✅ Text after all tables
-  //     bool tableReceived = false;   // ✅ Track when first table arrives
-  //
-  //     // ✅ FIXED: Variables for combining multiple tables
-  //     List<Map<String, dynamic>> allTableRows = []; // Store all rows from all tables
-  //     String combinedHeading = 'Performance Comparison'; // Combined heading
-  //     Map<String, dynamic>? tableData;
-  //
-  //     List<Map<String, dynamic>> allChunks = [];
-  //     int chunkCounter = 0;
-  //
-  //     streamedResponse.stream.transform(utf8.decoder).listen(
-  //           (chunk) {
-  //         buffer += chunk;
-  //         final lines = buffer.split('\n');
-  //         buffer = lines.removeLast();
-  //
-  //         for (var raw in lines) {
-  //           var line = raw.trim();
-  //           if (line.isEmpty) continue;
-  //
-  //           if (!line.startsWith('data:')) continue;
-  //
-  //           final jsonText = line.substring(5).trim();
-  //           if (jsonText.isEmpty) continue;
-  //
-  //           try {
-  //             final decoded = jsonDecode(jsonText);
-  //             allChunks.add(Map<String, dynamic>.from(decoded));
-  //             chunkCounter++;
-  //
-  //             // 🔥 PRINT EACH CHUNK AS IT ARRIVES
-  //             print("\n" + "="*80);
-  //             print("📦 CHUNK #$chunkCounter");
-  //             print("🔍 Raw JSON: $jsonText");
-  //             print("📋 Parsed: ${JsonEncoder.withIndent('  ').convert(decoded)}");
-  //             print("🏷️  Type: ${decoded['type']}");
-  //             if (decoded['payload'] != null) {
-  //               print("📄 Payload Type: ${decoded['payload']['type']}");
-  //               if (decoded['payload']['data'] != null) {
-  //                 final data = decoded['payload']['data'];
-  //                 if (data is String) {
-  //                   print("📝 Data (String): '$data'");
-  //                 } else {
-  //                   print("📊 Data (Object): ${JsonEncoder.withIndent('  ').convert(data)}");
-  //                 }
-  //               }
-  //             }
-  //             print("="*80 + "\n");
-  //
-  //             final type = decoded['type'];
-  //
-  //             // ✅ Handle status updates
-  //             if (type == 'status_update') {
-  //               final reason = (decoded['payload']?['reason'] ?? '').toString();
-  //               print("🟡 STATUS UPDATE: $reason");
-  //
-  //               // Build display text with marker
-  //               String displayText = textBeforeTable;
-  //               if (tableReceived) {
-  //                 displayText += '___TABLE_PLACEHOLDER___';
-  //                 displayText += textAfterTable;
-  //               }
-  //
-  //               currentMessage = ChatMessage(
-  //                 id: messageId,
-  //                 text: displayText,
-  //                 isUser: false,
-  //                 timestamp: currentMessage.timestamp,
-  //                 isComplete: false,
-  //                 currentStatus: reason,
-  //                 messageType: tableReceived ? 'kv_table' : null,
-  //                 structuredData: tableData,
-  //               );
-  //               controller.add(currentMessage);
-  //               continue;
-  //             }
-  //
-  //             // ✅ Handle response chunks
-  //             if (type == 'response') {
-  //               final payload = decoded['payload'] as Map<String, dynamic>? ?? const {};
-  //               final pType = (payload['type'] ?? '').toString();
-  //
-  //               // ✅ Handle text chunks - route to correct bucket
-  //               if (pType == 'text') {
-  //                 final data = (payload['data'] ?? '').toString();
-  //                 print("📝 TEXT CHUNK: '$data' (goes to ${tableReceived ? 'AFTER' : 'BEFORE'} table)");
-  //
-  //                 if (tableReceived) {
-  //                   textAfterTable += data;  // Add to after-table text
-  //                 } else {
-  //                   textBeforeTable += data; // Add to before-table text
-  //                 }
-  //
-  //                 // Build display text with table placeholder
-  //                 String displayText = textBeforeTable;
-  //                 if (tableReceived) {
-  //                   displayText += '___TABLE_PLACEHOLDER___';
-  //                   displayText += textAfterTable;
-  //                 }
-  //
-  //                 currentMessage = ChatMessage(
-  //                   id: messageId,
-  //                   text: displayText,
-  //                   isUser: false,
-  //                   timestamp: currentMessage.timestamp,
-  //                   isComplete: false,
-  //                   currentStatus: null,
-  //                   messageType: tableReceived ? 'kv_table' : null,
-  //                   structuredData: tableData,
-  //                 );
-  //                 controller.add(currentMessage);
-  //                 continue;
-  //               }
-  //
-  //               // ✅ Handle table chunks - FIXED VERSION WITH COMBINED TABLES
-  //               if (pType == 'json') {
-  //                 final jsonData = payload['data'];
-  //                 print("📊 JSON CHUNK RECEIVED:");
-  //                 print("   └─ Data: ${JsonEncoder.withIndent('    ').convert(jsonData)}");
-  //
-  //                 // 🔥 FIX: Check for 'table' (singular) as well as 'tables' and 'cards'
-  //                 if (jsonData is Map && (jsonData['type'] == 'cards' ||
-  //                     jsonData['type'] == 'card' || jsonData['type'] == 'tables' ||
-  //                     jsonData['type'] == 'table')) {
-  //
-  //                   print("🎯 TABLE DETECTED! Type: ${jsonData['type']}");
-  //
-  //                   List<Map<String, dynamic>> rows = [];
-  //                   String heading = 'Results';
-  //
-  //                   if (jsonData['type'] == 'cards' ||jsonData['type'] == 'cards' ) {
-  //                     final cardsList = (jsonData['list'] as List?) ?? const [];
-  //                     heading = (jsonData['heading']?.toString() ?? 'Results');
-  //                     rows = cardsList.map<Map<String, dynamic>>((e) {
-  //                       if (e is Map) return Map<String, dynamic>.from(e);
-  //                       return <String, dynamic>{};
-  //                     }).toList();
-  //                     print("🎴 CARDS: heading='$heading', ${rows.length} cards");
-  //                   } else if (jsonData['type'] == 'tables' || jsonData['type'] == 'table') {
-  //                     heading = (jsonData['heading']?.toString() ?? 'Market Data');
-  //                     final listData = jsonData['list'];
-  //
-  //                     List<dynamic> tableList = [];
-  //                     if (listData is Map && listData.containsKey('')) {
-  //                       final innerList = listData[''];
-  //                       if (innerList is List) {
-  //                         tableList = innerList;
-  //                       }
-  //                     } else if (listData is List) {
-  //                       tableList = listData;
-  //                     }
-  //
-  //                     // 🔥 ENHANCED: Better data extraction for your backend format
-  //                     rows = tableList.map<Map<String, dynamic>>((item) {
-  //                       if (item is Map) {
-  //                         final itemMap = Map<String, dynamic>.from(item);
-  //
-  //                         // Extract nested data if present (like your ratios.returns structure)
-  //                         if (itemMap.containsKey('ratios') && itemMap['ratios'] is Map) {
-  //                           final ratios = itemMap['ratios'] as Map;
-  //                           if (ratios.containsKey('returns') && ratios['returns'] is Map) {
-  //                             final returns = ratios['returns'] as Map;
-  //
-  //                             // Flatten the returns data into the main item
-  //                             final flattened = Map<String, dynamic>.from(itemMap);
-  //                             flattened.remove('ratios'); // Remove nested structure
-  //
-  //                             // Add return metrics with proper formatting
-  //                             if (returns.containsKey('1m')) {
-  //                               flattened['1M Return'] = "${(returns['1m'] as num).toStringAsFixed(2)}%";
-  //                             }
-  //                             if (returns.containsKey('6m')) {
-  //                               flattened['6M Return'] = "${(returns['6m'] as num).toStringAsFixed(2)}%";
-  //                             }
-  //                             if (returns.containsKey('1y')) {
-  //                               flattened['1Y Return'] = "${(returns['1y'] as num).toStringAsFixed(2)}%";
-  //                             }
-  //                             if (returns.containsKey('1y_excess_over_Nifty')) {
-  //                               flattened['1Y vs Nifty'] = "${(returns['1y_excess_over_Nifty'] as num).toStringAsFixed(2)}%";
-  //                             }
-  //
-  //                             return flattened;
-  //                           }
-  //                         }
-  //
-  //                         return itemMap;
-  //                       }
-  //                       return <String, dynamic>{};
-  //                     }).toList();
-  //                     print("📊 TABLES: heading='$heading', ${rows.length} rows");
-  //                   }
-  //
-  //                   // ✅ FIXED: Combine multiple tables instead of overwriting
-  //                   if (!tableReceived) {
-  //                     // First table - set the flag and use its heading
-  //                     tableReceived = true;
-  //                     combinedHeading = heading;
-  //                     print("🏁 FIRST TABLE: Setting tableReceived=true, heading='$combinedHeading'");
-  //                   }
-  //
-  //                   // Add all rows to the combined list
-  //                   allTableRows.addAll(rows);
-  //                   print("📈 ACCUMULATED ROWS: ${allTableRows.length} total rows (added ${rows.length} from this chunk)");
-  //                   final originalType = jsonData['type'].toString();
-  //                   // Create combined table data
-  //                   tableData = {
-  //                     'heading': combinedHeading,
-  //                     'rows': allTableRows,
-  //                     'type': originalType,
-  //                   };
-  //
-  //                   print("✅ Combined table data processed: ${allTableRows.length} total rows");
-  //                   for (int i = 0; i < allTableRows.length && i < 5; i++) {
-  //                     print("   Row $i: ${allTableRows[i]}");
-  //                   }
-  //                   if (allTableRows.length > 5) print("   ... and ${allTableRows.length - 5} more rows");
-  //
-  //                   // Send message with combined table placeholder
-  //                   String displayText = textBeforeTable + '___TABLE_PLACEHOLDER___' + textAfterTable;
-  //
-  //                   currentMessage = ChatMessage(
-  //                     id: messageId,
-  //                     text: displayText,
-  //                     isUser: false,
-  //                     timestamp: currentMessage.timestamp,
-  //                     isComplete: false,
-  //                     currentStatus: null,
-  //                     messageType: 'kv_table',
-  //                     structuredData: tableData,
-  //                   );
-  //                   controller.add(currentMessage);
-  //                   print("✅ Combined table chunk processed: heading='$combinedHeading', total_rows=${allTableRows.length}");
-  //                 }
-  //                 continue;
-  //               }
-  //
-  //               // ✅ Handle completion
-  //               if (pType == 'complete') {
-  //                 print("🏁 COMPLETION CHUNK RECEIVED");
-  //                 String displayText = textBeforeTable;
-  //                 if (tableReceived) {
-  //                   displayText += '___TABLE_PLACEHOLDER___';
-  //                   displayText += textAfterTable;
-  //                 }
-  //
-  //                 currentMessage = ChatMessage(
-  //                   id: currentMessage.id,
-  //                   text: displayText,
-  //                   isUser: currentMessage.isUser,
-  //                   timestamp: currentMessage.timestamp,
-  //                   isComplete: true,
-  //                   currentStatus: null,
-  //                   messageType: tableReceived ? 'kv_table' : null,
-  //                   structuredData: tableData,
-  //                 );
-  //                 controller.add(currentMessage);
-  //                 continue;
-  //               }
-  //             }
-  //           } catch (e) {
-  //             print("❌ Error parsing chunk #$chunkCounter: $e");
-  //             print("❌ Raw line: '$line'");
-  //           }
-  //         }
-  //       },
-  //       onDone: () {
-  //         print("\n" + "🎉"*30);
-  //         print("📊 STREAMING COMPLETE");
-  //         print("💬 Message: '$message'");
-  //         print("📦 Total chunks: ${allChunks.length}");
-  //         print("📝 Text before table: '$textBeforeTable'");
-  //         print("📝 Text after table: '$textAfterTable'");
-  //         print("📋 Table received: $tableReceived");
-  //         print("📊 Total combined rows: ${allTableRows.length}");
-  //
-  //         // Print summary of all chunk types
-  //         Map<String, int> chunkTypes = {};
-  //         for (var chunk in allChunks) {
-  //           final type = "${chunk['type']}";
-  //           final payloadType = chunk['payload']?['type'] ?? '';
-  //           final key = payloadType.isEmpty ? type : "$type:$payloadType";
-  //           chunkTypes[key] = (chunkTypes[key] ?? 0) + 1;
-  //         }
-  //         print("📊 Chunk types summary: $chunkTypes");
-  //         print("🎉"*30 + "\n");
-  //
-  //         // ✅ FIXED: Always send final complete message
-  //         String finalText = textBeforeTable;
-  //         if (tableReceived) {
-  //           finalText += '___TABLE_PLACEHOLDER___';
-  //           finalText += textAfterTable;
-  //         }
-  //
-  //         // Create final complete message
-  //         final finalMessage = ChatMessage(
-  //           id: messageId,
-  //           text: finalText,
-  //           isUser: false,
-  //           timestamp: currentMessage.timestamp,
-  //           isComplete: true,           // ✅ Force completion
-  //           currentStatus: null,        // ✅ Clear status
-  //           messageType: tableReceived ? 'kv_table' : null,
-  //           structuredData: tableData,
-  //         );
-  //
-  //         controller.add(finalMessage);
-  //         controller.close();
-  //       },
-  //       onError: (e) {
-  //         print("❌ Stream error: $e");
-  //         controller.addError(e);
-  //         controller.close();
-  //       },
-  //     );
-  //
-  //     return controller.stream;
-  //   } catch (e) {
-  //     print("❌ sendMessageWithStreaming error: $e");
-  //     rethrow;
-  //   }
-  // }
 
 
 

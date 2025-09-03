@@ -9,6 +9,8 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../constants/colors.dart';
 import '../../constants/widgets.dart';
 import '../../core/helpers/themes.dart';
+import '../../services/locator.dart';
+import '../../services/theme_service.dart';
 import '../../services/voice_service.dart';
 
 class VoiceRecorderWidget extends StatefulWidget {
@@ -113,17 +115,19 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
             color: Colors.white,
             shape: BoxShape.circle,
             border: Border.all(
-              color: const Color(0xFFC8C8C8),
+              color: Color(0xFF734012),
               width: 1,
             ),
           ),
           child: IconButton(
             padding: EdgeInsets.zero,
             iconSize: 20,
-            icon: const Icon(
-              Icons.close,
-              color: Color(0xFFAC5F2C),
-            ),
+            // icon: const Icon(
+            //   Icons.close,
+            //   color: Color(0xFFAC5F2C),
+            //   weight: 900.0,
+            // ),
+            icon: _BoldThickCrossIcon(),
             onPressed: _cancelRecording,
           ),
         ),
@@ -156,15 +160,139 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
           child: IconButton(
             padding: EdgeInsets.zero,
             iconSize: 20,
-            icon: Icon(
-              PhosphorIcons.check(PhosphorIconsStyle.bold),
-              color: Colors.white,
-            ),
+            // icon: Icon(
+            //   PhosphorIcons.check(PhosphorIconsStyle.bold),
+            //   color: Colors.white,
+            // ),
+           icon: _BoldThickCheckIcon(),
             onPressed: _stopRecordingAndTranscribe,
           ),
+        ),
+        //SizedBox(height: widget.keyboardInset > 0 ? 0 : 16),
+      ],
+    );
+  }
+}
+
+
+class _BoldThickCheckIcon extends StatelessWidget {
+  const _BoldThickCheckIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = locator<ThemeService>().currentTheme;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Center icon
+        Icon(PhosphorIcons.check(PhosphorIconsStyle.bold), size: 20, color: theme.background),
+
+        // Add more positioned icons for thickness
+        Positioned(
+          left: 0.5,
+          child: Icon(PhosphorIcons.check(PhosphorIconsStyle.bold), size: 20, color: theme.background),
+        ),
+        Positioned(
+          right: 0.5,
+          child: Icon(PhosphorIcons.check(PhosphorIconsStyle.bold), size: 20, color: theme.background),
+        ),
+        Positioned(
+          top: 0.5,
+          child: Icon(PhosphorIcons.check(PhosphorIconsStyle.bold), size: 20, color: theme.background),
+        ),
+        Positioned(
+          bottom: 0.5,
+          child: Icon(PhosphorIcons.check(PhosphorIconsStyle.bold), size: 20, color: theme.background),
+        ),
+
+        // Diagonal positions for even more thickness
+        Positioned(
+          left: 0.5,
+          top: 0.5,
+          child: Icon(PhosphorIcons.check(PhosphorIconsStyle.bold), size: 20, color: theme.background),
+        ),
+        Positioned(
+          right: 0.5,
+          top: 0.5,
+          child: Icon(PhosphorIcons.check(PhosphorIconsStyle.bold), size: 20, color: theme.background),
+        ),
+        Positioned(
+          left: 0.5,
+          bottom: 0.5,
+          child: Icon(PhosphorIcons.check(PhosphorIconsStyle.bold), size: 20, color: theme.background),
+        ),
+        Positioned(
+          right: 0.5,
+          bottom: 0.5,
+          child: Icon(PhosphorIcons.check(PhosphorIconsStyle.bold), size: 20, color: theme.background),
+        ),
+        Positioned(
+          right: 0.5,
+          bottom: 0.5,
+          child: Icon(PhosphorIcons.check(PhosphorIconsStyle.bold), size: 20, color: theme.background),
         ),
       ],
     );
   }
 }
 
+class _BoldThickCrossIcon extends StatelessWidget {
+  const _BoldThickCrossIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = locator<ThemeService>().currentTheme;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Center icon
+        Icon(Icons.close, size: 20, color: theme.icon),
+
+        // Add more positioned icons for thickness
+        Positioned(
+          left: 0.5,
+          child: Icon(Icons.close, size: 20, color: theme.icon),
+        ),
+        Positioned(
+          right: 0.5,
+          child: Icon(Icons.close, size: 20, color: theme.icon),
+        ),
+        Positioned(
+          top: 0.5,
+          child: Icon(Icons.close, size: 20, color: theme.icon),
+        ),
+        Positioned(
+          bottom: 0.5,
+          child: Icon(Icons.close, size: 20, color: theme.icon),
+        ),
+
+        // Diagonal positions for even more thickness
+        Positioned(
+          left: 0.5,
+          top: 0.5,
+          child: Icon(Icons.close, size: 20, color: theme.icon),
+        ),
+        Positioned(
+          right: 0.5,
+          top: 0.5,
+          child: Icon(Icons.close, size: 20, color: theme.icon),
+        ),
+        Positioned(
+          left: 0.5,
+          bottom: 0.5,
+          child: Icon(Icons.close, size: 20, color: theme.icon),
+        ),
+        Positioned(
+          right: 0.5,
+          bottom: 0.5,
+          child: Icon(Icons.close, size: 20, color: theme.icon),
+        ),
+        Positioned(
+          right: 0.5,
+          bottom: 0.5,
+          child: Icon(Icons.close, size: 20, color: theme.icon),
+        ),
+      ],
+    );
+  }
+}

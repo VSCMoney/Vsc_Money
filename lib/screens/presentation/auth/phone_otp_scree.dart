@@ -189,7 +189,7 @@ class _SignInPageState extends State<SignInPage> {
                           text: TextSpan(
                             style: TextStyle(
                               fontSize: MediaQuery.of(context).size.width * 0.035,
-                              fontFamily: 'SF Pro',
+                              fontFamily: 'DM Sans',
                               color: theme.text.withOpacity(0.7),
                               height: 1.4,
                             ),

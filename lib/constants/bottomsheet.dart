@@ -135,8 +135,8 @@ class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
         if (_isSheetOpen)
           AnimatedBuilder(
             animation: _controller,
-            builder: (context, child) => GestureDetector(
-              onTap: closeSheet,
+            builder: (context, child) => MaterialButton(
+              onPressed: closeSheet,
               child: Container(
                 color: Colors.black.withOpacity(0.3 * _controller.value),
               ),

@@ -37,8 +37,8 @@ class AppTheme {
 
   static final light = AppTheme(
     gradient: [
-      Color(0xFFF1EAE4),
       Color(0xFFFFFFFF),
+      Color(0xFFF1EAE4),
     ],
     card: Color(0xffFAF9F7),
     stocksearch: Color(0xFFFAF9F7),

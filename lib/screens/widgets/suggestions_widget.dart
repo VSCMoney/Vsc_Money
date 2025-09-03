@@ -44,9 +44,10 @@ class SuggestionsWidget extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: 15, vertical: 7), // Same as original
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: Alignment.bottomLeft,
+            end: Alignment.topRight,
             colors: theme.gradient,
+            stops: [0, 0.15]
           ),
           color: theme.message,
           borderRadius: BorderRadius.circular(13),
@@ -69,7 +70,7 @@ class SuggestionsWidget extends StatelessWidget {
                   title,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontFamily: 'SF Pro',
+                    fontFamily: 'DM Sans',
                     color: theme.text,
                     fontSize: 16,
                   ),
@@ -104,7 +105,7 @@ class SuggestionsWidget extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     color: theme.text,
-                    fontFamily: "SF Pro",
+                    fontFamily: "DM Sans",
                     fontWeight: FontWeight.w500,
                   ),
                 ),

@@ -768,6 +768,7 @@ class MyApp extends StatelessWidget {
           child: AnnotatedRegion<SystemUiOverlayStyle>(
             value: overlay,
             child: MaterialApp.router(
+              scrollBehavior: NoStretchScrollBehavior(),
               debugShowCheckedModeBanner: false,
               title: 'Vitty.ai',
               routerConfig: AppRouter.router,
@@ -824,6 +825,17 @@ class MyApp extends StatelessWidget {
         color: brandPrimary,
       ),
     );
+  }
+}
+
+class NoStretchScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Widget buildOverscrollIndicator(
+      BuildContext context,
+      Widget child,
+      ScrollableDetails details,
+      ) {
+    return child; // <- no stretch / glow
   }
 }
 

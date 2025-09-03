@@ -71,7 +71,7 @@ class _PremiumAccessScreenState extends State<PremiumAccessScreen> {
                   fontWeight: FontWeight.w700,
                   color: theme.text,
                   height: 1.2,
-                  fontFamily: "SF Pro"
+                  fontFamily: "DM Sans"
                 ),
               ),
 
@@ -84,7 +84,7 @@ class _PremiumAccessScreenState extends State<PremiumAccessScreen> {
                 style: TextStyle(
                   fontSize: 13,
                   color: theme.text,
-                  fontFamily: "SF Pro",
+                  fontFamily: "DM Sans",
                 ),
               ),
 
@@ -146,7 +146,7 @@ class _PremiumAccessScreenState extends State<PremiumAccessScreen> {
                 style: TextStyle(
                   fontSize: 14,
                   color: theme.text,
-                  fontFamily: "SF Pro",
+                  fontFamily: "DM Sans",
                 ),
               ),
 
@@ -236,7 +236,7 @@ class FeatureItem extends StatelessWidget {
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                   color: theme.text,
-                  fontFamily: "SF Pro",
+                  fontFamily: "DM Sans",
                 ),
               ),
 
@@ -248,7 +248,7 @@ class FeatureItem extends StatelessWidget {
                   fontSize: 14,
                   color: Colors.grey[600],
                   height: 1.4,
-                  fontFamily: "SF Pro",
+                  fontFamily: "DM Sans",
                 ),
               ),
             ],
@@ -1149,7 +1149,7 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
                                 fontSize: 14,
                                 color: isSelected ? Colors.blue : Colors.black87,
                                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                                fontFamily: "SF Pro",
+                                fontFamily: "DM Sans",
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -2954,7 +2954,7 @@ class _NotePillState extends State<NotePill>
                       fontSize: 12,
                       color: AppColors.black,
                       fontWeight: FontWeight.w500,
-                      fontFamily: 'SF Pro',
+                      fontFamily: 'DM Sans',
                     ),
                   ),
                 ],

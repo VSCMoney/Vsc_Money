@@ -8,8 +8,8 @@ class AddShortcutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
+    return MaterialButton(
+      onPressed: () {
         final overlay = Overlay.of(context);
         final renderBox = context.findRenderObject() as RenderBox;
         final size = renderBox.size;
@@ -46,14 +46,14 @@ class AddShortcutCard extends StatelessWidget {
                 SizedBox(width: 6),
                 Text(
                   "Add Shortcut",
-                  style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white,fontSize: 16,fontFamily: 'SF Pro'),
+                  style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white,fontSize: 16,fontFamily: 'DM Sans'),
                 ),
               ],
             ),
             SizedBox(height: 2),
             Text(
               " Create your own quick prompt",
-              style: TextStyle(fontSize: 14, color: Colors.white,fontFamily: "SF Pro"),
+              style: TextStyle(fontSize: 14, color: Colors.white,fontFamily: "DM Sans"),
             ),
           ],
         ),

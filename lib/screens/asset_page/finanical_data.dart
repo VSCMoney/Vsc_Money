@@ -163,7 +163,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
               Text(
                 'See details',
                 style: const TextStyle(
-                  fontFamily: 'SF Pro',
+                  fontFamily: 'DM Sans',
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primary,
@@ -237,7 +237,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
         child: Text(
           label,
           style: TextStyle(
-            fontFamily: 'SF Pro',
+            fontFamily: 'DM Sans',
             fontSize: 12,
             fontWeight: FontWeight.w500,
             color: textColor,
@@ -268,7 +268,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
           Text(
             title,
             style: TextStyle(
-              fontFamily: 'SF Pro',
+              fontFamily: 'DM Sans',
               fontSize: 12,
               fontWeight: FontWeight.w500,
               color: isSelected ? const Color(0xFFE87E2E) : const Color(0xFF9CA3AF),
@@ -301,7 +301,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
           child: Text(
             'All values are in $_valueUnit',
             style: const TextStyle(
-              fontFamily: 'SF Pro',
+              fontFamily: 'DM Sans',
               fontSize: 10,
               fontWeight: FontWeight.w500,
               color: Color(0xFF7E7E7E),
@@ -321,7 +321,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
                   Text(
                     d.value.toStringAsFixed(d.value == d.value.roundToDouble() ? 0 : 2),
                     style: const TextStyle(
-                      fontFamily: 'SF Pro',
+                      fontFamily: 'DM Sans',
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
                       color: Color(0xFF7E7E7E),
@@ -348,7 +348,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
           children: data.map((d) => Text(
             d.period,
             style: const TextStyle(
-              fontFamily: 'SF Pro',
+              fontFamily: 'DM Sans',
               fontSize: 10,
               fontWeight: FontWeight.w500,
               color: Color(0xFF7E7E7E),
@@ -368,7 +368,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
         Text(
           'No data available',
           style: TextStyle(
-            fontFamily: 'SF Pro',
+            fontFamily: 'DM Sans',
             fontSize: 16,
             fontWeight: FontWeight.w500,
             color: Color(0xFF9CA3AF),
@@ -379,7 +379,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
           'Data for this metric will be displayed here when available',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontFamily: 'SF Pro',
+            fontFamily: 'DM Sans',
             fontSize: 14,
             fontWeight: FontWeight.w400,
             color: Color(0xFFD1D5DB),
@@ -404,7 +404,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
       child: Text(
         title,
         style: TextStyle(
-          fontFamily: 'SF Pro',
+          fontFamily: 'DM Sans',
           fontSize: 12,
           fontWeight: FontWeight.w500,
           color: textColor,

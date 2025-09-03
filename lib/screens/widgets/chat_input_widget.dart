@@ -30,361 +30,7 @@ import 'input_actions_widget.dart';
 
 
 
-// class ChatInputWidget extends StatefulWidget {
-//   final TextEditingController controller;
-//   final FocusNode focusNode;
-//   final GlobalKey textFieldKey;
-//   final bool isTyping;
-//   final double keyboardInset;
-//   final VoidCallback onSendMessage;
-//   final VoidCallback onStopResponse;
-//   final VoidCallback onTextChanged;
-//   final AudioService audioService;
-//
-//   const ChatInputWidget({
-//     Key? key,
-//     required this.controller,
-//     required this.focusNode,
-//     required this.textFieldKey,
-//     required this.isTyping,
-//     required this.keyboardInset,
-//     required this.onSendMessage,
-//     required this.onStopResponse,
-//     required this.onTextChanged,
-//     required this.audioService,
-//   }) : super(key: key);
-//
-//   @override
-//   State<ChatInputWidget> createState() => _ChatInputWidgetState();
-// }
-//
-// class _ChatInputWidgetState extends State<ChatInputWidget> {
-//   bool _isOverwritingTranscript = false;
-//   bool _shouldPreventFocus = false;
-//   bool _preparing = false; // show recorder immediately while mic spins up
-//
-//   late StreamSubscription<bool> _isListeningSubscription;
-//   late StreamSubscription<String> _transcriptSubscription;
-//   late StreamSubscription<String> _errorSubscription;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _isListeningSubscription = widget.audioService.isListening$.listen((listening) {
-//       if (!mounted) return;
-//       if (listening) setState(() => _preparing = false);
-//     });
-//     _transcriptSubscription = widget.audioService.transcript$.listen((t) {
-//       if (!mounted || t.isEmpty) return;
-//       setState(() {
-//         widget.controller.text = t;
-//         widget.controller.selection = TextSelection.fromPosition(TextPosition(offset: t.length));
-//         _isOverwritingTranscript = false;
-//       });
-//       widget.onTextChanged();
-//     });
-//     _errorSubscription = widget.audioService.error$.listen((e) {
-//       if (!mounted || e.isEmpty) return;
-//       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e)));
-//       widget.audioService.clearError();
-//       setState(() => _preparing = false);
-//     });
-//   }
-//
-//   @override
-//   void dispose() {
-//     _isListeningSubscription.cancel();
-//     _transcriptSubscription.cancel();
-//     _errorSubscription.cancel();
-//     super.dispose();
-//   }
-//
-//   Future<void> _startRecording() async {
-//     HapticFeedback.lightImpact();
-//     setState(() {
-//       _isOverwritingTranscript = widget.controller.text.isNotEmpty;
-//       _shouldPreventFocus = false;
-//       _preparing = true; // flip UI instantly
-//     });
-//     widget.focusNode.unfocus();
-//     FocusManager.instance.primaryFocus?.unfocus();
-//
-//     Future.microtask(() async {
-//       try {
-//         await widget.audioService.startRecording(
-//           existingText: widget.controller.text.trim(),
-//         );
-//       } catch (_) {
-//         if (mounted) setState(() => _preparing = false);
-//       }
-//     });
-//   }
-//
-//   void _onRecordingComplete() {
-//     setState(() {
-//       _isOverwritingTranscript = false;
-//       _shouldPreventFocus = false;
-//       _preparing = false;
-//     });
-//     FocusScope.of(context).requestFocus(widget.focusNode);
-//   }
-//
-//   void _onRecordingCancel() {
-//     setState(() {
-//       _isOverwritingTranscript = false;
-//       _shouldPreventFocus = true;
-//       _preparing = false;
-//     });
-//     widget.focusNode.unfocus();
-//     FocusManager.instance.primaryFocus?.unfocus();
-//     Future.delayed(const Duration(milliseconds: 400), () {
-//       if (mounted) setState(() => _shouldPreventFocus = false);
-//     });
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final appTheme = Theme.of(context).extension<AppThemeExtension>()!.theme;
-//     final isListening = widget.audioService.isListening;
-//     final isTranscribing = widget.audioService.isTranscribing;
-//     final showRecorder = _preparing || isListening;
-//
-//     // Card chrome like screenshot
-//     final card = Container(
-//       key: widget.textFieldKey,
-//       margin: const EdgeInsets.only(left: 0, right: 0, bottom: 0,),
-//       padding: const EdgeInsets.fromLTRB(20, 18, 16, 14),
-//       decoration: BoxDecoration(
-//        color: appTheme.background,
-//         borderRadius: BorderRadius.circular(28),
-//         boxShadow: const [
-//           BoxShadow(
-//             color: Colors.black26,
-//             blurRadius: 24,
-//             offset: Offset(0, 9),
-//           ),
-//         ],
-//       ),
-//       child: Column(
-//         mainAxisSize: MainAxisSize.min,
-//         children: [
-//           // Top row: big hint input
-//           AnimatedContainer(
-//             duration: const Duration(milliseconds: 180),
-//             curve: Curves.easeOut,
-//             constraints: BoxConstraints(
-//               minHeight: showRecorder ? 0 : 50, // keep roomy like screenshot
-//               maxHeight: showRecorder ? 0 : 190,
-//             ),
-//             child: showRecorder
-//                 ? const SizedBox.shrink()
-//                 : TextField(
-//               controller: widget.controller,
-//               focusNode: widget.focusNode,
-//               autofocus: !_shouldPreventFocus && !showRecorder,
-//               minLines: 1,
-//               maxLines: 5,
-//               onChanged: (_) => widget.onTextChanged(),
-//               onSubmitted: (_) => widget.onSendMessage(),
-//               keyboardType: TextInputType.multiline,
-//               textInputAction: TextInputAction.newline,
-//               style: TextStyle(
-//                 fontFamily: "SF Pro",
-//                 fontSize: 20.5, // large like the mock
-//                 fontWeight: FontWeight.w400,
-//                 color: _isOverwritingTranscript ? Colors.grey.shade400 : appTheme.text,
-//                 height: 1.25,
-//               ),
-//               decoration: InputDecoration(
-//                 isCollapsed: true,
-//                 hintText: 'Ask anything',
-//                 hintStyle: TextStyle(
-//                   fontFamily: "SF Pro",
-//                   fontSize: 20.5,
-//                   color: Colors.black.withOpacity(0.35),
-//                   height: 1.25,
-//                 ),
-//                 border: InputBorder.none,
-//                 contentPadding: EdgeInsets.only(top: 5),
-//               ),
-//             ),
-//           ),
-//
-//           // Bottom actions row: + ……   mic  •(round)
-//           Row(
-//             children: [
-//               // Plus button (left)
-//               _SmallIconButton(
-//                 onTap: () {
-//                   HapticFeedback.selectionClick();
-//                   // open attachments sheet here
-//                 },
-//                 child: const Icon(Icons.add, size: 26, color: Colors.black),
-//               ),
-//
-//               const Spacer(),
-//
-//               // Mic icon
-//               GestureDetector(
-//                 onTap: _startRecording,
-//                 child: Padding(
-//                   padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 6),
-//                   child: Image.asset(
-//                     "assets/images/bold_mic.png",
-//                     height: 23,
-//                     color: Colors.black,
-//                   ),
-//                 ),
-//               ),
-//
-//               const SizedBox(width: 10),
-//
-//               // Big round action: send OR start voice (if no text)
-//               _RoundActionButton(
-//                 busy: isTranscribing,
-//                 filledColor: Colors.black,
-//                 icon: widget.isTyping
-//                     ? const Icon(Icons.arrow_upward, color: Colors.white, size: 20)
-//                     : (widget.controller.text.isNotEmpty
-//                     ? const Icon(Icons.arrow_upward, color: Colors.white, size: 20)
-//                     : _BarsIcon(color: Colors.white)), // matches “equalizer dots” look
-//                 onTap: () {
-//                   HapticFeedback.mediumImpact();
-//                   if (widget.isTyping) {
-//                     widget.onStopResponse();
-//                   } else if (widget.controller.text.isNotEmpty) {
-//                     widget.onSendMessage();
-//                   } else {
-//                     _startRecording();
-//                   }
-//                 },
-//               ),
-//             ],
-//           ),
-//         ],
-//       ),
-//     );
-//
-//     // Recorder swaps in place of the content (same card chrome)
-//     final recorder = Container(
-//       margin: const EdgeInsets.only(left: 0, right: 0, bottom: 0),
-//       padding: const EdgeInsets.fromLTRB(20, 14, 16, 14),
-//       decoration: BoxDecoration(
-//         color: Colors.white,
-//         borderRadius: BorderRadius.circular(28),
-//         boxShadow: const [
-//           BoxShadow(
-//             color: Color(0x14000000),
-//             blurRadius: 24,
-//             offset: Offset(0, 8),
-//           ),
-//         ],
-//       ),
-//       child:  VoiceRecorderWidget(
-//         audioService: widget.audioService,
-//         onCancel: _onRecordingCancel,
-//         onComplete: _onRecordingComplete,
-//       ),
-//     );
-//
-//     return SafeArea(
-//       top: false,
-//       bottom: false,
-//       child: AnimatedSwitcher(
-//         duration: const Duration(milliseconds: 150),
-//         switchInCurve: Curves.easeOut,
-//         switchOutCurve: Curves.easeIn,
-//         child: showRecorder ? recorder : card,
-//       ),
-//     );
-//   }
-// }
-//
-// // Small touch-friendly icon button (the “+”)
-// class _SmallIconButton extends StatelessWidget {
-//   final Widget child;
-//   final VoidCallback onTap;
-//   const _SmallIconButton({required this.child, required this.onTap});
-//   @override
-//   Widget build(BuildContext context) {
-//     return Material(
-//       color: Colors.transparent,
-//       shape: const CircleBorder(),
-//       child: InkWell(
-//         customBorder: const CircleBorder(),
-//         onTap: onTap,
-//         child: Padding(
-//           padding: const EdgeInsets.all(6.0),
-//           child: child,
-//         ),
-//       ),
-//     );
-//   }
-// }
-//
-// // Big round button on the right
-// class _RoundActionButton extends StatelessWidget {
-//   final Widget icon;
-//   final VoidCallback onTap;
-//   final Color filledColor;
-//   final bool busy;
-//   const _RoundActionButton({
-//     required this.icon,
-//     required this.onTap,
-//     required this.filledColor,
-//     this.busy = false,
-//   });
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return AnimatedSwitcher(
-//       duration: const Duration(milliseconds: 140),
-//       child: SizedBox(
-//         key: ValueKey<bool>(busy),
-//         height: 46,
-//         width: 46,
-//         child: Material(
-//           color: filledColor,
-//           shape: const CircleBorder(),
-//           child: InkWell(
-//             customBorder: const CircleBorder(),
-//             onTap: busy ? null : onTap,
-//             child: Center(
-//               child: busy
-//                   ? const SizedBox(
-//                 height: 18,
-//                 width: 18,
-//                 child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
-//               )
-//                   : icon,
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-//
-// // Simple “vertical bars” glyph for the round button when there’s no text
-// class _BarsIcon extends StatelessWidget {
-//   final Color color;
-//   const _BarsIcon({required this.color});
-//   @override
-//   Widget build(BuildContext context) {
-//     return Row(
-//       mainAxisSize: MainAxisSize.min,
-//       children: [
-//         _bar(8),
-//         const SizedBox(width: 2.5),
-//         _bar(14),
-//         const SizedBox(width: 2.5),
-//         _bar(10),
-//       ],
-//     );
-//   }
-//
-//   Widget _bar(double h) => Container(width: 3, height: h, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)));
-// }
+
 
 
 
@@ -416,31 +62,95 @@ class ChatInputWidget extends StatefulWidget {
   State<ChatInputWidget> createState() => _ChatInputWidgetState();
 }
 
-class _ChatInputWidgetState extends State<ChatInputWidget> {
+class _ChatInputWidgetState extends State<ChatInputWidget>
+    with TickerProviderStateMixin {
   bool _isOverwritingTranscript = false;
   bool _shouldPreventFocus = false;
-
-  /// New: show recorder immediately while we spin up mic/session
   bool _preparing = false;
+
+  // Animation controllers
+  late AnimationController _heightController;
+  late AnimationController _contentController;
+
+  // Animations
+  late Animation<double> _heightAnimation;
+  late Animation<double> _textFieldOpacity;
+  late Animation<double> _recorderOpacity;
 
   late StreamSubscription<bool> _isListeningSubscription;
   late StreamSubscription<String> _transcriptSubscription;
   late StreamSubscription<String> _errorSubscription;
 
+  // Height constants
+  static const double _normalHeight = 55.0;
+  static const double _recordingHeight = 26.0;
+
+  // Speeds
+  static const Duration _toVoiceDuration = Duration(milliseconds: 240);
+  static const Duration _toTextDuration = Duration(milliseconds: 280);
+
   @override
   void initState() {
     super.initState();
+    _setupAnimations();
     _setupAudioSubscriptions();
   }
 
+  void _setupAnimations() {
+    // Main height animation controller
+    _heightController = AnimationController(
+      duration: _toVoiceDuration,
+      vsync: this,
+    );
+
+    // Content fade controller
+    _contentController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+
+    // Height animation
+    _heightAnimation = Tween<double>(
+      begin: _normalHeight,
+      end: _recordingHeight,
+    ).animate(CurvedAnimation(
+      parent: _heightController,
+      curve: Curves.easeInOut,
+      reverseCurve: Curves.easeOut,
+    ));
+
+    // Text field opacity - fades out fast, fades in ONLY after height is done
+    _textFieldOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _contentController,
+        curve: Curves.easeOut, // fast fade out to voice
+        reverseCurve: Curves.easeIn, // slow fade in from voice
+      ),
+    );
+
+    // Recorder opacity
+    _recorderOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _contentController,
+        curve: const Interval(0.2, 1.0, curve: Curves.easeIn),
+        reverseCurve: Curves.easeOut,
+      ),
+    );
+  }
+
   void _setupAudioSubscriptions() {
-    // Listen to real bool values so we can end "preparing" instantly
     _isListeningSubscription = widget.audioService.isListening$.listen((listening) {
       if (!mounted) return;
-      setState(() {
-        // once the service is listening, we’re no longer preparing
-        if (listening) _preparing = false;
-      });
+
+      if (listening) {
+        // Actually listening now - finish transition
+        setState(() {
+          _preparing = false;
+        });
+      } else if (!_preparing) {
+        // Not listening and not preparing - return to normal
+        _returnToNormal();
+      }
     });
 
     _transcriptSubscription = widget.audioService.transcript$.listen((transcript) {
@@ -460,11 +170,58 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
       if (mounted && error.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
         widget.audioService.clearError();
-        setState(() {
-          _preparing = false; // stop spinner state on error
-        });
+        _returnToNormal();
       }
     });
+  }
+
+  // Helper to set durations depending on direction
+  void _setDurations({required bool toVoice}) {
+    _heightController.duration = toVoice ? _toVoiceDuration : _toTextDuration;
+    _contentController.duration = toVoice ? const Duration(milliseconds: 400)
+        : const Duration(milliseconds: 360);
+  }
+
+  void _startRecordingTransition() {
+    // Going TEXT -> VOICE: run simultaneously since we're shrinking
+    _setDurations(toVoice: true);
+
+    setState(() {
+      _preparing = true;
+      _isOverwritingTranscript = widget.controller.text.isNotEmpty;
+      _shouldPreventFocus = false;
+    });
+
+    // Run both animations in sync for going to voice
+    if (!_heightController.isAnimating) _heightController.forward(from: 0);
+    if (!_contentController.isAnimating) _contentController.forward(from: 0);
+  }
+
+  void _returnToNormal() {
+    // Going VOICE -> TEXT: HEIGHT FIRST, then content
+    _setDurations(toVoice: false);
+
+    setState(() {
+      _preparing = false;
+      _isOverwritingTranscript = false;
+      _shouldPreventFocus = false;
+    });
+
+    // Step 1: Expand height first
+    if (!_heightController.isAnimating) {
+      _heightController.reverse();
+    }
+
+    // Step 2: Wait for height animation to complete, then fade in content
+    void statusListener(AnimationStatus status) {
+      if (status == AnimationStatus.dismissed && !_contentController.isAnimating) {
+        // Height expansion is done (dismissed = reverse completed), now fade in content
+        _contentController.reverse();
+        _heightController.removeStatusListener(statusListener);
+      }
+    }
+
+    _heightController.addStatusListener(statusListener);
   }
 
   @override
@@ -472,24 +229,25 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
     _isListeningSubscription.cancel();
     _transcriptSubscription.cancel();
     _errorSubscription.cancel();
+    _heightController.dispose();
+    _contentController.dispose();
     super.dispose();
   }
 
   Future<void> _startRecording() async {
-    HapticFeedback.selectionClick();
+    HapticFeedback.heavyImpact();
 
-    // 1) Flip UI immediately
-    setState(() {
-      _isOverwritingTranscript = widget.controller.text.isNotEmpty;
-      _shouldPreventFocus = false;
-      _preparing = true; // show VoiceRecorderWidget right away
-    });
-
-    // 2) Hide keyboard without waiting for its animation to finish
+    // Hide keyboard first so viewInsets animation doesn't fight our height change
     widget.focusNode.unfocus();
     FocusManager.instance.primaryFocus?.unfocus();
 
-    // 3) Kick off mic start asynchronously (don’t block the frame)
+    // Start UI transition on next frame (avoids layout jank vs keyboard)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _startRecordingTransition();
+    });
+
+    // Start recording asynchronously
     Future.microtask(() async {
       try {
         await widget.audioService.startRecording(
@@ -497,31 +255,36 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
         );
       } catch (_) {
         if (!mounted) return;
-        setState(() => _preparing = false);
+        _returnToNormal();
       }
     });
   }
 
   void _onRecordingComplete() {
-    setState(() {
-      _isOverwritingTranscript = false;
-      _shouldPreventFocus = false;
-      _preparing = false;
+    _returnToNormal();
+
+    // Focus after both animations complete
+    Future.delayed(Duration(milliseconds: _toTextDuration.inMilliseconds + 200), () {
+      if (mounted) {
+        setState(() => _shouldPreventFocus = false);
+        FocusScope.of(context).requestFocus(widget.focusNode);
+      }
     });
-    FocusScope.of(context).requestFocus(widget.focusNode);
   }
 
   void _onRecordingCancel() {
-    setState(() {
-      _isOverwritingTranscript = false;
-      _shouldPreventFocus = true;
-      _preparing = false;
-    });
+    HapticFeedback.heavyImpact();
+    _returnToNormal();
+
+    // Close any current focus
     widget.focusNode.unfocus();
     FocusManager.instance.primaryFocus?.unfocus();
-    Future.delayed(const Duration(milliseconds: 400), () {
-      if (mounted) setState(() => _shouldPreventFocus = false);
+
+    setState(() {
+      _shouldPreventFocus = true;
     });
+
+    // Don't refocus after cancellation
   }
 
   @override
@@ -529,12 +292,11 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     final isListening = widget.audioService.isListening;
     final isTranscribing = widget.audioService.isTranscribing;
-
-    final bool showRecorder = _preparing || isListening;
+    final showRecorder = _preparing || isListening;
 
     return Container(
       key: widget.textFieldKey,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
         color: theme.background,
         boxShadow: [
@@ -555,86 +317,140 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Keep height stable while switching to avoid layout jank
-          AnimatedContainer(
-            duration:  Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            constraints:  BoxConstraints(
-              minHeight: isListening ? 20 :55,
-              maxHeight: isListening ? 20 :  190,
-            ),
-            child: showRecorder
-                ? const SizedBox.shrink() // we hide field but keep space stable above via constraints
-                : Scrollbar(
-              child: TextField(
-                style: TextStyle(
-                  fontFamily: "SF Pro",
-                  fontSize: 17.5,
-                  fontWeight: FontWeight.w400,
-                  color: _isOverwritingTranscript ? Colors.grey.shade400 : theme.text,
-                ),
-                // Don’t focus while preparing/listening to prevent keyboard flashes
-                autofocus: !_shouldPreventFocus && !showRecorder,
-                minLines: 1,
-                maxLines: 6,
-                controller: widget.controller,
-                focusNode: widget.focusNode,
-                decoration: InputDecoration(
-                  hintStyle: TextStyle(
-                    fontWeight: FontWeight.w400,
-                    color: Colors.grey.shade600,
+          // Smoothly animated text field container (height)
+          AnimatedBuilder(
+            animation: _heightAnimation,
+            builder: (context, child) {
+              return RepaintBoundary(
+                child: Container(
+                  height: _heightAnimation.value,
+                  clipBehavior: Clip.hardEdge,
+                  decoration: const BoxDecoration(),
+                  child: Stack(
+                    children: [
+                      // Text field with smooth opacity transition
+                      AnimatedBuilder(
+                        animation: _contentController,
+                        builder: (context, child) {
+                          return Opacity(
+                            opacity: _textFieldOpacity.value,
+                            child: IgnorePointer(
+                              ignoring: _textFieldOpacity.value < 0.15,
+                              child: Scrollbar(
+                                child: TextField(
+                                  style: TextStyle(
+                                    fontFamily: "DM Sans",
+                                    fontSize: 17.5,
+                                    fontWeight: FontWeight.w400,
+                                    color: _isOverwritingTranscript
+                                        ? Colors.grey.shade400
+                                        : theme.text,
+                                  ),
+                                  autofocus: !_shouldPreventFocus && !showRecorder,
+                                  minLines: 1,
+                                  maxLines: 6,
+                                  controller: widget.controller,
+                                  focusNode: widget.focusNode,
+                                  decoration: InputDecoration(
+                                    hintStyle: TextStyle(
+                                      fontWeight: FontWeight.w400,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                    hintText: 'Ask anything',
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.only(
+                                      bottom: 8.0,
+                                      top: 12.0,
+                                      left: 5,
+                                    ),
+                                    isDense: true,
+                                  ),
+                                  onChanged: (_) => widget.onTextChanged(),
+                                  onSubmitted: (_) => widget.onSendMessage(),
+                                  textInputAction: TextInputAction.newline,
+                                  keyboardType: TextInputType.multiline,
+                                  scrollPadding: const EdgeInsets.all(20),
+                                  onTap: () {
+                                    if (_shouldPreventFocus) {
+                                      setState(() => _shouldPreventFocus = false);
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
-                  hintText: 'Ask anything',
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.only(bottom: 8.0, top: 12.0,left:5),
-                  isDense: true,
                 ),
-                onChanged: (_) => widget.onTextChanged(),
-                onSubmitted: (_) => widget.onSendMessage(),
-                textInputAction: TextInputAction.newline,
-                keyboardType: TextInputType.multiline,
-                scrollPadding: const EdgeInsets.all(20),
-                onTap: () {
-                  if (_shouldPreventFocus) {
-                    setState(() => _shouldPreventFocus = false);
-                  }
-                },
-              ),
+              );
+            },
+          ),
+
+          // Actions bar with smooth content switching
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: 0.0,
+              top: 0.0,
+              left: showRecorder ? 0 : 10,
+              right: 0,
+            ),
+            child: Stack(
+              children: [
+                // Input actions (attach, mic, send) with fade out / in
+                AnimatedBuilder(
+                  animation: _contentController,
+                  builder: (context, child) {
+                    return Opacity(
+                      opacity: _textFieldOpacity.value, // mirrors textField
+                      child: IgnorePointer(
+                        ignoring: _textFieldOpacity.value < 0.1,
+                        child: InputActionsBarWidget(
+                          isTyping: widget.isTyping,
+                          hasText: widget.controller.text.isNotEmpty,
+                          isTranscribing: isTranscribing,
+                          onStartRecording: _startRecording,
+                          onSendMessage: widget.onSendMessage,
+                          onStopResponse: widget.onStopResponse,
+                          theme: theme,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                // Voice recorder with fade in/out
+                AnimatedBuilder(
+                  animation: _contentController,
+                  builder: (context, child) {
+                    return Opacity(
+                      opacity: _recorderOpacity.value,
+                      child: IgnorePointer(
+                        ignoring: _recorderOpacity.value < 0.1,
+                        child: showRecorder
+                            ? Center(
+                          heightFactor: 0.2,
+                          child: VoiceRecorderWidget(
+                            audioService: widget.audioService,
+                            onCancel: _onRecordingCancel,
+                            onComplete: _onRecordingComplete,
+                          ),
+                        )
+                            : const SizedBox.shrink(),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
 
-          // Actions / Recorder
-          Padding(
-            padding: EdgeInsets.only(bottom: 0.0, top: 5.0,left:10),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 150),
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeIn,
-              transitionBuilder: (child, animation) =>
-                  FadeTransition(opacity: animation, child: child),
-              child: showRecorder
-                  ? VoiceRecorderWidget(
-                key: const ValueKey('recorder'),
-                audioService: widget.audioService,
-                onCancel: _onRecordingCancel,
-                onComplete: _onRecordingComplete,
-                // (Optional) you can show a tiny "preparing…" state inside the widget using _preparing
-              )
-                  : InputActionsBarWidget(
-                key: const ValueKey('actions'),
-                isTyping: widget.isTyping,
-                hasText: widget.controller.text.isNotEmpty,
-                isTranscribing: isTranscribing,
-                onStartRecording: _startRecording,
-                onSendMessage: widget.onSendMessage,
-                onStopResponse: widget.onStopResponse,
-                theme: theme,
-              ),
-            ),
-          ),
-          SizedBox(height: widget.keyboardInset > 0 ? 0 : 16),
+          // Remove dynamic spacing to prevent bouncing
+          const SizedBox(height: 10), // Static spacing instead
         ],
       ),
     );
   }
 }
+

@@ -35,7 +35,7 @@ class AuthButton extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               label,
-              style:  TextStyle(color: theme.text,fontFamily: "SF Pro"),
+              style:  TextStyle(color: theme.text,fontFamily: "DM Sans"),
             ),
           ],
         ),

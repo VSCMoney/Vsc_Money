@@ -195,7 +195,7 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
                     style: TextStyle(
                       fontSize: screenWidth * 0.042,
                       fontWeight: FontWeight.w400,
-                      fontFamily: 'SF Pro',
+                      fontFamily: 'DM Sans',
                       color: theme.text,
                     ),
                   ),
@@ -242,7 +242,7 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
                     style: TextStyle(
                       fontSize: screenWidth * 0.045,
                       color: Colors.white,
-                      fontFamily: "SF Pro",
+                      fontFamily: "DM Sans",
                       fontWeight: FontWeight.w500,
                     ),
                   ),

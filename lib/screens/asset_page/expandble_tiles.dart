@@ -92,7 +92,7 @@ class _CustomExpandableTilesState extends State<CustomExpandableTiles> {
                         Text(
                           tile.title,
                           style: TextStyle(
-                            fontFamily: 'SF Pro',
+                            fontFamily: 'DM Sans',
                             fontSize: 22,
                             fontWeight: FontWeight.w600,
                             color: Colors.black,
@@ -297,7 +297,7 @@ class _ExpandableTilesSectionState extends State<ExpandableTilesSection> {
                       Text(
                         title,
                         style: TextStyle(
-                          fontFamily: 'SF Pro',
+                          fontFamily: 'DM Sans',
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: theme.text,
@@ -401,7 +401,7 @@ class _ExpandableTilesSectionState extends State<ExpandableTilesSection> {
         child: Text(
           'No fundamentals available',
           style: TextStyle(
-            fontFamily: 'SF Pro',
+            fontFamily: 'DM Sans',
             fontSize: 12,
             color: theme.text,
           ),
@@ -507,7 +507,7 @@ class _ExpandableTilesSectionState extends State<ExpandableTilesSection> {
         child: Text(
           'No company overview available',
           style: TextStyle(
-            fontFamily: 'SF Pro',
+            fontFamily: 'DM Sans',
             fontSize: 12,
             color: theme.text,
           ),
@@ -521,7 +521,7 @@ class _ExpandableTilesSectionState extends State<ExpandableTilesSection> {
         Text(
           text,
           style:  TextStyle(
-            fontFamily: 'SF Pro',
+            fontFamily: 'DM Sans',
             fontSize: 14,
             color:theme.text,
             height: 1.5,
@@ -588,7 +588,7 @@ class FinancialMetricsWidget extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontFamily: 'SF Pro',
+                      fontFamily: 'DM Sans',
                       fontSize: 12,
                       color: theme.text,
                       fontWeight: FontWeight.w500,
@@ -606,7 +606,7 @@ class FinancialMetricsWidget extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.right,
                       style: TextStyle(
-                        fontFamily: 'SF Pro',
+                        fontFamily: 'DM Sans',
                         fontSize: 14,
                         color: theme.text,
                         fontWeight: FontWeight.w600,

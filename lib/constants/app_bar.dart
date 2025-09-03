@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:vscmoney/constants/widgets.dart';
 
 import '../services/locator.dart';
@@ -13,7 +14,7 @@ import '../services/theme_service.dart';
 const double kLogoFinalAngle = math.pi;
 
 
-// Update your AppBar function to accept a new parameter
+
 PreferredSize appBar(
     BuildContext context,
     String title,
@@ -41,7 +42,7 @@ class AnimatedAppBar extends StatefulWidget {
   final VoidCallback onNewChatTap;
   final bool isDashboard;
   final bool showNewChatButton;
-  final bool showDivider; // NEW: Add divider control
+  final bool showDivider;
 
   const AnimatedAppBar({
     Key? key,
@@ -49,20 +50,48 @@ class AnimatedAppBar extends StatefulWidget {
     required this.onNewChatTap,
     required this.isDashboard,
     this.showNewChatButton = false,
-    this.showDivider = false, // NEW: Default to false
+    this.showDivider = false,
   }) : super(key: key);
 
   @override
   State<AnimatedAppBar> createState() => _AnimatedAppBarState();
 }
 
-class _AnimatedAppBarState extends State<AnimatedAppBar> {
+class _AnimatedAppBarState extends State<AnimatedAppBar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _logoSpinCtrl;
+  late final Animation<double> _logoSpin;
+
+  @override
+  void initState() {
+    super.initState();
+    _logoSpinCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    );
+    _logoSpin = CurvedAnimation(
+      parent: _logoSpinCtrl,
+      curve: Curves.easeInOutCubicEmphasized,
+    );
+  }
+
+  @override
+  void dispose() {
+    _logoSpinCtrl.dispose();
+    super.dispose();
+  }
+
+  void _spinLogoOnce() {
+    if (_logoSpinCtrl.isAnimating) return;
+    HapticFeedback.heavyImpact();
+    _logoSpinCtrl.forward(from: 0).whenComplete(() => _logoSpinCtrl.reset());
+  }
+
   @override
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isTablet = screenWidth > 600;
     final double horizontalPadding = 16.0;
-    final double iconSize = isTablet ? 26 : 26;
     final double logoHeight = isTablet ? 50 : 36;
     final double spacing = 12;
     final theme = locator<ThemeService>().currentTheme;
@@ -80,15 +109,23 @@ class _AnimatedAppBarState extends State<AnimatedAppBar> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Logo or Title (unchanged)
+                  // —— Center: Logo or Title (logo now spins on tap) ——
                   widget.isDashboard
                       ? Hero(
                     tag: 'penny_logo',
-                    child: Transform.rotate(
-                      angle: kLogoFinalAngle,
-                      child: Image.asset(
-                        "assets/images/ying yang.png",
-                        height: logoHeight,
+                    child: GestureDetector(
+                      onTap: _spinLogoOnce,
+                      child: AnimatedBuilder(
+                        animation: _logoSpin,
+                        builder: (context, child) {
+                          final double angle =
+                              kLogoFinalAngle + (_logoSpin.value * 2 * math.pi);
+                          return Transform.rotate(angle: angle, child: child);
+                        },
+                        child: Image.asset(
+                          "assets/images/ying yang.png",
+                          height: logoHeight,
+                        ),
                       ),
                     ),
                   )
@@ -98,11 +135,11 @@ class _AnimatedAppBarState extends State<AnimatedAppBar> {
                       fontWeight: FontWeight.w600,
                       color: theme.text,
                       fontSize: isTablet ? 22 : 20,
-                      fontFamily: 'SF Pro',
+                      fontFamily: 'DM Sans',
                     ),
                   ),
 
-                  // Left + Right actions (unchanged)
+                  // —— Left + Right actions (unchanged) ——
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -113,7 +150,7 @@ class _AnimatedAppBarState extends State<AnimatedAppBar> {
                           child: InkWell(
                             borderRadius: BorderRadius.circular(24),
                             onTap: () {
-                              HapticFeedback.mediumImpact();
+                              HapticFeedback.heavyImpact();
                               FocusManager.instance.primaryFocus?.unfocus();
                               FocusScope.of(context).unfocus();
                               final scaffold = Scaffold.maybeOf(drawerContext);
@@ -123,13 +160,13 @@ class _AnimatedAppBarState extends State<AnimatedAppBar> {
                                 Scaffold.of(drawerContext).openDrawer();
                               }
                             },
-                            child: Padding(
-                              padding: const EdgeInsets.all(10.0),
-                              child: Image.asset(
-                                "assets/images/newest.png",
+                            child:  Padding(
+                              padding: EdgeInsets.all(10.0),
+                              child: SvgPicture.asset(
+                                "assets/images/drawer.svg",
+                                height: 38,
+                                width: 38,
                                 color: theme.icon,
-                                height: 32,
-                                width: 32,
                               ),
                             ),
                           ),
@@ -164,9 +201,9 @@ class _AnimatedAppBarState extends State<AnimatedAppBar> {
                                 entry.remove();
                               });
                             },
-                            child: Padding(
-                              padding: const EdgeInsets.all(4.0),
-                              child: _boldNotificationIcon()
+                            child: const Padding(
+                              padding: EdgeInsets.all(4.0),
+                              child: _BoldNotificationIcon(),
                             ),
                           ),
                           if (widget.isDashboard && widget.showNewChatButton) ...[
@@ -177,13 +214,14 @@ class _AnimatedAppBarState extends State<AnimatedAppBar> {
                                 borderRadius: BorderRadius.circular(24),
                                 onTap: widget.onNewChatTap,
                                 child: Padding(
-                                  padding: const EdgeInsets.all(4.0),
-                                  child: Image.asset(
-                                    "assets/images/newChat.png",
-                                    color: theme.icon,
-                                    width: 19,
-                                    height: 22,
-                                  ),
+                                  padding: const EdgeInsets.all(3.0),
+                                  // child: Image.asset(
+                                  //   "assets/images/newChat.png",
+                                  //   color: theme.icon,
+                                  //   width: 22,
+                                  //   height: 22,
+                                  // ),
+                                  child: _BoldNewChatIcon(),
                                 ),
                               ),
                             ),
@@ -198,7 +236,6 @@ class _AnimatedAppBarState extends State<AnimatedAppBar> {
           ),
         ),
 
-        // UPDATED: Show divider based on showDivider flag
         if (widget.showDivider)
           Container(
             height: 1,
@@ -209,27 +246,47 @@ class _AnimatedAppBarState extends State<AnimatedAppBar> {
       ],
     );
   }
+}
 
+// Pulled out as a const widget so it can be const-constructed above
+class _BoldNotificationIcon extends StatelessWidget {
+  const _BoldNotificationIcon();
 
-
-
-  Widget _boldNotificationIcon() {
+  @override
+  Widget build(BuildContext context) {
     final theme = locator<ThemeService>().currentTheme;
     return Stack(
       alignment: Alignment.center,
       children: [
-         Icon(Icons.notifications_none_outlined, color: theme.icon, size: 26), // center
-        // Positioned(left: 0.5, child: Icon(Icons.notifications_none_outlined, color: theme.icon, size: 26)),
-        //  Positioned(right: 0.5, child: Icon(Icons.notifications_none_outlined, color: theme.icon, size: 26)),
-        //  Positioned(top: 0.5, child: Icon(Icons.notifications_none_outlined, color: theme.icon, size: 26)),
-        //  Positioned(bottom: 0.5, child: Icon(Icons.notifications_none_outlined, color: theme.icon, size: 26)),
-
-        // corners for extra boldness
-         Positioned(left: 0.5, top: 0.5, child: Icon(Icons.notifications_none_outlined, color: theme.icon, size: 26)),
-        // Positioned(left: 0.5, bottom: 0.5, child: Icon(Icons.notifications_none_outlined, color: theme.icon, size: 26)),
-        // Positioned(right: 0.5, top: 0.5, child: Icon(Icons.notifications_none_outlined, color: theme.icon, size: 26)),
-        //  Positioned(right: 0.5, bottom: 0.5, child: Icon(Icons.notifications_none_outlined, color: theme.icon, size: 26)),
+        SvgPicture.asset("assets/images/notify.svg", width: 24, height: 24,color: theme.icon,),
+        Positioned(
+          left: 0.5,
+          top: 0.5,
+          child: SvgPicture.asset("assets/images/notify.svg", height: 24, width: 24,color: theme.icon,),
+        ),
       ],
     );
   }
 }
+
+
+class _BoldNewChatIcon extends StatelessWidget {
+  const _BoldNewChatIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = locator<ThemeService>().currentTheme;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Image.asset("assets/images/newChat.png", width: 22, height: 22,color: theme.icon,),
+        Positioned(
+          left: 0.5,
+          top: 0.5,
+          child: Image.asset("assets/images/newChat.png", height: 22, width: 22, color: theme.icon),
+        ),
+      ],
+    );
+  }
+}
+

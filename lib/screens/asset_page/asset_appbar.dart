@@ -110,7 +110,7 @@ class _StockAppBarState extends State<StockAppBar> {
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                   color: theme.text,
-                  fontFamily: "SF Pro",
+                  fontFamily: "DM Sans",
                 ),
               ),
             ),
@@ -231,7 +231,7 @@ class StockPortfolioCard extends StatelessWidget {
                     Text(
                       '$shares Shares',
                       style: TextStyle(
-                        fontFamily: 'SF Pro',
+                        fontFamily: 'DM Sans',
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: theme.text,
@@ -242,7 +242,7 @@ class StockPortfolioCard extends StatelessWidget {
                     Text(
                       'Avg price ₹${avgPrice.toStringAsFixed(2)}',
                       style: TextStyle(
-                        fontFamily: 'SF Pro',
+                        fontFamily: 'DM Sans',
                         fontSize: 10,
                         fontWeight: FontWeight.w400,
                         color: theme.text,
@@ -259,7 +259,7 @@ class StockPortfolioCard extends StatelessWidget {
                     Text(
                       '₹${currentValue.toStringAsFixed(2)}',
                       style: TextStyle(
-                        fontFamily: 'SF Pro',
+                        fontFamily: 'DM Sans',
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: theme.text,
@@ -283,7 +283,7 @@ class StockPortfolioCard extends StatelessWidget {
                         Text(
                           '${changePercent.toStringAsFixed(0)}% (+${changeAmount.toStringAsFixed(1)})',
                           style: TextStyle(
-                            fontFamily: 'SF Pro',
+                            fontFamily: 'DM Sans',
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
                             color:
@@ -321,7 +321,7 @@ class StockPortfolioCard extends StatelessWidget {
                     Text(
                       'Go to your broker',
                       style: TextStyle(
-                        fontFamily: 'SF Pro',
+                        fontFamily: 'DM Sans',
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         color: theme.text,

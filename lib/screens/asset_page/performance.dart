@@ -47,7 +47,7 @@ class PerformanceSection extends StatelessWidget {
           Text(
             'Performance',
             style: TextStyle(
-              fontFamily: 'SF Pro',
+              fontFamily: 'DM Sans',
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: theme.text,
@@ -134,14 +134,14 @@ class PerformanceSection extends StatelessWidget {
               children: [
                 Text(lowLabel,
                     style:  TextStyle(
-                        fontFamily: 'SF Pro',
+                        fontFamily: 'DM Sans',
                         fontSize: 10,
                         fontWeight: FontWeight.w400,
                         color: theme.text)),
                 const SizedBox(height: 8),
                 Text(lowValue.toStringAsFixed(2),
                     style:  TextStyle(
-                        fontFamily: 'SF Pro',
+                        fontFamily: 'DM Sans',
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: theme.text)),
@@ -152,14 +152,14 @@ class PerformanceSection extends StatelessWidget {
               children: [
                 Text(highLabel,
                     style:  TextStyle(
-                        fontFamily: 'SF Pro',
+                        fontFamily: 'DM Sans',
                         fontSize: 10,
                         fontWeight: FontWeight.w400,
                         color: theme.text)),
                 const SizedBox(height: 8),
                 Text(highValue.toStringAsFixed(2),
                     style:  TextStyle(
-                        fontFamily: 'SF Pro',
+                        fontFamily: 'DM Sans',
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: theme.text)),
@@ -216,7 +216,7 @@ class PerformanceSection extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontFamily: 'SF Pro',
+              fontFamily: 'DM Sans',
               fontSize: 12,
               fontWeight: FontWeight.w400,
               color: theme.text,
@@ -227,7 +227,7 @@ class PerformanceSection extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              fontFamily: 'SF Pro',
+              fontFamily: 'DM Sans',
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: theme.text,

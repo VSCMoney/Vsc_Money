@@ -70,7 +70,7 @@ class ForYouCard extends StatelessWidget {
               Text(
                 title,
                 style: TextStyle(
-                  fontFamily: 'SF Pro',
+                  fontFamily: 'DM Sans',
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF734012), // Warm brown color
@@ -84,7 +84,7 @@ class ForYouCard extends StatelessWidget {
               Text(
                 content,
                 style: TextStyle(
-                  fontFamily: 'SF Pro',
+                  fontFamily: 'DM Sans',
                   fontSize: 11,
                   fontWeight: FontWeight.w400,
                   color: AppColors.black, // Dark gray for readability

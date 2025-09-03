@@ -75,43 +75,46 @@ class _DrawerFooterState extends State<DrawerFooter> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
-    return Container(
-      // Add margin to lift the footer higher from bottom
-      margin: const EdgeInsets.only(bottom: 20), // Adjust this value
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: const Color(0XFFC4765E),
-            child: Text(
-              _userInitials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        // Add margin to lift the footer higher from bottom
+        margin: const EdgeInsets.only(bottom: 20), // Adjust this value
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: const Color(0XFFC4765E),
+              child: Text(
+                _userInitials,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _fullName,
-              style: TextStyle(
-                color: theme.text,
-                fontWeight: FontWeight.w500,
-                fontSize: 16,
-                fontFamily: 'SF Pro',
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _fullName,
+                style: TextStyle(
+                  color: theme.text,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 16,
+                  fontFamily: 'DM Sans',
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          IconButton(
-            icon: Icon(Icons.more_horiz, color: theme.icon, size: 24),
-            onPressed: widget.onTap,
-            tooltip: 'Settings',
-          ),
-        ],
+            // IconButton(
+            //   icon: Icon(Icons.more_horiz, color: theme.icon, size: 24),
+            //   onPressed: widget.onTap,
+            //   tooltip: 'Settings',
+            // ),
+          ],
+        ),
       ),
     );
   }

@@ -68,7 +68,7 @@ class SectionHeader extends StatelessWidget {
       child: Text(
         title,
         style:  TextStyle(
-            fontFamily: 'SF Pro',
+            fontFamily: 'DM Sans',
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: theme.secondaryText

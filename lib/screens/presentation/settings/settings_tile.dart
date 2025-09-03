@@ -110,7 +110,7 @@ class _SettingsTileState extends State<SettingsTile> {
             child: Text(
               widget.title,
               style: TextStyle(
-                fontFamily: 'SF Pro',
+                fontFamily: 'DM Sans',
                 fontSize: 16,
                 color: theme.text,
                 fontWeight: FontWeight.w500,
@@ -123,7 +123,7 @@ class _SettingsTileState extends State<SettingsTile> {
                 Text(
                   widget.trailingText!,
                   style: TextStyle(
-                    fontFamily: 'SF Pro',
+                    fontFamily: 'DM Sans',
                     fontSize: 14,
                     color: theme.text,
                     fontWeight: FontWeight.w500,
@@ -146,7 +146,7 @@ class _SettingsTileState extends State<SettingsTile> {
               activeColor: AppColors.primary,
               value: isBiometricEnabled,
               onChanged: (value) async {
-                Navigator.pop(context);
+
                 await Future.delayed(const Duration(milliseconds: 300));
                 final updated = await _authService.toggleBiometric(value, context);
                 if (mounted) {

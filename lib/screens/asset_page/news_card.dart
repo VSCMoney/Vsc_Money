@@ -67,7 +67,7 @@ class _NewsCardState extends State<NewsCard> with TickerProviderStateMixin {
     final textSpan = TextSpan(
       text: widget.description,
       style: const TextStyle(
-        fontFamily: 'SF Pro',
+        fontFamily: 'DM Sans',
         fontSize: 12,
         fontWeight: FontWeight.w400,
         color: Color(0xFF7E7E7E),
@@ -134,7 +134,7 @@ class _NewsCardState extends State<NewsCard> with TickerProviderStateMixin {
           Text(
             '${widget.source} • ${widget.timeAgo}',
             style: TextStyle(
-              fontFamily: 'SF Pro',
+              fontFamily: 'DM Sans',
               fontSize: 10,
               fontWeight: FontWeight.w500,
               color: theme.text,
@@ -150,7 +150,7 @@ class _NewsCardState extends State<NewsCard> with TickerProviderStateMixin {
             child: Text(
               widget.title,
               style: TextStyle(
-                fontFamily: 'SF Pro',
+                fontFamily: 'DM Sans',
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: theme.text,
@@ -173,7 +173,7 @@ class _NewsCardState extends State<NewsCard> with TickerProviderStateMixin {
                 firstChild: Text(
                   widget.description,
                   style: const TextStyle(
-                    fontFamily: 'SF Pro',
+                    fontFamily: 'DM Sans',
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                     color: Color(0xFF7E7E7E),
@@ -185,7 +185,7 @@ class _NewsCardState extends State<NewsCard> with TickerProviderStateMixin {
                 secondChild: Text(
                   widget.description,
                   style: const TextStyle(
-                    fontFamily: 'SF Pro',
+                    fontFamily: 'DM Sans',
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                     color: Color(0xFF7E7E7E),
@@ -204,7 +204,7 @@ class _NewsCardState extends State<NewsCard> with TickerProviderStateMixin {
                     child: Text(
                       _isExpanded ? 'Read less' : 'Read more',
                       style: TextStyle(
-                        fontFamily: 'SF Pro',
+                        fontFamily: 'DM Sans',
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primary, // iOS blue

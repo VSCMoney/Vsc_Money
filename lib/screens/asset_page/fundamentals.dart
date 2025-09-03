@@ -16,7 +16,7 @@ class FundamentalsSection extends StatelessWidget {
           Text(
             'Fundamentals',
             style: TextStyle(
-              fontFamily: 'SF Pro',
+              fontFamily: 'DM Sans',
               fontSize: 20,
               fontWeight: FontWeight.w600,
               color: Colors.black,
@@ -107,7 +107,7 @@ class FundamentalCard extends StatelessWidget {
                 Text(
                   title,
                   style:  TextStyle(
-                    fontFamily: 'SF Pro',
+                    fontFamily: 'DM Sans',
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: theme.text,
@@ -117,7 +117,7 @@ class FundamentalCard extends StatelessWidget {
                 Text(
                   description,
                   style:  TextStyle(
-                    fontFamily: 'SF Pro',
+                    fontFamily: 'DM Sans',
                     fontSize: 10,
                     fontWeight: FontWeight.w400,
                     color: theme.text,
@@ -180,7 +180,7 @@ class CustomFundamentalsSection extends StatelessWidget {
           Text(
             title,
             style: TextStyle(
-              fontFamily: 'SF Pro',
+              fontFamily: 'DM Sans',
               fontSize: 20,
               fontWeight: FontWeight.w600,
               color: theme.text,

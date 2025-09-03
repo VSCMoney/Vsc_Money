@@ -306,7 +306,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
                         fontSize: isSmallScreen ? 14 : 16,
                         fontWeight: FontWeight.w500,
                         color: const Color(0xFF7E7E7E),
-                        fontFamily: "SF Pro",
+                        fontFamily: "DM Sans",
                         height: 1.2,
                       ),
                       maxLines: 2,
@@ -348,7 +348,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
                                 fontSize: isSmallScreen ? 10 : 12,
                                 color: AppColors.black,
                                 fontWeight: FontWeight.w500,
-                                fontFamily: "SF Pro",
+                                fontFamily: "DM Sans",
                               ),
                             ),
                           ],
@@ -399,7 +399,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
               fontSize: priceFontSize,
               fontWeight: FontWeight.w600,
               color: theme.text,
-              fontFamily: "SF Pro",
+              fontFamily: "DM Sans",
             ),
           ),
 
@@ -421,7 +421,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
                         fontSize: isSmallScreen ? 12 : 14,
                         fontWeight: FontWeight.w500,
                         color: color,
-                        fontFamily: "SF Pro",
+                        fontFamily: "DM Sans",
                       ),
                     ),
                   ],
@@ -432,7 +432,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
                     fontSize: isSmallScreen ? 12 : 14,
                     fontWeight: FontWeight.w500,
                     color: theme.text,
-                    fontFamily: "SF Pro",
+                    fontFamily: "DM Sans",
                   ),
                 ),
                 Text(
@@ -441,7 +441,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
                     fontSize: isSmallScreen ? 10 : 12,
                     fontWeight: FontWeight.w500,
                     color: theme.text.withOpacity(0.7),
-                    fontFamily: "SF Pro",
+                    fontFamily: "DM Sans",
                   ),
                 ),
               ],
@@ -559,7 +559,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
                           fontSize: screenSize.width < 350 ? 12 : 14,
-                          fontFamily: "SF Pro",
+                          fontFamily: "DM Sans",
                         ),
                         textAlign: TextAlign.center,
                       );
@@ -639,7 +639,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
                       period,
                       style: TextStyle(
                         fontSize: 14,
-                        fontFamily: "SF Pro",
+                        fontFamily: "DM Sans",
                         fontWeight: FontWeight.w500,
                         color: isSelected ? AppColors.primary : theme.text,
                       ),
@@ -670,13 +670,13 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
       unselectedLabelColor: Colors.grey[600],
       labelPadding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 2 : 4),
       labelStyle: TextStyle(
-        fontFamily: "SF Pro",
+        fontFamily: "DM Sans",
         fontSize: isSmallScreen ? 10 : 12,
         fontWeight: FontWeight.w500,
         height: 1.2,
       ),
       unselectedLabelStyle: TextStyle(
-        fontFamily: "SF Pro",
+        fontFamily: "DM Sans",
         fontSize: isSmallScreen ? 10 : 12,
         fontWeight: FontWeight.w500,
         height: 1.2,
@@ -755,7 +755,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
           child: Text(
             'No summary data available yet.',
             style: TextStyle(
-              fontFamily: 'SF Pro',
+              fontFamily: 'DM Sans',
               fontSize: 14,
               color: Color(0xFF9CA3AF),
             ),
@@ -898,7 +898,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
             Text(
               'No news available for this stock yet.',
               style: TextStyle(
-                fontFamily: 'SF Pro',
+                fontFamily: 'DM Sans',
                 fontSize: 12,
                 color: Color(0xFF9CA3AF),
               ),
@@ -937,7 +937,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
           Text(
             'Events Content',
             style: TextStyle(
-              fontFamily: "SF Pro",
+              fontFamily: "DM Sans",
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -958,7 +958,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
           Text(
             'F&O Content',
             style: TextStyle(
-              fontFamily: "SF Pro",
+              fontFamily: "DM Sans",
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -1351,7 +1351,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 //                         fontSize: isSmallScreen ? 14 : 16,
 //                         fontWeight: FontWeight.w500,
 //                         color: const Color(0xFF7E7E7E),
-//                         fontFamily: "SF Pro",
+//                         fontFamily: "DM Sans",
 //                         height: 1.2,
 //                       ),
 //                       maxLines: 2,
@@ -1393,7 +1393,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 //                                 fontSize: isSmallScreen ? 10 : 12,
 //                                 color: AppColors.black,
 //                                 fontWeight: FontWeight.w500,
-//                                 fontFamily: "SF Pro",
+//                                 fontFamily: "DM Sans",
 //                               ),
 //                             ),
 //                           ],
@@ -1444,7 +1444,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 //               fontSize: priceFontSize,
 //               fontWeight: FontWeight.w600,
 //               color: theme.text,
-//               fontFamily: "SF Pro",
+//               fontFamily: "DM Sans",
 //             ),
 //           ),
 //
@@ -1466,7 +1466,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 //                         fontSize: isSmallScreen ? 12 : 14,
 //                         fontWeight: FontWeight.w500,
 //                         color: color,
-//                         fontFamily: "SF Pro",
+//                         fontFamily: "DM Sans",
 //                       ),
 //                     ),
 //                   ],
@@ -1477,7 +1477,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 //                     fontSize: isSmallScreen ? 12 : 14,
 //                     fontWeight: FontWeight.w500,
 //                     color: theme.text,
-//                     fontFamily: "SF Pro",
+//                     fontFamily: "DM Sans",
 //                   ),
 //                 ),
 //                 Text(
@@ -1486,7 +1486,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 //                     fontSize: isSmallScreen ? 10 : 12,
 //                     fontWeight: FontWeight.w500,
 //                     color: theme.text.withOpacity(0.7),
-//                     fontFamily: "SF Pro",
+//                     fontFamily: "DM Sans",
 //                   ),
 //                 ),
 //               ],
@@ -1604,7 +1604,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 //                           color: Colors.white,
 //                           fontWeight: FontWeight.w600,
 //                           fontSize: screenSize.width < 350 ? 12 : 14,
-//                           fontFamily: "SF Pro",
+//                           fontFamily: "DM Sans",
 //                         ),
 //                         textAlign: TextAlign.center,
 //                       );
@@ -1684,7 +1684,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 //                       period,
 //                       style: TextStyle(
 //                         fontSize: 14,
-//                         fontFamily: "SF Pro",
+//                         fontFamily: "DM Sans",
 //                         fontWeight: FontWeight.w500,
 //                         color: isSelected ? AppColors.primary : theme.text,
 //                       ),
@@ -1715,13 +1715,13 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 //       unselectedLabelColor: Colors.grey[600],
 //       labelPadding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 2 : 4),
 //       labelStyle: TextStyle(
-//         fontFamily: "SF Pro",
+//         fontFamily: "DM Sans",
 //         fontSize: isSmallScreen ? 10 : 12,
 //         fontWeight: FontWeight.w500,
 //         height: 1.2,
 //       ),
 //       unselectedLabelStyle: TextStyle(
-//         fontFamily: "SF Pro",
+//         fontFamily: "DM Sans",
 //         fontSize: isSmallScreen ? 10 : 12,
 //         fontWeight: FontWeight.w500,
 //         height: 1.2,
@@ -1800,7 +1800,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 //           child: Text(
 //             'No summary data available yet.',
 //             style: TextStyle(
-//               fontFamily: 'SF Pro',
+//               fontFamily: 'DM Sans',
 //               fontSize: 14,
 //               color: Color(0xFF9CA3AF),
 //             ),
@@ -1943,7 +1943,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 //             Text(
 //               'No news available for this stock yet.',
 //               style: TextStyle(
-//                 fontFamily: 'SF Pro',
+//                 fontFamily: 'DM Sans',
 //                 fontSize: 12,
 //                 color: Color(0xFF9CA3AF),
 //               ),
@@ -1982,7 +1982,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 //           Text(
 //             'Events Content',
 //             style: TextStyle(
-//               fontFamily: "SF Pro",
+//               fontFamily: "DM Sans",
 //               fontSize: 16,
 //               fontWeight: FontWeight.w600,
 //             ),
@@ -2003,7 +2003,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 //           Text(
 //             'F&O Content',
 //             style: TextStyle(
-//               fontFamily: "SF Pro",
+//               fontFamily: "DM Sans",
 //               fontSize: 16,
 //               fontWeight: FontWeight.w600,
 //             ),

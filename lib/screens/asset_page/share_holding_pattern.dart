@@ -91,7 +91,7 @@ class _ShareholdingPatternWidgetState extends State<ShareholdingPatternWidget> {
           Text(
             'Shareholding pattern',
             style: TextStyle(
-              fontFamily: 'SF Pro',
+              fontFamily: 'DM Sans',
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: AppColors.black,
@@ -102,7 +102,7 @@ class _ShareholdingPatternWidgetState extends State<ShareholdingPatternWidget> {
           Text(
             'No shareholding data available',
             style: TextStyle(
-              fontFamily: 'SF Pro',
+              fontFamily: 'DM Sans',
               fontSize: 12,
               color: Color(0xFF9CA3AF),
             ),
@@ -145,7 +145,7 @@ class _ShareholdingPatternWidgetState extends State<ShareholdingPatternWidget> {
                 style: TextStyle(
                   color: isSelected ? const Color(0xFFFB8C00) : theme.text,
                   fontWeight: FontWeight.w500,
-                  fontFamily: 'SF Pro',
+                  fontFamily: 'DM Sans',
                   fontSize: 10,
                 ),
               ),

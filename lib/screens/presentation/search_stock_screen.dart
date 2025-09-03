@@ -189,7 +189,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
             fontWeight: FontWeight.w600,
             fontSize: 12  ,
             color: selected ? Colors.black : theme.text,
-            fontFamily: 'SF Pro',
+            fontFamily: 'DM Sans',
           ),
         ),
       ),
@@ -218,6 +218,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
               leading: IconButton(
                 icon: Icon(Icons.arrow_back, color: theme.icon, size: 24),
                 onPressed: () {
+                  HapticFeedback.heavyImpact();
                   _closeKeyboard(); // <— make sure it closes on back
                   Navigator.of(context).pop();
                 },
@@ -233,14 +234,14 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
                 style: TextStyle(
                   fontSize: 16,
                   color: theme.text,
-                  fontFamily: 'SF Pro',
+                  fontFamily: 'DM Sans',
                 ),
                 decoration: InputDecoration(
                   hintText: 'Search stocks',
                   hintStyle: TextStyle(
                     color: theme.text.withOpacity(0.6),
                     fontSize: 16,
-                    fontFamily: 'SF Pro',
+                    fontFamily: 'DM Sans',
                   ),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
@@ -316,7 +317,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
                                           term,
                                           style: const TextStyle(
                                             fontSize: 16,
-                                            fontFamily: 'SF Pro',
+                                            fontFamily: 'DM Sans',
                                           ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
@@ -371,7 +372,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           fontSize: 16,
-                                          fontFamily: 'SF Pro',
+                                          fontFamily: 'DM Sans',
                                           color: theme.text,
                                         ),
                                       ),
@@ -393,7 +394,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
                             style: TextStyle(
                               color: Colors.grey.shade600,
                               fontSize: 14,
-                              fontFamily: 'SF Pro',
+                              fontFamily: 'DM Sans',
                             ),
                           ),
                         ),
@@ -455,7 +456,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
-                            fontFamily: 'SF Pro',
+                            fontFamily: 'DM Sans',
                           ),
                         ),
                       ),

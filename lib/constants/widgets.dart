@@ -581,7 +581,7 @@ class _PremiumShimmerWidgetState extends State<PremiumShimmerWidget>
             style: TextStyle(
               fontSize: 16,
               color: Colors.white, // White color for shader mask
-              fontFamily: 'SF Pro',
+              fontFamily: 'DM Sans',
               //fontWeight: FontWeight.w500,
             ),
           ),
@@ -949,13 +949,13 @@ class _ComparisonTableWidgetState extends State<ComparisonTableWidget>
     final totalWidth = cols.fold<double>(0, (sum, c) => sum + colWidths[c]!);
 
     final headerStyle = TextStyle(
-      fontFamily: 'SF Pro',
+      fontFamily: 'DM Sans',
       fontWeight: FontWeight.w700,
       fontSize: 13,
       color: muted,
     );
     final cellStyle = TextStyle(
-      fontFamily: 'SF Pro',
+      fontFamily: 'DM Sans',
       fontWeight: FontWeight.w500,
       fontSize: 13,
       color: textColor,
@@ -979,7 +979,7 @@ class _ComparisonTableWidgetState extends State<ComparisonTableWidget>
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontFamily: 'SF Pro',
+                      fontFamily: 'DM Sans',
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1011,7 +1011,7 @@ class _ComparisonTableWidgetState extends State<ComparisonTableWidget>
                   Column(
                     children: [
                       Container(
-                        width: nameW,
+                        width: 100,
                         height: _headerH,
                         padding: _cellPad,
                         alignment: Alignment.centerLeft,
@@ -1298,13 +1298,13 @@ class _ComparisonTableWidgetState extends State<ComparisonTableWidget>
 //       dataRowMinHeight: 44,
 //       dataRowMaxHeight: 56,
 //       headingTextStyle: TextStyle(
-//         fontFamily: 'SF Pro',
+//         fontFamily: 'DM Sans',
 //         fontWeight: FontWeight.w700,
 //         fontSize: 13,
 //         color: textColor.withOpacity(0.9),
 //       ),
 //       dataTextStyle: TextStyle(
-//         fontFamily: 'SF Pro',
+//         fontFamily: 'DM Sans',
 //         fontWeight: FontWeight.w500,
 //         fontSize: 13,
 //         color: textColor,
@@ -1353,7 +1353,7 @@ class _ComparisonTableWidgetState extends State<ComparisonTableWidget>
 //                   maxLines: 1,
 //                   overflow: TextOverflow.ellipsis,
 //                   style: const TextStyle(
-//                     fontFamily: 'SF Pro',
+//                     fontFamily: 'DM Sans',
 //                     fontSize: 16,
 //                     fontWeight: FontWeight.w700,
 //                   ),
@@ -1704,7 +1704,7 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
             fontSize: 12,
             color: theme.text.withOpacity(0.7),
             fontWeight: FontWeight.w400,
-            fontFamily: "SF Pro",
+            fontFamily: "DM Sans",
             height: 1.5,
           ),
         ),
@@ -1717,7 +1717,7 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: theme.text,
-            fontFamily: "SF Pro",
+            fontFamily: "DM Sans",
             height: 1.5,
           ),
         ),
@@ -1767,12 +1767,12 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
 
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: theme.box,
+              color: theme.background,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: theme.background, width: 1),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
+                  color: Colors.black.withOpacity(0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -1795,7 +1795,7 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: theme.text,
-                                fontFamily: "SF Pro",
+                                fontFamily: "DM Sans",
                                 height: 1.0,
                               ),
                             ),
@@ -1818,7 +1818,7 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
                         child: Text(
                           overview,
                           style: TextStyle(
-                            fontFamily: 'SF Pro',
+                            fontFamily: 'DM Sans',
                             fontSize: 13,
                             height: 1.4,
                             color: theme.text.withOpacity(0.8),
@@ -1884,7 +1884,7 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
                 style:  TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  fontFamily: 'SF Pro',
+                  fontFamily: 'DM Sans',
                   color: theme.text
                 ),
               ),
@@ -2444,7 +2444,7 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
 //                 style: const TextStyle(
 //                   fontSize: 18,
 //                   fontWeight: FontWeight.bold,
-//                   fontFamily: 'SF Pro',
+//                   fontFamily: 'DM Sans',
 //                 ),
 //               ),
 //             ),
@@ -2462,7 +2462,7 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
 //                   fontSize: 14,
 //                   fontStyle: FontStyle.italic,
 //                   color: Colors.grey[600],
-//                   fontFamily: 'SF Pro',
+//                   fontFamily: 'DM Sans',
 //                 ),
 //               ),
 //             ),
@@ -2528,7 +2528,7 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
 //                 style: const TextStyle(
 //                   fontWeight: FontWeight.bold,
 //                   fontSize: 14,
-//                   fontFamily: 'SF Pro',
+//                   fontFamily: 'DM Sans',
 //                 ),
 //                 overflow: TextOverflow.ellipsis,
 //               ),
@@ -2596,7 +2596,7 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
 //           cellValue,
 //           style: TextStyle(
 //             fontSize: 14,
-//             fontFamily: 'SF Pro',
+//             fontFamily: 'DM Sans',
 //             color: Colors.blue[700],
 //             fontWeight: FontWeight.w600,
 //             decoration: TextDecoration.underline,
@@ -2611,7 +2611,7 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
 //         cellValue,
 //         style: const TextStyle(
 //           fontSize: 14,
-//           fontFamily: 'SF Pro',
+//           fontFamily: 'DM Sans',
 //         ),
 //         contextMenuBuilder: widget.contextMenuBuilder,
 //       );
@@ -2812,7 +2812,7 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
 //                           style: TextStyle(
 //                             fontWeight: FontWeight.bold,
 //                             fontSize: 14,
-//                             fontFamily: 'SF Pro',
+//                             fontFamily: 'DM Sans',
 //                             color: widget.theme.text,
 //                           ),
 //                         ),
@@ -2876,7 +2876,7 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
 //           value,
 //           style: TextStyle(
 //             fontSize: 14,
-//             fontFamily: 'SF Pro',
+//             fontFamily: 'DM Sans',
 //             color: Colors.black87,
 //             fontWeight: FontWeight.w600,
 //            // decoration: TextDecoration.underline,
@@ -2889,7 +2889,7 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
 //         value,
 //         style: TextStyle(
 //           fontSize: 14,
-//           fontFamily: 'SF Pro',
+//           fontFamily: 'DM Sans',
 //           color: widget.theme.text,
 //         ),
 //       );

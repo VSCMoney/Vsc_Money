@@ -64,25 +64,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'Log Out',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  fontFamily: 'SF Pro',
+                  fontFamily: 'DM Sans',
                 ),
               ),
             ],
           ),
           content: const Text(
             'Are you sure you want to log out?',
-            style: TextStyle(fontSize: 15, fontFamily: 'SF Pro'),
+            style: TextStyle(fontSize: 15, fontFamily: 'DM Sans'),
           ),
           actionsPadding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(fontFamily: 'SF Pro')),
+              child: const Text('Cancel', style: TextStyle(fontFamily: 'DM Sans')),
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.logout, size: 18),
-              label: const Text('Logout', style: TextStyle(fontFamily: 'SF Pro')),
+              label: const Text('Logout', style: TextStyle(fontFamily: 'DM Sans')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -144,7 +144,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Text(
                   "Settings",
                   style: TextStyle(
-                    fontFamily: 'SF Pro',
+                    fontFamily: 'DM Sans',
                     fontSize: 20,
                     fontWeight: FontWeight.w500,
                     color: theme.text,
@@ -176,7 +176,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Text("RGB",
                             style: TextStyle(
-                              fontFamily: 'SF Pro',
+                              fontFamily: 'DM Sans',
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
                               color: theme.text,
@@ -185,7 +185,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Text("+91 94XXXXXX32",
                             style: TextStyle(
                               fontWeight: FontWeight.w400,
-                              fontFamily: 'SF Pro',
+                              fontFamily: 'DM Sans',
                               fontSize: 14,
                               color: theme.text,
                             )),
@@ -254,7 +254,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Text(
                       "Logout",
                       style: TextStyle(
-                        fontFamily: 'SF Pro',
+                        fontFamily: 'DM Sans',
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                         color: theme.text,

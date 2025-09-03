@@ -42,63 +42,63 @@ class AppText extends StatelessWidget {
     switch (style) {
       case AppTextStyle.h1:
         baseStyle = const TextStyle(
-          fontFamily: 'SF Pro',
+          fontFamily: 'DM Sans',
           fontSize: 32,
           fontWeight: FontWeight.bold,
         );
         break;
       case AppTextStyle.h2:
         baseStyle = const TextStyle(
-          fontFamily: 'SF Pro',
+          fontFamily: 'DM Sans',
           fontSize: 28,
           fontWeight: FontWeight.bold,
         );
         break;
       case AppTextStyle.h3:
         baseStyle = const TextStyle(
-          fontFamily: 'SF Pro',
+          fontFamily: 'DM Sans',
           fontSize: 24,
           fontWeight: FontWeight.w600,
         );
         break;
       case AppTextStyle.h4:
         baseStyle = const TextStyle(
-          fontFamily: 'SF Pro',
+          fontFamily: 'DM Sans',
           fontSize: 22,
           fontWeight: FontWeight.w600,
         );
         break;
       case AppTextStyle.h5:
         baseStyle = const TextStyle(
-          fontFamily: 'SF Pro',
+          fontFamily: 'DM Sans',
           fontSize: 20,
           fontWeight: FontWeight.w500,
         );
         break;
       case AppTextStyle.bodyLarge:
         baseStyle = const TextStyle(
-          fontFamily: 'SF Pro',
+          fontFamily: 'DM Sans',
           fontSize: 18,
           fontWeight: FontWeight.normal,
         );
         break;
       case AppTextStyle.body:
         baseStyle = const TextStyle(
-          fontFamily: 'SF Pro',
+          fontFamily: 'DM Sans',
           fontSize: 16,
           fontWeight: FontWeight.normal,
         );
         break;
       case AppTextStyle.bodySmall:
         baseStyle = const TextStyle(
-          fontFamily: 'SF Pro',
+          fontFamily: 'DM Sans',
           fontSize: 14,
           fontWeight: FontWeight.normal,
         );
         break;
       case AppTextStyle.caption:
         baseStyle = const TextStyle(
-          fontFamily: 'SF Pro',
+          fontFamily: 'DM Sans',
           fontSize: 12,
           fontWeight: FontWeight.normal,
         );
@@ -236,47 +236,47 @@ class AppTextTheme {
   static TextTheme get textTheme {
     return const TextTheme(
       displayLarge: TextStyle(
-        fontFamily: 'SF Pro',
+        fontFamily: 'DM Sans',
         fontSize: 32,
         fontWeight: FontWeight.bold,
       ),
       displayMedium: TextStyle(
-        fontFamily: 'SF Pro',
+        fontFamily: 'DM Sans',
         fontSize: 28,
         fontWeight: FontWeight.bold,
       ),
       displaySmall: TextStyle(
-        fontFamily: 'SF Pro',
+        fontFamily: 'DM Sans',
         fontSize: 24,
         fontWeight: FontWeight.w600,
       ),
       headlineLarge: TextStyle(
-        fontFamily: 'SF Pro',
+        fontFamily: 'DM Sans',
         fontSize: 22,
         fontWeight: FontWeight.w600,
       ),
       headlineMedium: TextStyle(
-        fontFamily: 'SF Pro',
+        fontFamily: 'DM Sans',
         fontSize: 20,
         fontWeight: FontWeight.w500,
       ),
       bodyLarge: TextStyle(
-        fontFamily: 'SF Pro',
+        fontFamily: 'DM Sans',
         fontSize: 18,
         fontWeight: FontWeight.normal,
       ),
       bodyMedium: TextStyle(
-        fontFamily: 'SF Pro',
+        fontFamily: 'DM Sans',
         fontSize: 16,
         fontWeight: FontWeight.normal,
       ),
       bodySmall: TextStyle(
-        fontFamily: 'SF Pro',
+        fontFamily: 'DM Sans',
         fontSize: 14,
         fontWeight: FontWeight.normal,
       ),
       labelSmall: TextStyle(
-        fontFamily: 'SF Pro',
+        fontFamily: 'DM Sans',
         fontSize: 12,
         fontWeight: FontWeight.normal,
       ),
@@ -311,7 +311,7 @@ AppText(
 MaterialApp(
   theme: ThemeData(
     textTheme: AppTextTheme.textTheme,
-    fontFamily: 'SF Pro',
+    fontFamily: 'DM Sans',
   ),
   // ... rest of your app
 )

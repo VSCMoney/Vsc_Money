@@ -967,7 +967,7 @@
 //                       SizedBox(height: screenHeight * 0.07),
 //                        Text(
 //                         "Verify Code",
-//                         style: TextStyle(fontSize: 28, fontWeight: FontWeight.w400,fontFamily: 'SF Pro',color: theme.text),
+//                         style: TextStyle(fontSize: 28, fontWeight: FontWeight.w400,fontFamily: 'DM Sans',color: theme.text),
 //                       ),
 //                       const SizedBox(height: 8),
 //                       Text(

@@ -35,7 +35,7 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  flutter_svg: ^2.0.17
+  flutter_svg: ^2.2.0
   pinput: ^5.0.1
   url_launcher: ^6.3.2
   path_provider: ^2.1.5
@@ -141,7 +141,7 @@ flutter:
     - assets/images/
   #   - images/a_dot_ham.jpeg
   fonts:
-    - family: SF Pro
+    - family: DM Sans
       fonts:
         - asset: assets/fonts/dm-sans/DMSans-Regular.ttf
         - asset: assets/fonts/dm-sans/DMSans-Bold.ttf
@@ -161,7 +161,7 @@ flutter:
         - asset: assets/fonts/josefin-sans/JosefinSans-Bold.ttf
           weight: 700
 
-#    - family: SF Pro
+#    - family: DM Sans
 #      fonts:
 #      - asset: assets/fonts/sf-pro-display/SFPRODISPLAYREGULAR.OTF
 #        weight: 400

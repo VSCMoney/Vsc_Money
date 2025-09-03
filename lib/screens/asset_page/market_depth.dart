@@ -59,7 +59,7 @@ class MarketDepthWidget extends StatelessWidget {
                   Text(
                     'Buy orders',
                     style: TextStyle(
-                      fontFamily: 'SF Pro',
+                      fontFamily: 'DM Sans',
                       fontSize: 10,
                       fontWeight: FontWeight.w400,
                       color: Color(0xFF7E7E7E),
@@ -69,7 +69,7 @@ class MarketDepthWidget extends StatelessWidget {
                   Text(
                     '${buyPercentage.toStringAsFixed(2)}%',
                     style: TextStyle(
-                      fontFamily: 'SF Pro',
+                      fontFamily: 'DM Sans',
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: theme.text,
@@ -83,7 +83,7 @@ class MarketDepthWidget extends StatelessWidget {
                   Text(
                     'Sell orders',
                     style: TextStyle(
-                      fontFamily: 'SF Pro',
+                      fontFamily: 'DM Sans',
                       fontSize: 10,
                       fontWeight: FontWeight.w400,
                       color: theme.text,
@@ -93,7 +93,7 @@ class MarketDepthWidget extends StatelessWidget {
                   Text(
                     '${sellPercentage.toStringAsFixed(2)}%',
                     style: TextStyle(
-                      fontFamily: 'SF Pro',
+                      fontFamily: 'DM Sans',
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: theme.text,
@@ -168,7 +168,7 @@ class MarketDepthWidget extends StatelessWidget {
                             Text(
                               'Bid price',
                               style: TextStyle(
-                                fontFamily: 'SF Pro',
+                                fontFamily: 'DM Sans',
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                                 color: Color(0xFF7E7E7E),
@@ -177,7 +177,7 @@ class MarketDepthWidget extends StatelessWidget {
                             Text(
                               'Qty',
                               style: TextStyle(
-                                fontFamily: 'SF Pro',
+                                fontFamily: 'DM Sans',
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                                 color: Color(0xFF7E7E7E),
@@ -196,7 +196,7 @@ class MarketDepthWidget extends StatelessWidget {
                             Text(
                               order.price.toStringAsFixed(2),
                               style: TextStyle(
-                                fontFamily: 'SF Pro',
+                                fontFamily: 'DM Sans',
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                                 color: theme.text,
@@ -205,7 +205,7 @@ class MarketDepthWidget extends StatelessWidget {
                             Text(
                               _formatNumber(order.quantity),
                               style: TextStyle(
-                                fontFamily: 'SF Pro',
+                                fontFamily: 'DM Sans',
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                                 color: Color(0xFF00AF41), // ✅ green
@@ -224,7 +224,7 @@ class MarketDepthWidget extends StatelessWidget {
                             Text(
                               'Bid total',
                               style: TextStyle(
-                                fontFamily: 'SF Pro',
+                                fontFamily: 'DM Sans',
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 color: theme.text,
@@ -233,7 +233,7 @@ class MarketDepthWidget extends StatelessWidget {
                             Text(
                               _formatNumber(bidTotal),
                               style: TextStyle(
-                                fontFamily: 'SF Pro',
+                                fontFamily: 'DM Sans',
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 color: theme.text,
@@ -267,7 +267,7 @@ class MarketDepthWidget extends StatelessWidget {
                             Text(
                               'Ask price',
                               style: TextStyle(
-                                fontFamily: 'SF Pro',
+                                fontFamily: 'DM Sans',
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                                 color: Color(0xFF7E7E7E),
@@ -276,7 +276,7 @@ class MarketDepthWidget extends StatelessWidget {
                             Text(
                               'Qty',
                               style: TextStyle(
-                                fontFamily: 'SF Pro',
+                                fontFamily: 'DM Sans',
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                                 color: Color(0xFF7E7E7E),
@@ -295,7 +295,7 @@ class MarketDepthWidget extends StatelessWidget {
                             Text(
                               order.price.toStringAsFixed(2),
                               style: TextStyle(
-                                fontFamily: 'SF Pro',
+                                fontFamily: 'DM Sans',
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                                 color: theme.text,
@@ -304,7 +304,7 @@ class MarketDepthWidget extends StatelessWidget {
                             Text(
                               order.quantity == 0 ? "0" : _formatNumber(order.quantity),
                               style: TextStyle(
-                                fontFamily: 'SF Pro',
+                                fontFamily: 'DM Sans',
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                                 color: Color(0xFFFF3D3D), // ✅ red
@@ -323,7 +323,7 @@ class MarketDepthWidget extends StatelessWidget {
                             Text(
                               'Ask total',
                               style: TextStyle(
-                                fontFamily: 'SF Pro',
+                                fontFamily: 'DM Sans',
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 color: theme.text,
@@ -332,7 +332,7 @@ class MarketDepthWidget extends StatelessWidget {
                             Text(
                               _formatNumber(askTotal),
                               style: TextStyle(
-                                fontFamily: 'SF Pro',
+                                fontFamily: 'DM Sans',
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 color: theme.text,
@@ -367,7 +367,7 @@ class MarketDepthWidget extends StatelessWidget {
           Text(
             price,
             style: TextStyle(
-              fontFamily: 'SF Pro',
+              fontFamily: 'DM Sans',
               fontSize: 10,
               fontWeight: FontWeight.w500,
               color: Colors.black,
@@ -376,7 +376,7 @@ class MarketDepthWidget extends StatelessWidget {
           Text(
             quantity,
             style: TextStyle(
-              fontFamily: 'SF Pro',
+              fontFamily: 'DM Sans',
               fontSize: 10,
               fontWeight: FontWeight.w500,
               color: isBid ? Color(0xFF22C55E) : Color(0xFFEF4444), // Green for bid, Red for ask

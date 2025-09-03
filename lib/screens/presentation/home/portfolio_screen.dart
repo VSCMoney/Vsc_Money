@@ -561,7 +561,7 @@ class _CreateGoalsSheetState extends State<CreateGoalsSheet> {
                 color: theme.text,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                  fontFamily: 'SF Pro'
+                  fontFamily: 'DM Sans'
               ),
             ),
             const SizedBox(height: 16),
@@ -578,7 +578,7 @@ class _CreateGoalsSheetState extends State<CreateGoalsSheet> {
                 decoration: InputDecoration(
                   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   hintText: 'Save 60k for bali trip in 6 months',
-                  hintStyle: TextStyle(color: theme.secondaryText,fontFamily: 'SF Pro'),
+                  hintStyle: TextStyle(color: theme.secondaryText,fontFamily: 'DM Sans'),
                   border: InputBorder.none,
                 ),
               ),
@@ -602,7 +602,7 @@ class _CreateGoalsSheetState extends State<CreateGoalsSheet> {
                     color: theme.text,
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                      fontFamily: 'SF Pro'
+                      fontFamily: 'DM Sans'
                   ),
                 ),
               ),
