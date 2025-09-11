@@ -66,6 +66,7 @@ class _StockAppBarState extends State<StockAppBar> {
   }
 
   Future<void> _handleClose() async {
+    HapticFeedback.mediumImpact();
     try { if (Platform.isIOS) HapticFeedback.lightImpact(); } catch (_) {}
     widget.onClose();
   }

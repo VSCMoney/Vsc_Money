@@ -108,11 +108,11 @@ class _DrawerFooterState extends State<DrawerFooter> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            // IconButton(
-            //   icon: Icon(Icons.more_horiz, color: theme.icon, size: 24),
-            //   onPressed: widget.onTap,
-            //   tooltip: 'Settings',
-            // ),
+            IconButton(
+              icon: Icon(Icons.more_horiz, color: theme.icon, size: 24),
+              onPressed: widget.onTap,
+              tooltip: 'Settings',
+            ),
           ],
         ),
       ),

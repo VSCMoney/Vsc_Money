@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
@@ -37,16 +38,20 @@ class SignInPage extends StatefulWidget {
   State<SignInPage> createState() => _SignInPageState();
 }
 
-class _SignInPageState extends State<SignInPage> {
+class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateMixin {
   final _phoneController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final AuthService _authService = locator<AuthService>();
-  static const String privacyPolicyUrl = 'https://vitty-legal.github.io/vitty-privacy/';
-
-
 
   late StreamSubscription<AuthState> _stateSub;
   bool isLoading = false;
+
+  // NEW: animate only the options card
+  late final AnimationController _optionsCtrl;
+  late final Animation<double> _optionsOpacity;
+  late final Animation<Offset> _optionsSlide; // slide up a bit
+
+  static const String privacyPolicyUrl = 'https://vitty-legal.github.io/vitty-privacy/';
 
   @override
   void initState() {
@@ -55,42 +60,39 @@ class _SignInPageState extends State<SignInPage> {
     _stateSub = _authService.authStateStream.listen((state) {
       if (!mounted) return;
       setState(() => isLoading = state.status == AuthStatus.loading);
-
       if (state.status == AuthStatus.error && state.error != null) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(state.error!)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.error!)));
       }
     });
 
+    // focus after a bit
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) _focusNode.requestFocus();
     });
-  }
 
+    // NEW: options entrance animation
+    _optionsCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
 
+    _optionsOpacity = CurvedAnimation(
+      parent: _optionsCtrl,
+      curve: Curves.easeOut,
+    );
 
-  Future<void> _launchUrl(String url) async {
-    try {
-      final Uri uri = Uri.parse(url);
-      if (!await launchUrl(
-        uri,
-        mode: LaunchMode.inAppBrowserView, // Opens in-app browser
-        browserConfiguration: const BrowserConfiguration(
-          showTitle: true,
-        ),
-      )) {
-        throw Exception('Could not launch $url');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not open link: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    _optionsSlide = Tween<Offset>(
+      begin: const Offset(0, 0.06), // ~ slight down
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _optionsCtrl,
+      curve: Curves.easeOutCubic,
+    ));
+
+    // kick it after first frame so logo appears instantly
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _optionsCtrl.forward();
+    });
   }
 
   @override
@@ -98,6 +100,7 @@ class _SignInPageState extends State<SignInPage> {
     _phoneController.dispose();
     _focusNode.dispose();
     _stateSub.cancel();
+    _optionsCtrl.dispose();
     super.dispose();
   }
 
@@ -107,7 +110,6 @@ class _SignInPageState extends State<SignInPage> {
     final screenHeight = MediaQuery.of(context).size.height;
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
-    // Collapse Apple section + its spacers on Android/Web
     final bool showApple = !kIsWeb && Platform.isIOS;
 
     return Scaffold(
@@ -115,23 +117,35 @@ class _SignInPageState extends State<SignInPage> {
       body: isLoading
           ? VIttyLoader(theme: theme)
           : Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              SizedBox(height: screenHeight * 0.3),
-              Hero(
-                tag: 'penny_logo',
-                child: SizedBox(
-                  width: VittyLogoConfig.logoWidth,
-                  height: VittyLogoConfig.logoHeight,
-                  child: Image.asset(
-                    'assets/images/ying yang full.png',
-                    width: screenWidth * 0.80,
-                    height: screenHeight * 0.2,
-                  ),
-                ),
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          SizedBox(height: screenHeight * 0.3),
+
+          // IMPORTANT: plain Image (NO Hero) so the logo stays exactly where it was on splash
+          SizedBox(
+            width: VittyLogoConfig.logoWidth,
+            height: VittyLogoConfig.logoHeight,
+            child: Hero(
+              tag: 'penny_logo',
+              child: Image.asset(
+                'assets/images/ying yang full.png',
+                width: screenWidth * 0.80,
+                height: screenHeight * 0.2,
+                fit: BoxFit.contain,
               ),
-              SizedBox(height: screenHeight * 0.2),
-              Container(
+            ),
+          ),
+
+
+
+          SizedBox(height: screenHeight * 0.2),
+
+          // Animate ONLY the options/card in
+          FadeTransition(
+            opacity: _optionsOpacity,
+            child: SlideTransition(
+              position: _optionsSlide,
+              child: Container(
                 height: showApple ? 250 : 160,
                 decoration: BoxDecoration(
                   color: theme.box,
@@ -146,24 +160,21 @@ class _SignInPageState extends State<SignInPage> {
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.only(
-                      top: 30, left: 20, right: 20, bottom: 1),
+                  padding: const EdgeInsets.only(top: 30, left: 20, right: 20, bottom: 0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Google
                       googleSignIn(context),
 
-                      // Apple only on iOS, including its own spacer
                       if (showApple) ...[
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         AuthButton(
-                          icon: const Icon(Icons.apple,
-                              color: Colors.black, size: 24),
+                          icon: const Icon(Icons.apple, color: Colors.black, size: 27),
                           label: 'Continue with Apple',
-                          onTap: () async {
-                            await locator<AuthService>()
-                                .handleAppleSignIn((flow) {
+                          onTap: () async {HapticFeedback.mediumImpact();
+
+                            await locator<AuthService>().handleAppleSignIn((flow) {
                               if (!mounted) return;
                               if (flow == AuthFlow.home) {
                                 context.go('/home');
@@ -173,9 +184,8 @@ class _SignInPageState extends State<SignInPage> {
                             });
                           },
                         ),
-                        const SizedBox(height: 25),
+                        const SizedBox(height: 33),
                       ] else ...[
-                        // Minimal spacing between Google and Terms on Android/Web
                         const SizedBox(height: 8),
                       ],
 
@@ -194,14 +204,14 @@ class _SignInPageState extends State<SignInPage> {
                               height: 1.4,
                             ),
                             children: [
-                              const TextSpan(
-                                  text: "By continuing, you agree to our "),
+                              const TextSpan(text: "By continuing, you agree to our "),
                               TextSpan(
                                 text: "Terms & Conditions",
                                 style: const TextStyle(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.w500,
                                   decoration: TextDecoration.underline,
+                                  fontFamily: "DM Sans"
                                 ),
                                 recognizer: TapGestureRecognizer()
                                   ..onTap = () => _launchUrl(privacyPolicyUrl),
@@ -213,6 +223,7 @@ class _SignInPageState extends State<SignInPage> {
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.w500,
                                   decoration: TextDecoration.underline,
+                                    fontFamily: "DM Sans"
                                 ),
                                 recognizer: TapGestureRecognizer()
                                   ..onTap = () => _launchUrl(privacyPolicyUrl),
@@ -226,16 +237,19 @@ class _SignInPageState extends State<SignInPage> {
                   ),
                 ),
               ),
-            ],
+            ),
           ),
+        ],
+      ),
     );
   }
 
   AuthButton googleSignIn(BuildContext context) {
     return AuthButton(
-      icon: Image.asset('assets/images/Group 10.png', height: 18),
+      icon: Image.asset('assets/images/Group 10.png', height: 20),
       label: 'Continue with Google',
       onTap: () async {
+        HapticFeedback.mediumImpact();
         await locator<AuthService>().handleGoogleSignIn((flow) {
           if (!mounted) return;
           if (flow == AuthFlow.home) {
@@ -247,7 +261,27 @@ class _SignInPageState extends State<SignInPage> {
       },
     );
   }
+
+  Future<void> _launchUrl(String url) async {
+    try {
+      final Uri uri = Uri.parse(url);
+      if (!await launchUrl(
+        uri,
+        mode: LaunchMode.inAppBrowserView,
+        browserConfiguration: const BrowserConfiguration(showTitle: true),
+      )) {
+        throw Exception('Could not launch $url');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open link: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 }
+
 
 
 

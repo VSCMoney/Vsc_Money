@@ -252,7 +252,7 @@ class _InputActionsBarWidgetState extends State<InputActionsBarWidget> {
 
   // --- actions ---
   void _onTapSend() {
-    HapticFeedback.heavyImpact();
+    HapticFeedback.mediumImpact();
 
     // Show STOP immediately and keep it until the model finishes or user taps stop.
     setState(() => _showStopLatch = true);
@@ -267,7 +267,7 @@ class _InputActionsBarWidgetState extends State<InputActionsBarWidget> {
   }
 
   void _onTapStop() {
-    HapticFeedback.heavyImpact();
+    HapticFeedback.mediumImpact();
     _clearLatch();
     widget.onStopResponse();
   }
@@ -387,7 +387,7 @@ class _InputActionsBarWidgetState extends State<InputActionsBarWidget> {
               offset: const Offset(_kAttachNudge, 0),
               child: _squareButton(
                 onTap: () {
-                  HapticFeedback.heavyImpact();
+                  HapticFeedback.mediumImpact();
                   // attach flow
                 },
                 child: SvgPicture.asset(

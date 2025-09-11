@@ -582,8 +582,9 @@ class _PremiumShimmerWidgetState extends State<PremiumShimmerWidget>
               fontSize: 16,
               color: Colors.white, // White color for shader mask
               fontFamily: 'DM Sans',
-              //fontWeight: FontWeight.w500,
             ),
+          softWrap: true,
+          overflow: TextOverflow.visible,
           ),
         );
       },
@@ -939,7 +940,7 @@ class _ComparisonTableWidgetState extends State<ComparisonTableWidget>
         opacity: _fade,
         child: const Padding(
           padding: EdgeInsets.all(16),
-          child: Text('No displayable columns found'),
+         // child: Text('No displayable columns found'),
         ),
       );
     }
@@ -1764,10 +1765,9 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
             margin: EdgeInsets.only(
               bottom: i < widget.rows.length - 1 ? widget.cardSpacing : 0,
             ),
-
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: theme.background,
+              color: theme.card,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: theme.background, width: 1),
               boxShadow: [
@@ -1827,9 +1827,10 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
                         ),
                       ),
                     ],
-    ]),
+                  ],
+                ),
 
-                    // Company logo/avatar
+                // Company logo/avatar with transparent background
                 Positioned(
                   top: 12,
                   left: 0,
@@ -1838,19 +1839,33 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
                     height: 44,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
-                      color: Colors.black,
+                      // ✅ REMOVED: color property to make background transparent
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRCvh-j7HsTHJ8ZckknAoiZMx9VcFmsFkv72g&s",
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const ColoredBox(
-                            color: Colors.black,
-                            child: Icon(Icons.business, color: Colors.white, size: 24),
-                          );
-                        },
+                      child: ColorFiltered(
+                        // ✅ ADDED: Remove white background from image
+                        colorFilter: const ColorFilter.mode(
+                          Colors.white,
+                          BlendMode.multiply,
+                        ),
+                        child: Image.network(
+                          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRCvh-j7HsTHJ8ZckknAoiZMx9VcFmsFkv72g&s",
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: Colors.transparent, // ✅ UPDATED: Transparent fallback
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.business,
+                                color: theme.icon ?? Colors.grey,
+                                size: 24,
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),

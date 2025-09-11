@@ -6,20 +6,27 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lottie/lottie.dart';
 
 import '../../constants/colors.dart';
 import '../../models/asset_model.dart' as models;
+import '../../models/notes_modal.dart';
 import '../../services/asset_service.dart';
 import '../../services/locator.dart';
+import '../../services/notes_service.dart';
 import '../../services/theme_service.dart';
+import '../../services/voice_service.dart';
+import '../widgets/voice_input_widget.dart';
 import 'asset_appbar.dart';
 import 'expandble_tiles.dart';
 import 'finanical_data.dart';
 import 'for_you_card.dart';
 import 'fundamentals.dart';
 import 'news_card.dart';
+import 'notes_page.dart';
 import 'performance.dart';
 
 class AssetPage extends StatefulWidget {
@@ -38,9 +45,10 @@ class AssetPage extends StatefulWidget {
 
 class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
   // Service wiring
-  late final AssetService _svc = GetIt.I<AssetService>();
+  late final AssetService _svc = locator<AssetService>();
   StreamSubscription<AssetViewState>? _sub;
   AssetViewState _view = AssetViewState.loading('ALL');
+  final NotesService _notes = locator<NotesService>();
 
   // UI state
   String selectedPeriod = 'ALL';
@@ -67,7 +75,7 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-
+    _notes.initialize();
     _tabController = TabController(length: 5, vsync: this);
 
     _streamingController = AnimationController(
@@ -315,47 +323,56 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
                     const SizedBox(height: 8),
 
                     // Notes button
-                    InkWell(
-                      onTap: () {
-                        // context.go("/premium");
-                      },
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: isSmallScreen ? 6 : 8,
-                            vertical: isSmallScreen ? 4 : 6
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFF8F4F0), Color(0xFFFFFFFF)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Image.asset(
-                              "assets/images/notes.png",
-                              width: 10,
-                              height: 10,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Notes',
-                              style: TextStyle(
-                                fontSize: isSmallScreen ? 10 : 12,
-                                color: AppColors.black,
-                                fontWeight: FontWeight.w500,
-                                fontFamily: "DM Sans",
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+      InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const NotesListPage()),
+          );
+        },
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isSmallScreen ? 6 : 8,
+            vertical: isSmallScreen ? 4 : 6,
+          ),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF8F4F0), Color(0xFFFFFFFF)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomLeft,
+            ),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SvgPicture.asset(
+                "assets/images/notes.svg",
+                width: 15,
+                height: 15,
+              ),
+              const SizedBox(width: 4),
+              StreamBuilder<List<Note>>(
+                stream: _notes.notes$,
+                initialData: const [],
+                builder: (context, snap) {
+                  final count = snap.data?.length ?? 0;
+                  return Text(
+                    count > 0 ? '$count' : 'Notes',
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 10 : 12,
+                      color: AppColors.black,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: "DM Sans",
                     ),
-                  ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      ],
                 ),
               ),
 

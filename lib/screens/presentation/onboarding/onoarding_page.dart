@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'dart:ui' show lerpDouble;
@@ -150,6 +152,8 @@ class TransitioningCopy extends StatelessWidget {
   }
 }
 
+
+
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
 
@@ -165,6 +169,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
   bool _isLoading = false;
   bool _preloaded = false;
   bool _marked = false;
+
+  // Add timer for auto-changing background
+  Timer? _backgroundTimer;
+  int _backgroundIndex = 0;
+
+  // Tune this if you want stronger/weaker blur
+  static const double _blurSigma = 04;
 
   final _bgImages = const [
     'assets/images/new_mesh.png',
@@ -188,6 +199,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   void initState() {
     super.initState();
     _markOnboardingAsStarted();
+    _startBackgroundTimer();
   }
 
   @override
@@ -199,6 +211,23 @@ class _OnboardingPageState extends State<OnboardingPage> {
       }
       _preloaded = true;
     }
+  }
+
+  // Start the automatic background changing timer
+  void _startBackgroundTimer() {
+    _backgroundTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (mounted) {
+        setState(() {
+          _backgroundIndex = (_backgroundIndex + 1) % _bgImages.length;
+        });
+      }
+    });
+  }
+
+  // Stop the background timer
+  void _stopBackgroundTimer() {
+    _backgroundTimer?.cancel();
+    _backgroundTimer = null;
   }
 
   Future<void> _markOnboardingAsStarted() async {
@@ -255,18 +284,44 @@ class _OnboardingPageState extends State<OnboardingPage> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Background mesh
+          // 🔵 Blurred background (mesh + subtle lottie) - now uses _backgroundIndex
           Positioned.fill(
-            child: MeltImageBackground(imagePaths: _bgImages, page: _currentPage),
-          ),
-
-          // Subtle overlay
-          Positioned.fill(
-            child: IgnorePointer(
-              ignoring: true,
-              child: Opacity(
-                opacity: 0.01,
-                child: Lottie.asset('assets/images/onboard.json', fit: BoxFit.cover),
+            child: ClipRect(
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(
+                  sigmaX: _blurSigma,
+                  sigmaY: _blurSigma,
+                ),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: MeltImageBackground(
+                        imagePaths: _bgImages,
+                        page: _backgroundIndex, // Changed from _currentPage to _backgroundIndex
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        ignoring: true,
+                        child: ClipRect(
+                          child: Opacity(
+                            opacity: 0.020,
+                            child: ImageFiltered(
+                              imageFilter: ImageFilter.blur(
+                                sigmaX: 8,
+                                sigmaY: 08,
+                              ),
+                              child: Lottie.asset(
+                                'assets/images/onboard.json',
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -332,12 +387,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
                               height: 1.2,
+                              fontFamily: "DM Sans"
                             ),
                             subtitleStyle: const TextStyle(
                               fontSize: 16,
                               color: Colors.white70,
                               fontWeight: FontWeight.w400,
                               height: 1.5,
+                                fontFamily: "DM Sans"
                             ),
                           ),
                         ),
@@ -353,15 +410,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: CommonButton(
-                    label: _currentPage < _titles.length - 1 ? 'Continue' : 'Get Started',
-                    onPressed: _isLoading ? null : _handleContinue,
+                    label: _currentPage < _titles.length - 1
+                        ? 'Continue'
+                        : 'Get Started',
+                    onPressed: (){
+                      HapticFeedback.mediumImpact();
+                      _isLoading ? null : _handleContinue();
+                    },
                     child: _isLoading
                         ? const SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor:
+                        AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     )
                         : null,
@@ -379,9 +442,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _stopBackgroundTimer(); // Clean up the timer
     super.dispose();
   }
 }
+
 
 class DotsIndicator extends StatelessWidget {
   final int currentPage;
@@ -426,307 +491,7 @@ class DotsIndicator extends StatelessWidget {
 
 
 
-// class PageTextAnimator extends StatelessWidget {
-//   final PageController controller;
-//   final int pageIndex;
-//   final Widget title;
-//   final Widget subtitle;
-//   final double subtitleSlide;
-//   final Curve curve;
-//
-//   const PageTextAnimator({
-//     super.key,
-//     required this.controller,
-//     required this.pageIndex,
-//     required this.title,
-//     required this.subtitle,
-//     this.subtitleSlide = 28,
-//     this.curve = Curves.easeInOut,
-//   });
-//
-//   double _pageValue() {
-//     if (controller.hasClients && controller.position.haveDimensions) {
-//       return controller.page ?? controller.initialPage.toDouble();
-//     }
-//     return controller.initialPage.toDouble();
-//   }
-//
-//   // 0.0 => focused page | 1.0 => one page away
-//   double _progress() => (_pageValue() - pageIndex).abs().clamp(0.0, 1.0);
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return AnimatedBuilder(
-//       animation: controller,
-//       builder: (_, __) {
-//         final p = _progress();               // 0→1
-//         final titleOpacity = (1.0 - p);      // fades out as you leave
-//         final eased = curve.transform(1.0 - p);
-//         final subOpacity = eased;            // fades in as page becomes focused
-//         final slideDy = lerpDouble(subtitleSlide, 0.0, eased) ?? 0.0;
-//
-//         return IgnorePointer(
-//           ignoring: true,
-//           child: Column(
-//             mainAxisSize: MainAxisSize.min,
-//             children: [
-//               Opacity(opacity: titleOpacity.clamp(0, 1).toDouble(), child: title),
-//               const SizedBox(height: 12),
-//               Opacity(
-//                 opacity: subOpacity.clamp(0, 1).toDouble(),
-//                 child: Transform.translate(
-//                   offset: Offset(0, slideDy),
-//                   child: subtitle,
-//                 ),
-//               ),
-//             ],
-//           ),
-//         );
-//       },
-//     );
-//   }
-// }
-//
-// // ---------- single onboarding ----------
-// class OnboardingPage extends StatefulWidget {
-//   const OnboardingPage({super.key});
-//   @override
-//   State<OnboardingPage> createState() => _OnboardingPageState();
-// }
-//
-// class _OnboardingPageState extends State<OnboardingPage> {
-//   final PageController _controller = PageController();
-//   final AuthService _authService = locator<AuthService>();
-//
-//   int _currentPage = 0;
-//   bool _isLoading = false;
-//   bool _imagesPreloaded = false;
-//   bool _onboardingMarkedComplete = false;
-//
-//   final List<String> bgImages = [
-//     'assets/images/new_mesh.png',
-//     'assets/images/new_mesh.png',
-//     'assets/images/new_mesh.png',
-//   ];
-//
-//   // Centered copy
-//   final List<String> titles = const [
-//     'Super intelligent',
-//     'Goals that stick',
-//     'Learn. Track. Grow.',
-//   ];
-//   final List<String> subtitles = const [
-//     'Thinks faster, learns deeper, and plans smarter—so you don’t have to.',
-//     'From Emergency to Travel to Wealth—build step-by-step plans you’ll follow.',
-//     'Simple insights and gentle nudges that keep your money on course.',
-//   ];
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _markOnboardingAsStarted();
-//   }
-//
-//   @override
-//   void didChangeDependencies() {
-//     super.didChangeDependencies();
-//     if (!_imagesPreloaded) {
-//       for (final p in bgImages) precacheImage(AssetImage(p), context);
-//       _imagesPreloaded = true;
-//     }
-//   }
-//
-//   Future<void> _markOnboardingAsStarted() async {
-//     if (_onboardingMarkedComplete) return;
-//     await _authService.markOnboardingCompleted();
-//     _onboardingMarkedComplete = true;
-//     debugPrint('✅ Onboarding marked complete (early)');
-//   }
-//
-//   Future<void> _handleContinue() async {
-//     if (_currentPage < titles.length - 1) {
-//       await _controller.animateToPage(
-//         _currentPage + 1,
-//         duration: const Duration(milliseconds: 420),
-//         curve: Curves.easeInOut,
-//       );
-//     } else {
-//       await _completeOnboarding();
-//     }
-//   }
-//
-//   Future<void> _completeOnboarding() async {
-//     if (_isLoading) return;
-//     setState(() => _isLoading = true);
-//     try {
-//       await _authService.completeOnboarding((flow) {
-//         if (!mounted) return;
-//         switch (flow) {
-//           case AuthFlow.login:
-//             context.go('/phone_otp'); break;
-//           case AuthFlow.nameEntry:
-//             context.go('/enter_name'); break;
-//           case AuthFlow.home:
-//             context.go('/home'); break;
-//           case AuthFlow.onboarding:
-//             context.go('/phone_otp'); break;
-//         }
-//       });
-//     } catch (_) {
-//       if (mounted) context.go('/phone_otp');
-//     } finally {
-//       if (mounted) setState(() => _isLoading = false);
-//     }
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final size = MediaQuery.of(context).size;
-//
-//     return Scaffold(
-//       backgroundColor: Colors.black,
-//       body: Stack(
-//         children: [
-//           // background
-//           Positioned.fill(
-//             child: MeltImageBackground(imagePaths: bgImages, page: _currentPage),
-//           ),
-//           Positioned.fill(
-//             child: IgnorePointer(
-//               ignoring: true,
-//               child: Opacity(
-//                 opacity: 0.01,
-//                 child: Lottie.asset('assets/images/onboard.json', fit: BoxFit.cover),
-//               ),
-//             ),
-//           ),
-//
-//           // content
-//           Column(
-//             children: [
-//               SizedBox(height: size.height * 0.08),
-//               // top logo row
-//               Center(
-//                 child: Column(
-//                   children: [
-//                     Hero(
-//                       tag: 'penny_logo',
-//                       child: Image.asset(
-//                         'assets/images/ying yang.png',
-//                         width: size.width * 0.18,
-//                         height: size.height * 0.055,
-//                       ),
-//                     ),
-//                     const SizedBox(height: 6),
-//                     Hero(
-//                       tag: 'sub_logo',
-//                       child: Image.asset(
-//                         'assets/images/Vitty.ai2.png',
-//                         width: size.width * 0.2,
-//                         height: size.height * 0.045,
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//
-//               // center stack: page driver + centered animated text
-//               Expanded(
-//                 child: Stack(
-//                   alignment: Alignment.center,
-//                   children: [
-//                     // page driver (enables swipe + progress)
-//                     PageView.builder(
-//                       controller: _controller,
-//                       itemCount: titles.length,
-//                       onPageChanged: (i) => setState(() => _currentPage = i),
-//                       itemBuilder: (_, __) => const SizedBox.shrink(),
-//                     ),
-//
-//                     // centered text (same position across pages)
-//                     LayoutBuilder(
-//                       builder: (context, c) {
-//                         final maxTextWidth = c.maxWidth * 0.82;
-//                         return ConstrainedBox(
-//                           constraints: BoxConstraints(maxWidth: maxTextWidth),
-//                           child: Column(
-//                             mainAxisSize: MainAxisSize.min,
-//                             children: [
-//                               for (int i = 0; i < titles.length; i++)
-//                                 PageTextAnimator(
-//                                   controller: _controller,
-//                                   pageIndex: i,
-//                                   title: Text(
-//                                     titles[i],
-//                                     textAlign: TextAlign.center,
-//                                     style: const TextStyle(
-//                                       color: Colors.white,
-//                                       fontSize: 36,
-//                                       height: 1.05,
-//                                       fontWeight: FontWeight.w800,
-//                                       letterSpacing: -0.5,
-//                                     ),
-//                                   ),
-//                                   subtitle: Text(
-//                                     subtitles[i],
-//                                     textAlign: TextAlign.center,
-//                                     style: const TextStyle(
-//                                       color: Colors.white70,
-//                                       fontSize: 16,
-//                                       height: 1.45,
-//                                       fontWeight: FontWeight.w500,
-//                                     ),
-//                                   ),
-//                                   subtitleSlide: 28,
-//                                   curve: Curves.easeInOut,
-//                                 ),
-//                             ],
-//                           ),
-//                         );
-//                       },
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//
-//               // dots + button
-//               DotsIndicator(currentPage: _currentPage),
-//               const SizedBox(height: 28),
-//
-//               Padding(
-//                 padding: const EdgeInsets.symmetric(horizontal: 24),
-//                 child: CommonButton(
-//                   label: _currentPage < titles.length - 1 ? 'Continue' : 'Get Started',
-//                   onPressed: _isLoading ? null : _handleContinue,
-//                   child: _isLoading
-//                       ? const SizedBox(
-//                     height: 20, width: 20,
-//                     child: CircularProgressIndicator(
-//                       strokeWidth: 2,
-//                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-//                     ),
-//                   )
-//                       : null,
-//                 ),
-//               ),
-//               const SizedBox(height: 82),
-//             ],
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   @override
-//   void dispose() {
-//     _controller.dispose();
-//     super.dispose();
-//   }
-// }
 
-
-
-// App startup coordinator
 class AppStartupCoordinator extends StatefulWidget {
   const AppStartupCoordinator({super.key});
 

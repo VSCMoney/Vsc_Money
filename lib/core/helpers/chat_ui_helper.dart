@@ -7,7 +7,7 @@ class ChatUIHelper {
     required double chatHeight,
     required double latestUserMessageHeight,
   }) {
-    double adjustment = chatHeight - 110;
+    double adjustment = chatHeight;
 
     if (latestUserMessageHeight == 52) {
       adjustment = chatHeight - 110;

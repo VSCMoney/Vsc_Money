@@ -19,7 +19,7 @@ class AuthButton extends StatelessWidget {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return SizedBox(
       width: double.infinity,
-      height: 48,
+      height: 50,
       child: OutlinedButton(
         style: OutlinedButton.styleFrom(
           side:  BorderSide(color: theme.google),
@@ -32,10 +32,10 @@ class AuthButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             icon,
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Text(
               label,
-              style:  TextStyle(color: theme.text,fontFamily: "DM Sans"),
+              style:  TextStyle(color: theme.text,fontFamily: "DM Sans",fontWeight: FontWeight.w500,fontSize: 16),
             ),
           ],
         ),

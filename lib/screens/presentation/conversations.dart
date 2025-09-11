@@ -45,6 +45,7 @@ class _ConversationsState extends State<Conversations> {
   GlobalKey(debugLabel: 'BottomSheetWrapper');
 
   bool _isNavigating = false;
+  String? _previousRoute; // Track where user came from
 
   @override
   void initState() {
@@ -54,6 +55,28 @@ class _ConversationsState extends State<Conversations> {
     _sessionsSubscription = _conversationsService.sessionsStream.listen((_) {
       if (mounted) setState(() {});
     });
+
+    // Capture the previous route from navigation stack
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _capturePreviousRoute();
+    });
+  }
+
+  void _capturePreviousRoute() {
+    // Try to get the previous route from GoRouter state
+    final goRouter = GoRouter.of(context);
+    final routerState = goRouter.routerDelegate.currentConfiguration;
+
+    // Check if we can determine where user came from
+    // This is a simplified approach - you might need to adjust based on your routing setup
+    final currentLocation = routerState.uri.toString();
+    debugPrint('Current location: $currentLocation');
+
+    // You can also use route parameters or query parameters to track origin
+    final uri = Uri.parse(currentLocation);
+    _previousRoute = uri.queryParameters['from'];
+
+    debugPrint('Previous route captured: $_previousRoute');
   }
 
   @override
@@ -79,7 +102,8 @@ class _ConversationsState extends State<Conversations> {
     if (_isNavigating) return;
     _isNavigating = true;
 
-    final future = context.push('/home?sessionId=${session.id}');
+    // Navigate to chat with session, passing current route as 'from' parameter
+    final future = context.push('/home?sessionId=${session.id}&from=/conversations');
     future.whenComplete(() {
       if (mounted) _isNavigating = false;
     });
@@ -94,11 +118,34 @@ class _ConversationsState extends State<Conversations> {
     _isNavigating = true;
 
     FocusManager.instance.primaryFocus?.unfocus();
+
+    // Go directly to home - this should be a fresh navigation, not a back action
     context.go('/home');
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _isNavigating = false;
     });
+  }
+
+
+  // Handle back navigation - go to home and open drawer
+  Future<bool> _handleBackNavigation() async {
+    debugPrint('Back pressed from StockSearch - navigating to home with drawer open');
+
+   // _closeKeyboard(); // Close keyboard first
+
+    // Go back to home and open drawer
+    context.pop();
+
+    // Open the drawer after navigation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final scaffoldState = Scaffold.maybeOf(context);
+      if (scaffoldState != null && scaffoldState.hasDrawer) {
+        scaffoldState.openDrawer();
+      }
+    });
+
+    return false; // Prevent default back behavior since we're handling it
   }
 
   // ------------------------
@@ -144,6 +191,11 @@ class _ConversationsState extends State<Conversations> {
       key: _sheetKey,
       child: PopScope(
         canPop: false,
+        onPopInvoked: (didPop) async {
+          if (!didPop) {
+            await _handleBackNavigation();
+          }
+        },
         child: Scaffold(
           drawer: CustomDrawer(
             onTap: _openSettingsSheet,
@@ -322,5 +374,42 @@ class _ConversationsState extends State<Conversations> {
     );
   }
 }
+
+// Navigation Helper Service (optional - for more robust tracking)
+class NavigationTracker {
+  static final NavigationTracker _instance = NavigationTracker._internal();
+  factory NavigationTracker() => _instance;
+  NavigationTracker._internal();
+
+  String? _previousRoute;
+  final List<String> _routeHistory = [];
+
+  void pushRoute(String route) {
+    _previousRoute = _routeHistory.isNotEmpty ? _routeHistory.last : null;
+    _routeHistory.add(route);
+    debugPrint('Navigation: Pushed $route, previous: $_previousRoute');
+  }
+
+  String? popRoute() {
+    if (_routeHistory.isNotEmpty) {
+      final popped = _routeHistory.removeLast();
+      _previousRoute = _routeHistory.isNotEmpty ? _routeHistory.last : null;
+      debugPrint('Navigation: Popped $popped, now at: $_previousRoute');
+      return _previousRoute;
+    }
+    return null;
+  }
+
+  String? get previousRoute => _previousRoute;
+  List<String> get routeHistory => List.unmodifiable(_routeHistory);
+
+  void clear() {
+    _routeHistory.clear();
+    _previousRoute = null;
+  }
+}
+
+
+
 
 

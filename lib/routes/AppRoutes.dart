@@ -154,7 +154,7 @@ class AppRouter {
           return CustomTransitionPage(
             key: state.pageKey,
             child: HomeScreen(initialSession: sessionId), // ✅ FIXED: Use initialSessionId
-            transitionDuration: const Duration(milliseconds: 300),
+            transitionDuration: const Duration(milliseconds: 1000),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(
                 opacity: CurvedAnimation(

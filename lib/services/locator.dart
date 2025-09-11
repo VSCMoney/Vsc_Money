@@ -1,6 +1,8 @@
 // lib/core/setup_locator.dart
 import 'package:get_it/get_it.dart';
 import 'package:vscmoney/services/asset_service.dart';
+import 'package:vscmoney/services/file_service.dart';
+import 'package:vscmoney/services/notes_service.dart';
 
 import 'package:vscmoney/services/theme_service.dart';
 import 'package:vscmoney/services/voice_service.dart';
@@ -18,6 +20,8 @@ void setupLocator() {
   locator.registerLazySingleton<ChatService>(() => ChatService());
   locator.registerLazySingleton<ThemeService>(() => ThemeService());
   locator.registerLazySingleton<AssetService>(() => AssetService());
-  locator.registerSingleton<AudioService>(AudioService.instance);
+  locator.registerLazySingleton<FileService>(() => FileService());
+  locator.registerLazySingleton<NotesService>(() => NotesService());
+
 }
 

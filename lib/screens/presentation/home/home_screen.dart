@@ -28,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final ChatService _chatService;
   final GlobalKey<ChatGPTBottomSheetWrapperState> _sheetKey =
   GlobalKey(debugLabel: 'BottomSheetWrapper');
+  double? _lastAppBarHeight;
 
   // NEW: Add divider state management
   bool _showDivider = false;
@@ -176,40 +177,52 @@ class _HomeScreenState extends State<HomeScreen> {
     Future.delayed(const Duration(milliseconds: 100), () async {
       if (mounted) {
         try {
-          // ✅ NEW: Create a new session specifically for the ask vitty thread
           print("🤖 Creating new Ask Vitty session for: $selectedText");
 
-          // Create a dedicated ChatService instance for the thread
+          // ✅ CRITICAL FIX: Create completely isolated ChatService
           final threadChatService = ChatService();
-          await threadChatService.createNewChatSession();
+
+          // Initialize it as a blank session (don't pre-create session)
+          await threadChatService.initializeForDashboard(initialSessionId: null);
+
+          // Ensure it starts completely blank
+          threadChatService.clear();
+          threadChatService.clearCurrentSession();
+
+          print("✅ Thread ChatService created and cleared");
 
           final askVittySheet = BottomSheetManager.buildAskVittySheet(
-            chatService: threadChatService, // ✅ Use new service instance
+            chatService: threadChatService, // Use isolated service
             selectedText: selectedText,
             onTap: () {
+              HapticFeedback.mediumImpact();
+              print("🔒 Closing Ask Vitty sheet");
               _sheetKey.currentState?.closeSheet();
-              // ✅ Clean up the thread service when closing
+              // Clean up the thread service when closing
               threadChatService.dispose();
+              print("✅ Thread ChatService disposed");
             },
             onAskVitty: (String question) {
               print("🤖 Ask Vitty follow-up: $question");
-              // The VittyThreadSheet will handle creating new sessions for follow-ups
+              // The VittyThreadSheet will handle this internally
             },
           );
+
           _sheetKey.currentState?.openSheet(askVittySheet);
+          print("✅ Ask Vitty sheet opened successfully");
 
         } catch (e) {
           print("❌ Error creating Ask Vitty session: $e");
-          // Fallback: show error or use existing service
-          final askVittySheet = BottomSheetManager.buildAskVittySheet(
-            chatService: _chatService, // Fallback to main service
-            selectedText: selectedText,
-            onTap: () => _sheetKey.currentState?.closeSheet(),
-            onAskVitty: (String question) {
-              print("🤖 Ask Vitty (fallback): $question");
-            },
-          );
-          _sheetKey.currentState?.openSheet(askVittySheet);
+
+          // Show error to user
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text("Failed to open Ask Vitty: $e"),
+                backgroundColor: Colors.red.shade600,
+              ),
+            );
+          }
         }
       }
     });
@@ -251,6 +264,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildContent(Color backgroundColor) {
+    final appBarH = _showDivider ? 101.0 : 100.0;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_lastAppBarHeight != appBarH) {
+        _lastAppBarHeight = appBarH;
+        _chatService.updateFrameHeights(appBar: appBarH);
+      }
+    });
+
     return Scaffold(
       backgroundColor: backgroundColor,
       resizeToAvoidBottomInset: true,
@@ -275,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (isOpened) {
           FocusManager.instance.primaryFocus?.unfocus();
         } else {
-          HapticFeedback.heavyImpact();
+          HapticFeedback.mediumImpact();
         }
       },
       drawer: _chatService.isInitialized

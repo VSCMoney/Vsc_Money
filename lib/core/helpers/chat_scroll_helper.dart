@@ -14,6 +14,9 @@ class ChatScrollHelper {
         scrollController.position.maxScrollExtent,
       );
 
+      print("OFF SET: $offset");
+      print("TARGET OFFSET: $targetOffset");
+
       scrollController.animateTo(
         targetOffset,
         duration: const Duration(milliseconds: 400),

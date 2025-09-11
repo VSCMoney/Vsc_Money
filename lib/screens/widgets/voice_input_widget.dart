@@ -83,6 +83,7 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
   Widget build(BuildContext context) {
     final isTranscribing = widget.audioService.isTranscribing;
     final isSpeaking = widget.audioService.isSpeaking;
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
     if (isTranscribing) {
       return Row(
@@ -107,28 +108,32 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
       children: [
         const SizedBox(width: 3),
 
-        // Cancel Button
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Color(0xFF734012),
-              width: 1,
+        // Cancel Button with increased tap area
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(24), // Larger radius for 48px area
+            onTap: _cancelRecording,
+            child: Container(
+              width: 48, // Increased from 40 to 48
+              height: 48, // Increased from 40 to 48
+              alignment: Alignment.center,
+              child: Container(
+                width: 40, // Original visual size
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Color(0xFF734012),
+                    width: 1,
+                  ),
+                ),
+                child: Center(
+                  child: _BoldThickCrossIcon(),
+                ),
+              ),
             ),
-          ),
-          child: IconButton(
-            padding: EdgeInsets.zero,
-            iconSize: 20,
-            // icon: const Icon(
-            //   Icons.close,
-            //   color: Color(0xFFAC5F2C),
-            //   weight: 900.0,
-            // ),
-            icon: _BoldThickCrossIcon(),
-            onPressed: _cancelRecording,
           ),
         ),
 
@@ -145,35 +150,38 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
           ),
         ),
 
-        // Check Button
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppColors.primary,
-              width: 1,
+        // Check Button with increased tap area
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(24), // Larger radius for 48px area
+            onTap: _stopRecordingAndTranscribe,
+            child: Container(
+              width: 48, // Increased from 40 to 48
+              height: 48, // Increased from 40 to 48
+              alignment: Alignment.center,
+              child: Container(
+                width: 40, // Original visual size
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.primary,
+                    width: 1,
+                  ),
+                ),
+                child: Center(
+                  child: _BoldThickCheckIcon(),
+                ),
+              ),
             ),
           ),
-          child: IconButton(
-            padding: EdgeInsets.zero,
-            iconSize: 20,
-            // icon: Icon(
-            //   PhosphorIcons.check(PhosphorIconsStyle.bold),
-            //   color: Colors.white,
-            // ),
-           icon: _BoldThickCheckIcon(),
-            onPressed: _stopRecordingAndTranscribe,
-          ),
         ),
-        //SizedBox(height: widget.keyboardInset > 0 ? 0 : 16),
       ],
     );
   }
 }
-
 
 class _BoldThickCheckIcon extends StatelessWidget {
   const _BoldThickCheckIcon();
@@ -246,51 +254,51 @@ class _BoldThickCrossIcon extends StatelessWidget {
       alignment: Alignment.center,
       children: [
         // Center icon
-        Icon(Icons.close, size: 20, color: theme.icon),
+        Icon(Icons.close, size: 20, color: theme.crossIcon),
 
         // Add more positioned icons for thickness
         Positioned(
           left: 0.5,
-          child: Icon(Icons.close, size: 20, color: theme.icon),
+          child: Icon(Icons.close, size: 20,color: theme.crossIcon),
         ),
         Positioned(
           right: 0.5,
-          child: Icon(Icons.close, size: 20, color: theme.icon),
+          child: Icon(Icons.close, size: 20, color: theme.crossIcon),
         ),
         Positioned(
           top: 0.5,
-          child: Icon(Icons.close, size: 20, color: theme.icon),
+          child: Icon(Icons.close, size: 20, color: theme.crossIcon),
         ),
         Positioned(
           bottom: 0.5,
-          child: Icon(Icons.close, size: 20, color: theme.icon),
+          child: Icon(Icons.close, size: 20, color: theme.crossIcon),
         ),
 
         // Diagonal positions for even more thickness
         Positioned(
           left: 0.5,
           top: 0.5,
-          child: Icon(Icons.close, size: 20, color: theme.icon),
+          child: Icon(Icons.close, size: 20, color: theme.crossIcon),
         ),
         Positioned(
           right: 0.5,
           top: 0.5,
-          child: Icon(Icons.close, size: 20, color: theme.icon),
+          child: Icon(Icons.close, size: 20, color: theme.crossIcon),
         ),
         Positioned(
           left: 0.5,
           bottom: 0.5,
-          child: Icon(Icons.close, size: 20, color: theme.icon),
+          child: Icon(Icons.close, size: 20, color: theme.crossIcon),
         ),
         Positioned(
           right: 0.5,
           bottom: 0.5,
-          child: Icon(Icons.close, size: 20, color: theme.icon),
+          child: Icon(Icons.close, size: 20, color: theme.crossIcon),
         ),
         Positioned(
           right: 0.5,
           bottom: 0.5,
-          child: Icon(Icons.close, size: 20, color: theme.icon),
+          child: Icon(Icons.close, size: 20, color: theme.crossIcon),
         ),
       ],
     );

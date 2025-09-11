@@ -31,8 +31,8 @@ android {
         applicationId "com.ai.vitty"
         minSdk 24
         targetSdk 35
-        versionCode 9
-        versionName "1.0.15"
+        versionCode 12
+        versionName "1.0.18"
 
         // Your CMake/native config
         externalNativeBuild {
@@ -123,7 +123,8 @@ dependencies {
 
     // ✅ TensorFlow Lite Task Library (Audio classifier)
     implementation 'org.tensorflow:tensorflow-lite-task-audio:0.4.3'
-
+    implementation "androidx.core:core-splashscreen:1.0.1"
+    implementation "com.google.android.material:material:1.12.0"
     implementation 'com.google.firebase:firebase-appcheck-playintegrity'
     implementation platform('com.google.firebase:firebase-bom:33.12.0')
     implementation 'com.google.firebase:firebase-analytics'

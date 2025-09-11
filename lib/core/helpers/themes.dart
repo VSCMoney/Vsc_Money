@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/colors.dart';
+
 class AppTheme {
   final Color background;
   final Color text;
@@ -16,6 +18,9 @@ class AppTheme {
   final Color google;
   final Color stocksearch;
   final Color card;
+  final Color notes;
+  final Color crossIcon;
+  List<Color> footergradient;
 
   AppTheme({
     required this.background,
@@ -33,14 +38,23 @@ class AppTheme {
     required this.google,
     required this.stocksearch,
     required this.card,
+    required this.notes,
+    required this.footergradient,
+    required this.crossIcon,
   });
 
   static final light = AppTheme(
+    crossIcon: Color(0xFF734012),
+    footergradient: [
+      Color(0xffF1EAE4),
+      Color(0xffFFFFFF),
+    ],
     gradient: [
       Color(0xFFFFFFFF),
       Color(0xFFF1EAE4),
     ],
-    card: Color(0xffFAF9F7),
+    card: Color(0xFFFAF9F7),
+    notes: Color(0xFF734012),
     stocksearch: Color(0xFFFAF9F7),
     google: Color(0xFFC8C8C8),
     bottombackground: Colors.black,
@@ -58,6 +72,7 @@ class AppTheme {
   );
 
   static final dark = AppTheme(
+    crossIcon: AppColors.black,
       gradient: [
         Color(0xFF303030),
         Color(0xFF303030),
@@ -76,5 +91,12 @@ class AppTheme {
     shadow: Color(0xFF00000029),
       google: Colors.white,
     card: Color(0xFF303030),
+    notes: Color(0xFFE0E0E0),
+      footergradient: [
+        Color(0xFFE0E0E0),
+        Color(0xFF7F8081),
+        Color(0xFF4F4F52),
+        Color(0xFF1E1F22),
+      ]
   );
 }

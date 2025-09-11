@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lottie/lottie.dart';
 import 'package:vscmoney/screens/widgets/stock_tile_widget.dart';
 
 import '../../constants/chat_typing_indicator.dart';
@@ -15,7 +16,7 @@ import 'package:flutter/material.dart';
 
 
 // message_row_widget.dart
-class MessageRowWidget extends StatelessWidget {
+class MessageRowWidget extends StatefulWidget {
   final Map<String, dynamic> message;
   final bool isLatest;
   final Function(String)? onAskVitty;
@@ -38,35 +39,44 @@ class MessageRowWidget extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<MessageRowWidget> createState() => _MessageRowWidgetState();
+}
+
+class _MessageRowWidgetState extends State<MessageRowWidget> {
+
+
+
+
+  @override
   Widget build(BuildContext context) {
-    final bool isUser = message['role'] == 'user';
+    final bool isUser = widget.message['role'] == 'user';
     final String messageText =
-    (message['content']?.toString() ?? message['msg']?.toString() ?? '');
+    (widget.message['content']?.toString() ?? widget.message['msg']?.toString() ?? '');
 
     // Conservative completion rules (unchanged)
-    final bool backendComplete = message['backendComplete'] == true;
-    final bool userComplete    = message['isComplete'] == true;
-    final bool forceStop       = message['forceStop'] == true;
-    final bool isComplete      = forceStop || (!isLatest && (backendComplete || userComplete));
+    final bool backendComplete = widget.message['backendComplete'] == true;
+    final bool userComplete    = widget.message['isComplete'] == true;
+    final bool forceStop       = widget.message['forceStop'] == true;
+    final bool isComplete      = forceStop || (!widget.isLatest && (backendComplete || userComplete));
 
-    final bool isHistorical = message['isHistorical'] == true;
+    final bool isHistorical = widget.message['isHistorical'] == true;
 
-    String? currentStatus = message['currentStatus']?.toString();
+    String? currentStatus = widget.message['currentStatus']?.toString();
     if (currentStatus == 'null' || currentStatus == 'undefined' || currentStatus?.isEmpty == true) {
       currentStatus = null;
     }
 
-    final GlobalKey? bubbleKey = message['key'] as GlobalKey?;
-    final String? stopTs       = message['stopTs'] as String?;
-    final bool shouldShowRetry = message['retry'] == true;
-    final String originalMessage = message['originalMessage']?.toString() ?? '';
-    final bool isConnecting = message['isConnecting'] == true;
+    final GlobalKey? bubbleKey = widget.message['key'] as GlobalKey?;
+    final String? stopTs       = widget.message['stopTs'] as String?;
+    final bool shouldShowRetry = widget.message['retry'] == true;
+    final String originalMessage = widget.message['originalMessage']?.toString() ?? '';
+    final bool isConnecting = widget.message['isConnecting'] == true;
 
     final String rowId =
-        message['id']?.toString() ??
-            message['messageId']?.toString() ??
-            message['ts']?.toString() ??
-            'h${(message['content'] ?? message['msg'] ?? '').hashCode}';
+        widget.message['id']?.toString() ??
+            widget.message['messageId']?.toString() ??
+            widget.message['ts']?.toString() ??
+            'h${(widget.message['content'] ?? widget.message['msg'] ?? '').hashCode}';
 
     // USER BUBBLE
     if (isUser) {
@@ -76,30 +86,30 @@ class MessageRowWidget extends StatelessWidget {
           message: messageText,
           isUser: true,
           bubbleKey: bubbleKey,
-          isLatest: isLatest,
-          onHeightMeasured: onHeightMeasured,
-          onHeightMeasuredWithValue: onHeightMeasuredWithValue, // <- passes height up
+          isLatest: widget.isLatest,
+          onHeightMeasured: widget.onHeightMeasured,
+          onHeightMeasuredWithValue: widget.onHeightMeasuredWithValue, // <- passes height up
         ),
       );
     }
 
     // STOCKS
-    if (message['type'] == 'stocks' && message['stocks'] is List) {
-      final List<dynamic> stocks = message['stocks'] as List<dynamic>;
+    if (widget.message['type'] == 'stocks' && widget.message['stocks'] is List) {
+      final List<dynamic> stocks = widget.message['stocks'] as List<dynamic>;
       return KeyedSubtree(
         key: ValueKey('row_$rowId'),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: StockTileWidget(
             stocks: stocks,
-            onStockTap: onStockTap,
+            onStockTap: widget.onStockTap,
           ),
         ),
       );
     }
 
     final Map<String, dynamic>? tableData =
-    (message['tableData'] is Map) ? (message['tableData'] as Map).cast<String, dynamic>() : null;
+    (widget.message['tableData'] is Map) ? (widget.message['tableData'] as Map).cast<String, dynamic>() : null;
 
     final bool shouldShowTypingDots = messageText.isEmpty &&
         currentStatus == null &&
@@ -116,21 +126,28 @@ class MessageRowWidget extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             shouldShowTypingDots
-                ? const _TypingIndicatorWithHaptics()
-                : BotMessageWidget(
+                 ? _TypingIndicatorWithHaptics()
+        //   ?                  // Image.asset('assets/images/orb.gif',height: 50,width: 50,)
+        // Lottie.asset(
+        // 'assets/images/orb2.json',
+        //     height: 50,width: 50
+        // )
+
+          : BotMessageWidget(
               key: ValueKey('bot_$rowId'),
               message: messageText,
               isComplete: isComplete,
-              isLatest: isLatest,
+              isLatest: widget.isLatest,
               isHistorical: isHistorical,
               currentStatus: currentStatus,
-              onAskVitty: onAskVitty,
+              onAskVitty: widget.onAskVitty,
               tableData: tableData,
-              onRenderComplete: onBotRenderComplete,
+              onRenderComplete: widget.onBotRenderComplete,
               forceStop: forceStop,
               stopTs: stopTs,
-              onStockTap: onStockTap,
+              onStockTap: widget.onStockTap,
             ),
+            //: Image.asset('assets/images/orb.gif',height: 60,width: 60,),
             if (shouldShowRetry && originalMessage.isNotEmpty && !isConnecting)
               _buildRetrySection(context, originalMessage),
           ],
@@ -145,7 +162,7 @@ class MessageRowWidget extends StatelessWidget {
       child: Row(
         children: [
           ElevatedButton.icon(
-            onPressed: () => onRetryMessage?.call(originalMessage),
+            onPressed: () => widget.onRetryMessage?.call(originalMessage),
             icon: const Icon(Icons.refresh, size: 16),
             label: const Text('Try Again'),
             style: ElevatedButton.styleFrom(
@@ -201,7 +218,7 @@ class _TypingIndicatorWithHapticsState extends State<_TypingIndicatorWithHaptics
   void initState() {
     super.initState();
     // Loader just started for this bot message
-    HapticFeedback.heavyImpact(); // subtle
+    HapticFeedback.mediumImpact(); // subtle
   }
 
   @override

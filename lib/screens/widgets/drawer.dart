@@ -10,6 +10,7 @@ import '../../../models/chat_session.dart';
 import '../../../services/chat_service.dart';
 import '../../constants/bottomsheet.dart';
 import '../../constants/colors.dart';
+import '../../services/locator.dart';
 import '../../services/theme_service.dart';
 
 import '../presentation/search_stock_screen.dart';
@@ -49,6 +50,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
   void initState() {
     super.initState();
     _selectedItem = widget.selectedRoute;
+    // debugPrint('CustomDrawer initState: selectedRoute = ${widget.selectedRoute}');
   }
 
   @override
@@ -56,40 +58,54 @@ class _CustomDrawerState extends State<CustomDrawer> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedRoute != widget.selectedRoute) {
       setState(() => _selectedItem = widget.selectedRoute);
+      // debugPrint('CustomDrawer didUpdateWidget: selectedRoute = ${widget.selectedRoute}');
     }
   }
 
   void _handleTap(String title, VoidCallback onTap) {
     setState(() => _selectedItem = title);
+    // debugPrint('CustomDrawer _handleTap: selected = $title');
     onTap();
   }
 
-  String _getCurrentRoute() {
-    final p = GoRouter.of(context).routeInformationProvider.value.uri.path;
-    switch (p) {
-      case '/home':
-        return 'Vitty';
-      case '/goals':
-        return 'Goals';
-      case '/conversations':
-        return 'Conversations';
+  // ---------- Helper: gradient stops ----------
+  List<double>? _stopsForColors(List<Color> colors) {
+    if (colors.isEmpty) return null;
+
+    switch (colors.length) {
+      case 4:
+      // Dark example: 0%, 11%, 18%, 100%  → normalized to 0–1
+        return const [0.00, 0.00, 0.00, 0.390];
+      case 3:
+        return const [0.00, 0.50, 1.00];
+      case 2:
+      // Light example: start at ~38% then to 100%
+        return const [0.38, 1.00];
       default:
-        return 'Vitty';
+      // Evenly spread for any other count
+        if (colors.length == 1) return const [1.0];
+        final n = colors.length;
+        return List<double>.generate(n, (i) => i / (n - 1));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentRoute = _getCurrentRoute();
-    if (_selectedItem != currentRoute) {
+    // Always trust parent selection
+    final actualSelectedItem = widget.selectedRoute;
+    if (_selectedItem != actualSelectedItem) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _selectedItem = currentRoute);
+        if (mounted) setState(() => _selectedItem = actualSelectedItem);
       });
     }
 
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     final w = MediaQuery.of(context).size.width;
     final h = MediaQuery.of(context).size.height;
+
+    // Footer gradient pieces
+    final List<Color> footerColors = theme.footergradient;
+    final List<double>? footerStops = _stopsForColors(footerColors);
 
     return Drawer(
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
@@ -101,12 +117,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- Search pill (tappable) ---
+              // --- Search pill ---
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: w * 0.04),
                 child: GestureDetector(
                   onTap: () {
-                    HapticFeedback.heavyImpact();
+                    HapticFeedback.mediumImpact();
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const StockSearchScreen()),
                     );
@@ -114,13 +130,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   child: Container(
                     height: 42,
                     decoration: BoxDecoration(
-                      //color: theme.searchBox,
-                      color: Color(0xff734012).withOpacity(0.075),
-                      borderRadius: BorderRadius.circular(15), // was 14 → more rectangular
-                      border: Border.all(
-                        color: theme.box, // subtle edge
-                        width: 1,
-                      ),
+                      color: const Color(0xff734012).withOpacity(0.075),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: theme.box, width: 1),
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Row(
@@ -142,12 +154,11 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 ),
               ),
 
-
               const SizedBox(height: 18),
               const Divider(color: Color(0xFFE8E8E8), height: 1),
               const SizedBox(height: 12),
 
-              // --- Items (ChatGPT-style “pill” active row) ---
+              // --- Items ---
               _drawerItem(
                 icon: 'assets/images/ying yang.png',
                 title: 'Vitty',
@@ -157,7 +168,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     Navigator.pop(context);
                   } else {
                     _handleTap('Vitty', () {
-                      HapticFeedback.heavyImpact();
+                      HapticFeedback.mediumImpact();
                       Navigator.pop(context);
                       Future.delayed(const Duration(milliseconds: 180), () {
                         context.go('/home');
@@ -172,23 +183,23 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 title: 'Goals',
                 isActive: _selectedItem == 'Goals',
                 onTap: () => _handleTap('Goals', () {
-                  HapticFeedback.heavyImpact();
+                  HapticFeedback.mediumImpact();
                   Navigator.pop(context);
                   Future.delayed(const Duration(milliseconds: 180), () {
-                    context.go('/goals');
+                    context.push('/goals');
                   });
                 }),
               ),
 
               _drawerItem(
-                icon: 'assets/images/Vector.png',
+                icon: 'assets/images/conversations_new.svg',
                 title: 'Conversations',
                 isActive: _selectedItem == 'Conversations',
                 onTap: () => _handleTap('Conversations', () {
-                  HapticFeedback.heavyImpact();
+                  HapticFeedback.mediumImpact();
                   Navigator.pop(context);
                   Future.delayed(const Duration(milliseconds: 200), () {
-                    context.goNamed('conversations', extra: widget.onSessionTap);
+                    context.pushNamed('conversations', extra: widget.onSessionTap);
                   });
                 }),
               ),
@@ -227,10 +238,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 },
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [
-                      Color(0xff734012).withOpacity(0.0015),
-                      theme.background
-                    ])
+                    gradient: LinearGradient(
+                      colors: footerColors,
+                      stops: footerStops,               // ✅ fixed (0–1 range, length matches)
+                      begin: Alignment.topLeft,         // looks closer to your screenshot
+                      end: Alignment.bottomRight,
+                    ),
                   ),
                   child: DrawerFooter(
                     onTap: () {
@@ -285,7 +298,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
     final row = Row(
       children: [
-        // icon
         Padding(
           padding: const EdgeInsets.only(left: 8),
           child: isSvg
@@ -297,13 +309,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
           )
               : Image.asset(
             icon,
-            height: 22,
-            width: 22,
+            height: 24,
+            width: 24,
             color: title == 'Vitty' ? null : theme.icon,
           ),
         ),
         const SizedBox(width: 12),
-        // label
         Expanded(
           child: Text(
             title,
@@ -320,8 +331,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
       ],
     );
 
-    return  Padding(
-      padding: EdgeInsets.symmetric(horizontal: w * 0.04, vertical: 6),
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: w * 0.04, vertical: 10),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
@@ -331,7 +342,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
           decoration: BoxDecoration(
-            color: isActive ? Color(0xff734012).withOpacity(0.15) : Colors.transparent, // 15% opacity
+            color: isActive ? const Color(0xff734012).withOpacity(0.15) : Colors.transparent,
             borderRadius: BorderRadius.circular(14),
           ),
           child: row,

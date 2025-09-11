@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../constants/bottomsheet.dart';
@@ -49,6 +50,26 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
 
     // 3) Tell the system keyboard to hide (covers iOS cases with sheets)
     SystemChannels.textInput.invokeMethod('TextInput.hide');
+  }
+
+  // Handle back navigation - go to home and open drawer
+  Future<bool> _handleBackNavigation() async {
+    debugPrint('Back pressed from StockSearch - navigating to home with drawer open');
+
+    _closeKeyboard(); // Close keyboard first
+
+    // Go back to home and open drawer
+    context.pop();
+
+    // Open the drawer after navigation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final scaffoldState = Scaffold.maybeOf(context);
+      if (scaffoldState != null && scaffoldState.hasDrawer) {
+        scaffoldState.openDrawer();
+      }
+    });
+
+    return false; // Prevent default back behavior since we're handling it
   }
 
   @override
@@ -187,7 +208,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
           label,
           style: TextStyle(
             fontWeight: FontWeight.w600,
-            fontSize: 12  ,
+            fontSize: 12,
             color: selected ? Colors.black : theme.text,
             fontFamily: 'DM Sans',
           ),
@@ -205,202 +226,209 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
 
     return ChatGPTBottomSheetWrapper(
       key: _sheetKey,
-      child: GestureDetector(
-        // Dismiss keyboard when tapping outside ANYWHERE
-        onTap: _closeKeyboard,
-        child: SafeArea(
-          top: false,
-          bottom: false,
-          child: Scaffold(
-            backgroundColor: theme.background,
-            // extendBody: true,
-            appBar: AppBar(
-              leading: IconButton(
-                icon: Icon(Icons.arrow_back, color: theme.icon, size: 24),
-                onPressed: () {
-                  HapticFeedback.heavyImpact();
-                  _closeKeyboard(); // <— make sure it closes on back
-                  Navigator.of(context).pop();
-                },
-              ),
-              titleSpacing: 0,
-              title: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                onSubmitted: _onSearchSubmitted, // closes keyboard
-                onChanged: _searchStock,         // real-time, keep open
-                autofocus: true,
-                textInputAction: TextInputAction.search,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: theme.text,
-                  fontFamily: 'DM Sans',
+      child: PopScope(
+        canPop: false,
+        onPopInvoked: (didPop) async {
+          if (!didPop) {
+            await _handleBackNavigation();
+          }
+        },
+        child: GestureDetector(
+          // Dismiss keyboard when tapping outside ANYWHERE
+          onTap: _closeKeyboard,
+          child: SafeArea(
+            top: false,
+            bottom: false,
+            child: Scaffold(
+              backgroundColor: theme.background,
+              // extendBody: true,
+              appBar: AppBar(
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back, color: theme.icon, size: 24),
+                  onPressed: () {
+                    HapticFeedback.mediumImpact();
+                    _handleBackNavigation(); // Use our custom navigation handler
+                  },
                 ),
-                decoration: InputDecoration(
-                  hintText: 'Search stocks',
-                  hintStyle: TextStyle(
-                    color: theme.text.withOpacity(0.6),
+                titleSpacing: 0,
+                title: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  onSubmitted: _onSearchSubmitted, // closes keyboard
+                  onChanged: _searchStock,         // real-time, keep open
+                  autofocus: true,
+                  textInputAction: TextInputAction.search,
+                  style: TextStyle(
                     fontSize: 16,
+                    color: theme.text,
                     fontFamily: 'DM Sans',
                   ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                  decoration: InputDecoration(
+                    hintText: 'Search stocks',
+                    hintStyle: TextStyle(
+                      color: theme.text.withOpacity(0.6),
+                      fontSize: 16,
+                      fontFamily: 'DM Sans',
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                  ),
+                ),
+                backgroundColor: theme.background,
+                surfaceTintColor: theme.background,
+                shadowColor: Colors.transparent,
+                systemOverlayStyle: SystemUiOverlayStyle(
+                  statusBarColor: theme.background,
+                  statusBarIconBrightness: Brightness.dark,
                 ),
               ),
-              backgroundColor: theme.background,
-              surfaceTintColor: theme.background,
-              shadowColor: Colors.transparent,
-              systemOverlayStyle:  SystemUiOverlayStyle(
-                statusBarColor: theme.background,
-                statusBarIconBrightness: Brightness.dark,
-              ),
-            ),
-            body: SafeArea(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
-                child: SingleChildScrollView(
-                  // Also dismiss on scroll gestures
-                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Divider(thickness: 0,color: Colors.grey.withOpacity(0.5),),
-                      const SizedBox(height: 16),
-          
-                      // Filter chips
-                      SizedBox(
-                        height: 30,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          children: [
-                            const SizedBox(width: 8),
-                            _buildChip("All", selected: true),
-                            _buildChip("Stocks"),
-                            _buildChip("MF"),
-                            _buildChip("ETF"),
-                            const SizedBox(width: 8),
-                          ],
+              body: SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
+                  child: SingleChildScrollView(
+                    // Also dismiss on scroll gestures
+                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Divider(thickness: 0, color: Colors.grey.withOpacity(0.5)),
+                        const SizedBox(height: 16),
+
+                        // Filter chips
+                        SizedBox(
+                          height: 30,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: [
+                              const SizedBox(width: 8),
+                              _buildChip("All", selected: true),
+                              _buildChip("Stocks"),
+                              _buildChip("MF"),
+                              _buildChip("ETF"),
+                              const SizedBox(width: 8),
+                            ],
+                          ),
                         ),
-                      ),
-          
-                      const SizedBox(height: 20),
-          
-                      // Recent searches
-                      if (!_loading && _results.isEmpty && _lastQuery.isEmpty && _recentSearches.isNotEmpty)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ..._recentSearches.take(3).map(
-                                  (term) => InkWell(
-                                onTap: () {
-                                  _controller.text = term;
-                                  _onSearchSubmitted(term); // closes inside
-                                },
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: horizontalPadding,
-                                    vertical: 8,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.shade200,
-                                          shape: BoxShape.circle,
+
+                        const SizedBox(height: 20),
+
+                        // Recent searches
+                        if (!_loading && _results.isEmpty && _lastQuery.isEmpty && _recentSearches.isNotEmpty)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ..._recentSearches.take(3).map(
+                                    (term) => InkWell(
+                                  onTap: () {
+                                    _controller.text = term;
+                                    _onSearchSubmitted(term); // closes inside
+                                  },
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: horizontalPadding,
+                                      vertical: 8,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade200,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(Icons.history, size: 18, color: Colors.black54),
                                         ),
-                                        child: const Icon(Icons.history, size: 18, color: Colors.black54),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            term,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontFamily: 'DM Sans',
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: Icon(Icons.close, size: 18, color: Colors.grey.shade600),
+                                          onPressed: () {
+                                            _closeKeyboard();
+                                            _removeRecentSearch(term);
+                                          },
+                                          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                          padding: EdgeInsets.zero,
+                                          splashRadius: 20,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                        // Loading
+                        if (_loading)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(24.0),
+                              child: CircularProgressIndicator(color: Color(0xFFF66A00)),
+                            ),
+                          ),
+
+                        // Results
+                        if (!_loading && _results.isNotEmpty)
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: _results.map((asset) {
+                                return ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Row(
+                                    children: [
+                                      const CircleAvatar(
+                                        child: Icon(Icons.trending_up, size: 18, color: Colors.black),
+                                        backgroundColor: Color(0xFFD9D9D9),
+                                        maxRadius: 15,
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Text(
-                                          term,
-                                          style: const TextStyle(
+                                          asset.name,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
                                             fontSize: 16,
                                             fontFamily: 'DM Sans',
+                                            color: theme.text,
                                           ),
-                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                      ),
-                                      IconButton(
-                                        icon: Icon(Icons.close, size: 18, color: Colors.grey.shade600),
-                                        onPressed: () {
-                                          _closeKeyboard();
-                                          _removeRecentSearch(term);
-                                        },
-                                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                                        padding: EdgeInsets.zero,
-                                        splashRadius: 20,
                                       ),
                                     ],
                                   ),
-                                ),
+                                  onTap: () => _openStockDetailSheet(asset.id), // closes + opens sheet
+                                );
+                              }).toList(),
+                            ),
+                          ),
+
+                        // No results
+                        if (!_loading && _results.isEmpty && _lastQuery.isNotEmpty)
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
+                            child: Text(
+                              'No results for "$_lastQuery"',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 14,
+                                fontFamily: 'DM Sans',
                               ),
                             ),
-                          ],
-                        ),
-          
-                      // Loading
-                      if (_loading)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(24.0),
-                            child: CircularProgressIndicator(color: Color(0xFFF66A00)),
                           ),
-                        ),
-          
-                      // Results
-                      if (!_loading && _results.isNotEmpty)
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: _results.map((asset) {
-                              return ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Row(
-                                  children: [
-                                    const CircleAvatar(
-                                      child: Icon(Icons.trending_up, size: 18, color: Colors.black),
-                                      backgroundColor: Color(0xFFD9D9D9),
-                                      maxRadius: 15,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        asset.name,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontFamily: 'DM Sans',
-                                          color: theme.text,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                onTap: () => _openStockDetailSheet(asset.id), // closes + opens sheet
-                              );
-                            }).toList(),
-                          ),
-                        ),
-          
-                      // No results
-                      if (!_loading && _results.isEmpty && _lastQuery.isNotEmpty)
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
-                          child: Text(
-                            'No results for "$_lastQuery"',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 14,
-                              fontFamily: 'DM Sans',
-                            ),
-                          ),
-                        ),
-          
-                      const SizedBox(height: 24),
-                    ],
+
+                        const SizedBox(height: 24),
+                      ],
+                    ),
                   ),
                 ),
               ),

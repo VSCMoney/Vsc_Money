@@ -671,8 +671,8 @@ class EndPointService {
   /// Your backend base URL
   final String _baseUrl = 'https://fastapi-app-130321581049.asia-south1.run.app';
   // final String _baseUrl = 'http://192.168.1.5:8000';
-  // final String _baseUrl = 'http://10.0.2.2:8000'; // Android emulator → host
-   //final String _baseUrl = 'http://localhost:8000'; // iOS simulator → host
+  // final String _baseUrl = 'http://10.0.2.2:8000';
+  //final String _baseUrl = 'http://localhost:8000';
 
   /// Quick, lightweight probes. Success on *any* means “reachable network”.
   List<Uri> get _probeUris => [
@@ -1204,7 +1204,7 @@ class ApiException implements Exception {
 
 class ConsoleHttpLogger {
   static bool useColors = true;
-  static int defaultBodyMax = 10000000;
+  static int defaultBodyMax = 100000;
   static bool prettyPrintJson = true;
 
   static String _pretty(String body, {bool forceRaw = false}) {

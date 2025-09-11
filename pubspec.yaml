@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.15
+version: 1.0.19
 
 
 environment:
@@ -71,6 +71,10 @@ dependencies:
   collection: ^1.19.1
   record: ^6.0.0
   webview_flutter: ^4.13.0
+  file_picker: ^10.3.2
+  image_picker: ^1.2.0
+  uuid: ^4.5.1
+  open_filex: ^4.7.0
 
 dev_dependencies:
   flutter_test:
@@ -80,30 +84,30 @@ dev_dependencies:
 
 
 
-flutter_native_splash:
-  color: "#FFFFFF"
-  color_dark: "#000000"
-
-  # Pre-Android 12 and iOS: CENTER icon (no text)
-  image: assets/images/ying yang full.png
-  image_dark: assets/images/ying yang full.png
-
-  # Positioning
-  android_gravity: center
-  ios_content_mode: center
-  fullscreen: true
+#flutter_native_splash:
+#  color: "#FFFFFF"
+#  color_dark: "#000000"
+#
+#  # Pre-Android 12 and iOS: CENTER icon (no text)
+#  image: assets/images/ying yang full.png
+#  image_dark: assets/images/ying yang full.png
+#
+#  # Positioning
+#  android_gravity: center
+#  ios_content_mode: center
+#  fullscreen: true
 
   # ❌ Remove branding completely (do NOT include these keys)
   # branding:
   # branding_dark:
 
-  android_12:
-    color: "#FFFFFF"
-    color_dark: "#000000"
-
-    # Android 12+ needs a square, icon-only asset
-    image: assets/images/ying yang full.png
-    image_dark: assets/images/ying yang full.png
+#  android_12:
+#    color: "#FFFFFF"
+#    color_dark: "#000000"
+#
+#    # Android 12+ needs a square, icon-only asset
+#    image: assets/images/ying yang full.png
+#    image_dark: assets/images/ying yang full.png
 
     # ❌ No branding here either
     # branding:

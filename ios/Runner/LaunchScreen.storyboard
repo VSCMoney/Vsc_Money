@@ -20,13 +20,41 @@
                                 <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                                 <color key="backgroundColor" red="0.10196078431372549" green="0.10196078431372549" blue="0.1803921568627451" alpha="1" colorSpace="calibratedRGB"/>
                             </view>
+
+                            <!-- App Icon ImageView -->
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="LaunchIcon" translatesAutoresizingMaskIntoConstraints="NO" id="app-icon-imageview">
+                                <rect key="frame" x="146.5" y="376" width="100" height="100"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="100" id="icon-width"/>
+                                    <constraint firstAttribute="height" constant="100" id="icon-height"/>
+                                </constraints>
+                            </imageView>
+
+                            <!-- Optional: App Name Label -->
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Vitty.ai" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="app-name-label">
+                                <rect key="frame" x="50" y="496" width="293" height="28"/>
+                                <fontDescription key="fontDescription" type="system" weight="medium" pointSize="24"/>
+                                <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <nil key="highlightedColor"/>
+                            </label>
                         </subviews>
                         <color key="backgroundColor" red="0.10196078431372549" green="0.10196078431372549" blue="0.1803921568627451" alpha="1" colorSpace="calibratedRGB"/>
                         <constraints>
+                            <!-- Background constraints -->
                             <constraint firstItem="gradient-view" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" id="gradient-leading"/>
                             <constraint firstItem="gradient-view" firstAttribute="trailing" secondItem="Ze5-6b-2t3" secondAttribute="trailing" id="gradient-trailing"/>
                             <constraint firstItem="gradient-view" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="gradient-top"/>
                             <constraint firstItem="gradient-view" firstAttribute="bottom" secondItem="Ze5-6b-2t3" secondAttribute="bottom" id="gradient-bottom"/>
+
+                            <!-- Icon constraints - centered horizontally and vertically -->
+                            <constraint firstItem="app-icon-imageview" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="icon-center-x"/>
+                            <constraint firstItem="app-icon-imageview" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="icon-center-y"/>
+
+                            <!-- App name label constraints -->
+                            <constraint firstItem="app-name-label" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="label-center-x"/>
+                            <constraint firstItem="app-name-label" firstAttribute="top" secondItem="app-icon-imageview" secondAttribute="bottom" constant="20" id="label-top-spacing"/>
+                            <constraint firstItem="app-name-label" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" constant="50" id="label-leading"/>
+                            <constraint firstItem="Ze5-6b-2t3" firstAttribute="trailing" secondItem="app-name-label" secondAttribute="trailing" constant="50" id="label-trailing"/>
                         </constraints>
                     </view>
                 </viewController>
@@ -35,4 +63,8 @@
             <point key="canvasLocation" x="52.671755725190835" y="374.64788732394368"/>
         </scene>
     </scenes>
+    <resources>
+        <!-- Add your app icon here - make sure the image exists in your project -->
+        <image name="LaunchIcon" width="100" height="100"/>
+    </resources>
 </document>

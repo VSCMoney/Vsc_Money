@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vscmoney/screens/presentation/settings/section_header.dart';
 import 'package:vscmoney/screens/presentation/settings/settings_group.dart';
@@ -128,7 +129,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 //color: Colors.black,
                 child: GestureDetector(
                 behavior: HitTestBehavior.opaque,        // <-- ensure taps register
-                onTap: _closeSheet,
+                onTap: (){
+                  HapticFeedback.mediumImpact();
+                  _closeSheet();
+                },
                 child: Padding(
                   padding: const EdgeInsets.all(12.0),   // <-- comfy hit area
                   child: Image.asset(

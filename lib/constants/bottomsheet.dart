@@ -2,11 +2,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import '../screens/AskVitty.dart';
 import '../screens/presentation/settings/settings_screen.dart';
 import '../screens/asset_page/assets_page.dart';
 import '../services/chat_service.dart';
 import '../services/theme_service.dart';
 import '../testpage.dart';
+
 
 
 class ChatGPTBottomSheetWrapper extends StatefulWidget {
@@ -23,18 +25,28 @@ class ChatGPTBottomSheetWrapper extends StatefulWidget {
 
 class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
     with TickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _sheetHeightFactor;
+  // Animations
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnimation;
+  late final Animation<Offset> _slideAnimation;
+  late final Animation<double> _sheetHeightFactor;
 
+  // Sheet state
   bool _isSheetOpen = false;
   Widget? _currentBottomSheet;
-  double _currentSheetHeight = 0.93; // Default height factor
+  double _currentSheetHeight = 0.83;
+  bool _isOperationInProgress = false; // ✅ Add operation lock
+
+  // Inner navigation for the sheet
+  final GlobalKey<NavigatorState> _sheetNavKey = GlobalKey<NavigatorState>();
+  Key _sheetRootKey = UniqueKey();
+
+  bool get isSheetOpen => _isSheetOpen;
 
   @override
   void initState() {
     super.initState();
+
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -54,45 +66,150 @@ class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
     );
   }
 
+  /// ✅ Open bottom sheet with proper locking to prevent conflicts
   Future<void> openSheet(Widget bottomSheetContent, {double heightFactor = 0.93}) async {
-    if (_isSheetOpen) {
-      setState(() {
-        _currentBottomSheet = bottomSheetContent;
-        _currentSheetHeight = heightFactor;
-      });
+    if (_isOperationInProgress) {
+      print("⚠️ Sheet operation in progress, ignoring open request");
       return;
     }
-    setState(() {
-      _isSheetOpen = true;
-      _currentBottomSheet = bottomSheetContent;
-      _currentSheetHeight = heightFactor;
-    });
-    if (!_controller.isAnimating) {
-      await _controller.forward();
+
+    _isOperationInProgress = true;
+
+    try {
+      if (_isSheetOpen) {
+        // Replace content if already open
+        if (mounted) {
+          setState(() {
+            _currentBottomSheet = bottomSheetContent;
+            _currentSheetHeight = heightFactor;
+            _sheetRootKey = UniqueKey(); // Reset nav stack
+          });
+        }
+        return;
+      }
+
+      if (mounted) {
+        setState(() {
+          _isSheetOpen = true;
+          _currentBottomSheet = bottomSheetContent;
+          _currentSheetHeight = heightFactor;
+          _sheetRootKey = UniqueKey(); // Fresh stack
+        });
+      }
+
+      if (!_controller.isAnimating && mounted) {
+        await _controller.forward();
+      }
+    } catch (e) {
+      print("❌ Error opening sheet: $e");
+    } finally {
+      _isOperationInProgress = false;
     }
   }
 
+  /// ✅ Close sheet with proper cleanup and locking
   Future<void> closeSheet() async {
-    if (!_isSheetOpen) return;
-    if (_controller.isAnimating) {
-      await _controller.fling();
+    if (!_isSheetOpen || _isOperationInProgress) {
+      return;
     }
 
+    _isOperationInProgress = true;
+
     try {
-      await _controller.reverse();
-    } catch (e) {
-      print("❌ Error during sheet animation: $e");
-    } finally {
+      // Clean up navigator first
+      final nav = _sheetNavKey.currentState;
+      if (nav != null && mounted) {
+        try {
+          // Safely clear navigation stack
+          while (nav.canPop()) {
+            nav.pop();
+          }
+        } catch (e) {
+          print("⚠️ Error clearing nav stack: $e");
+        }
+      }
+
+      // Animate close
+      if (_controller.isAnimating) {
+        _controller.stop();
+      }
+
+      if (mounted) {
+        await _controller.reverse();
+      }
+
+      // Update state
       if (mounted) {
         setState(() {
           _isSheetOpen = false;
           _currentBottomSheet = null;
         });
       }
+    } catch (e) {
+      print("❌ Error closing sheet: $e");
+      // Force state reset on error
+      if (mounted) {
+        setState(() {
+          _isSheetOpen = false;
+          _currentBottomSheet = null;
+        });
+      }
+    } finally {
+      _isOperationInProgress = false;
     }
   }
 
-  bool get isSheetOpen => _isSheetOpen;
+  /// Push a page inside the bottom sheet's navigator
+  void pushInSheet(Widget page) {
+    if (!_isSheetOpen || _isOperationInProgress) return;
+
+    try {
+      _sheetNavKey.currentState?.push(
+        MaterialPageRoute(builder: (_) => page),
+      );
+    } catch (e) {
+      print("❌ Error pushing in sheet: $e");
+    }
+  }
+
+  /// Pop a page inside the bottom sheet's navigator
+  Future<void> popInSheet() async {
+    if (_isOperationInProgress) return;
+
+    try {
+      final nav = _sheetNavKey.currentState;
+      if (nav?.canPop() == true) {
+        nav!.pop();
+      } else {
+        await closeSheet();
+      }
+    } catch (e) {
+      print("❌ Error popping in sheet: $e");
+      await closeSheet(); // Fallback to close
+    }
+  }
+
+  /// Replace root content inside the sheet
+  Future<void> replaceRootInSheet(Widget page, {double? heightFactor}) async {
+    if (_isOperationInProgress) return;
+
+    if (!_isSheetOpen) {
+      await openSheet(page, heightFactor: heightFactor ?? _currentSheetHeight);
+      return;
+    }
+
+    try {
+      if (mounted) {
+        setState(() {
+          _currentBottomSheet = page;
+          if (heightFactor != null) _currentSheetHeight = heightFactor;
+          _sheetRootKey = UniqueKey(); // Force new root
+        });
+      }
+    } catch (e) {
+      print("❌ Error replacing root in sheet: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,14 +217,13 @@ class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
     final screenHeight = mediaQuery.size.height;
     final theme = Theme.of(context).extension<AppThemeExtension>()?.theme;
 
-    // ⛔️ AnnotatedRegion was here before — removed to stop overriding system UI
     return Stack(
       children: [
-        // Main content with scale and slide animation
+        // Main content scaled when sheet is open
         AnimatedBuilder(
           animation: _controller,
           builder: (context, child) {
-            final topPadding = Tween<double>(begin: 0.0, end: 55.0).transform(_controller.value);
+            final topPadding = Tween<double>(begin: 0.0, end: 52.0).transform(_controller.value);
             final horizontalPadding = Tween<double>(begin: 0.0, end: 10.0).transform(_controller.value);
 
             return Padding(
@@ -131,19 +247,23 @@ class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
           },
         ),
 
-        // Overlay for dimming
+        // Dim overlay
         if (_isSheetOpen)
           AnimatedBuilder(
             animation: _controller,
-            builder: (context, child) => MaterialButton(
-              onPressed: closeSheet,
+            builder: (context, _) => GestureDetector(
+              onTap: () {
+                if (!_isOperationInProgress) {
+                  closeSheet();
+                }
+              },
               child: Container(
                 color: Colors.black.withOpacity(0.3 * _controller.value),
               ),
             ),
           ),
 
-        // Bottom sheet with improved constraint handling
+        // ✅ Fixed Bottom Sheet body with safer Navigator handling
         if (_isSheetOpen && _currentBottomSheet != null)
           Positioned(
             left: 0,
@@ -151,14 +271,12 @@ class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
             bottom: 0,
             child: AnimatedBuilder(
               animation: _controller,
-              builder: (context, child) {
+              builder: (context, _) {
                 final maxSheetHeight = screenHeight * _currentSheetHeight;
                 final animatedHeight = maxSheetHeight * _sheetHeightFactor.value;
                 final finalHeight = animatedHeight.clamp(0.0, screenHeight);
 
-                if (finalHeight < 50) {
-                  return const SizedBox.shrink();
-                }
+                if (finalHeight < 50) return const SizedBox.shrink();
 
                 return Container(
                   height: finalHeight,
@@ -166,38 +284,9 @@ class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
                     color: theme?.background ?? Colors.white,
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Handle bar (optional)
-                      // const SizedBox(height: 6),
-
-                      // Content area with safe constraints
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            if (constraints.maxHeight <= 0) {
-                              return const SizedBox.shrink();
-                            }
-
-                            return ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                              child: SingleChildScrollView(
-                                physics: const BouncingScrollPhysics(),
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    minHeight: constraints.maxHeight,
-                                  ),
-                                  child: IntrinsicHeight(
-                                    child: _currentBottomSheet!,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                    child: _buildSheetContent(),
                   ),
                 );
               },
@@ -207,17 +296,75 @@ class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
     );
   }
 
+  /// ✅ Separate method to build sheet content with better error handling
+  Widget _buildSheetContent() {
+    if (_currentBottomSheet == null || !mounted) {
+      return const SizedBox.shrink();
+    }
+
+    return PopScope( // ✅ Use PopScope instead of WillPopScope (if Flutter 3.12+)
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+
+        if (_isOperationInProgress) return;
+
+        // Android back: try to pop inner route first; else close sheet
+        try {
+          final nav = _sheetNavKey.currentState;
+          if (nav?.canPop() == true) {
+            nav!.pop();
+          } else {
+            await closeSheet();
+          }
+        } catch (e) {
+          print("❌ Error handling back navigation: $e");
+          await closeSheet(); // Fallback
+        }
+      },
+      child: Navigator(
+        key: _sheetNavKey,
+        onGenerateRoute: (settings) {
+          try {
+            return MaterialPageRoute(
+              builder: (_) => KeyedSubtree(
+                key: _sheetRootKey,
+                child: _currentBottomSheet!,
+              ),
+              settings: settings,
+            );
+          } catch (e) {
+            print("❌ Error generating route in sheet: $e");
+            return MaterialPageRoute(
+              builder: (_) => Container(
+                color: Colors.white,
+                child: Center(
+                  child: Text("Error loading content"),
+                ),
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+
   @override
   void dispose() {
-    _controller.dispose();
+    _isOperationInProgress = true; // Prevent any new operations during disposal
+
+    try {
+      _controller.dispose();
+    } catch (e) {
+      print("❌ Error disposing controller: $e");
+    }
+
     super.dispose();
   }
 }
 
 
 
-//
-// // More robust ChatGPTBottomSheetWrapper with better constraint handling
 // class ChatGPTBottomSheetWrapper extends StatefulWidget {
 //   final Widget child;
 //
@@ -263,10 +410,8 @@ class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
 //     );
 //   }
 //
-//   // Method to open sheet with specific content and height
 //   Future<void> openSheet(Widget bottomSheetContent, {double heightFactor = 0.93}) async {
 //     if (_isSheetOpen) {
-//       // If already open, just swap content/height without restarting anim
 //       setState(() {
 //         _currentBottomSheet = bottomSheetContent;
 //         _currentSheetHeight = heightFactor;
@@ -283,25 +428,9 @@ class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
 //     }
 //   }
 //
-//   // Future<void> closeSheet() async {  // <-- was void
-//   //   if (!_isSheetOpen) return;
-//   //   if (_controller.isAnimating) return;
-//   //   try {
-//   //     await _controller.reverse();
-//   //   } finally {
-//   //     if (mounted) {
-//   //       setState(() {
-//   //         _isSheetOpen = false;
-//   //         _currentBottomSheet = null;
-//   //       });
-//   //     }
-//   //   }
-//   // }
-//
 //   Future<void> closeSheet() async {
 //     if (!_isSheetOpen) return;
 //     if (_controller.isAnimating) {
-//       // Wait for current animation to complete
 //       await _controller.fling();
 //     }
 //
@@ -319,142 +448,118 @@ class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
 //     }
 //   }
 //
-//
-//
-//   // Method to check if sheet is open
 //   bool get isSheetOpen => _isSheetOpen;
 //
 //   @override
 //   Widget build(BuildContext context) {
 //     final mediaQuery = MediaQuery.of(context);
-//     final bottomPadding = mediaQuery.padding.bottom;
 //     final screenHeight = mediaQuery.size.height;
 //     final theme = Theme.of(context).extension<AppThemeExtension>()?.theme;
 //
-//     return AnnotatedRegion<SystemUiOverlayStyle>(
-//       value: _isSheetOpen ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
-//       child: Stack(
-//         children: [
-//           // Main content with scale and slide animation
-//           AnimatedBuilder(
-//             animation: _controller,
-//             builder: (context, child) {
-//               final topPadding = Tween<double>(begin: 0.0, end: 55.0).transform(_controller.value);
-//               final horizontalPadding = Tween<double>(begin: 0.0, end: 10.0).transform(_controller.value);
+//     // ⛔️ AnnotatedRegion was here before — removed to stop overriding system UI
+//     return Stack(
+//       children: [
+//         // Main content with scale and slide animation
+//         AnimatedBuilder(
+//           animation: _controller,
+//           builder: (context, child) {
+//             final topPadding = Tween<double>(begin: 0.0, end: 55.0).transform(_controller.value);
+//             final horizontalPadding = Tween<double>(begin: 0.0, end: 10.0).transform(_controller.value);
 //
-//               return Padding(
-//                 padding: EdgeInsets.only(
-//                   top: topPadding,
-//                   left: horizontalPadding,
-//                   right: horizontalPadding,
-//                 ),
-//                 child: Transform.scale(
-//                   scale: _scaleAnimation.value,
-//                   alignment: Alignment.topCenter,
-//                   child: ClipRRect(
-//                     borderRadius: BorderRadius.circular(_isSheetOpen ? 20 : 0),
-//                     child: AbsorbPointer(
-//                       absorbing: _isSheetOpen,
-//                       child: widget.child,
-//                     ),
+//             return Padding(
+//               padding: EdgeInsets.only(
+//                 top: topPadding,
+//                 left: horizontalPadding,
+//                 right: horizontalPadding,
+//               ),
+//               child: Transform.scale(
+//                 scale: _scaleAnimation.value,
+//                 alignment: Alignment.topCenter,
+//                 child: ClipRRect(
+//                   borderRadius: BorderRadius.circular(_isSheetOpen ? 20 : 0),
+//                   child: AbsorbPointer(
+//                     absorbing: _isSheetOpen,
+//                     child: widget.child,
 //                   ),
 //                 ),
-//               );
-//             },
+//               ),
+//             );
+//           },
+//         ),
+//
+//         // Overlay for dimming
+//         if (_isSheetOpen)
+//           AnimatedBuilder(
+//             animation: _controller,
+//             builder: (context, child) => MaterialButton(
+//               onPressed: closeSheet,
+//               child: Container(
+//                 color: Colors.black.withOpacity(0.3 * _controller.value),
+//               ),
+//             ),
 //           ),
 //
-//           // Overlay for dimming
-//           if (_isSheetOpen)
-//             AnimatedBuilder(
+//         // Bottom sheet with improved constraint handling
+//         if (_isSheetOpen && _currentBottomSheet != null)
+//           Positioned(
+//             left: 0,
+//             right: 0,
+//             bottom: 0,
+//             child: AnimatedBuilder(
 //               animation: _controller,
-//               builder: (context, child) => GestureDetector(
-//                 onTap: closeSheet,
-//                 child: Container(
-//                   color: Colors.black.withOpacity(0.3 * _controller.value),
-//                 ),
-//               ),
-//             ),
+//               builder: (context, child) {
+//                 final maxSheetHeight = screenHeight * _currentSheetHeight;
+//                 final animatedHeight = maxSheetHeight * _sheetHeightFactor.value;
+//                 final finalHeight = animatedHeight.clamp(0.0, screenHeight);
 //
-//           // Bottom sheet with improved constraint handling
-//           if (_isSheetOpen && _currentBottomSheet != null)
-//             Positioned(
-//               left: 0,
-//               right: 0,
-//               bottom: 0,
-//               child: AnimatedBuilder(
-//                 animation: _controller,
-//                 builder: (context, child) {
-//                   // Calculate the actual height, ensuring it's never 0 or negative
-//                   final maxSheetHeight = screenHeight * _currentSheetHeight;
-//                   final animatedHeight = maxSheetHeight * _sheetHeightFactor.value;
-//                   final finalHeight = animatedHeight.clamp(0.0, screenHeight);
+//                 if (finalHeight < 50) {
+//                   return const SizedBox.shrink();
+//                 }
 //
-//                   // Don't render if height is too small
-//                   if (finalHeight < 50) {
-//                     return const SizedBox.shrink();
-//                   }
+//                 return Container(
+//                   height: finalHeight,
+//                   decoration: BoxDecoration(
+//                     color: theme?.background ?? Colors.white,
+//                     borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+//                   ),
+//                   child: Column(
+//                     mainAxisSize: MainAxisSize.min,
+//                     children: [
+//                       // Handle bar (optional)
+//                       // const SizedBox(height: 6),
 //
-//                   return Container(
-//                     height: finalHeight,
-//                     decoration: BoxDecoration(
-//                       color: theme?.background ?? Colors.white,
-//                       borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-//                     ),
-//                     child: Column(
-//                       mainAxisSize: MainAxisSize.min,
-//                       children: [
-//                         // Handle bar
-//                         Container(
-//                           //width: 40,
-//                          // height: 4,
-//                          // margin: const EdgeInsets.only(top: 0, bottom: 8),
-//                           decoration: BoxDecoration(
-//                             color: Colors.grey.shade300,
-//                             borderRadius: BorderRadius.circular(2),
-//                           ),
-//                         ),
-//                         // Content area with safe constraints
-//                         Expanded(
-//                           child: LayoutBuilder(
-//                             builder: (context, constraints) {
-//                               // Ensure we have valid constraints
-//                               if (constraints.maxHeight <= 0) {
-//                                 return const SizedBox.shrink();
-//                               }
+//                       // Content area with safe constraints
+//                       Expanded(
+//                         child: LayoutBuilder(
+//                           builder: (context, constraints) {
+//                             if (constraints.maxHeight <= 0) {
+//                               return const SizedBox.shrink();
+//                             }
 //
-//                               return ClipRRect(
-//                                 borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-//                                 child: SingleChildScrollView(
-//                                   physics: const BouncingScrollPhysics(),
-//                                   child: ConstrainedBox(
-//                                     constraints: BoxConstraints(
-//                                       minHeight: constraints.maxHeight,
-//                                     ),
-//                                     child: IntrinsicHeight(
-//                                       child: Padding(
-//                                         padding: EdgeInsets.only(
-//                                           left: 0,
-//                                           right: 0,
-//                                           top: 0,
-//                                           bottom: 0,
-//                                         ),
-//                                         child: _currentBottomSheet!,
-//                                       ),
-//                                     ),
+//                             return ClipRRect(
+//                               borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+//                               child: SingleChildScrollView(
+//                                 physics: const BouncingScrollPhysics(),
+//                                 child: ConstrainedBox(
+//                                   constraints: BoxConstraints(
+//                                     minHeight: constraints.maxHeight,
+//                                   ),
+//                                   child: IntrinsicHeight(
+//                                     child: _currentBottomSheet!,
 //                                   ),
 //                                 ),
-//                               );
-//                             },
-//                           ),
+//                               ),
+//                             );
+//                           },
 //                         ),
-//                       ],
-//                     ),
-//                   );
-//                 },
-//               ),
+//                       ),
+//                     ],
+//                   ),
+//                 );
+//               },
 //             ),
-//         ],
-//       ),
+//           ),
+//       ],
 //     );
 //   }
 //
@@ -464,6 +569,10 @@ class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
 //     super.dispose();
 //   }
 // }
+
+
+
+
 
 
 
@@ -551,158 +660,3 @@ class BottomSheetManager {
 }
 
 
-// class ChatGPTBottomSheetWrapper extends StatefulWidget {
-//   final Widget child;       // Your main screen content
-//   final Widget bottomSheet; // The animated bottom sheet
-//
-//   const ChatGPTBottomSheetWrapper({
-//     super.key,
-//     required this.child,
-//     required this.bottomSheet,
-//   });
-//
-//   @override
-//   ChatGPTBottomSheetWrapperState createState() => ChatGPTBottomSheetWrapperState();
-// }
-//
-// class ChatGPTBottomSheetWrapperState extends State<ChatGPTBottomSheetWrapper>
-//     with TickerProviderStateMixin {
-//   late AnimationController _controller;
-//   late Animation<double> _scaleAnimation;
-//   late Animation<Offset> _slideAnimation;
-//   late Animation<double> _sheetHeightFactor;
-//
-//   bool _isSheetOpen = false;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _controller = AnimationController(
-//       vsync: this,
-//       duration: const Duration(milliseconds: 300),
-//     );
-//
-//     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.94).animate(
-//       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-//     );
-//
-//     _slideAnimation = Tween<Offset>(
-//       begin: const Offset(0, 1),
-//       end: Offset.zero,
-//     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-//
-//     _sheetHeightFactor = Tween<double>(begin: 0.0, end: 1.0).animate(
-//       CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-//     );
-//   }
-//
-//   void openSheet() {
-//     if (!_isSheetOpen) {
-//       setState(() => _isSheetOpen = true);
-//       _controller.forward();
-//     }
-//   }
-//
-//   void closeSheet() async {
-//     if (_isSheetOpen) {
-//       await _controller.reverse();
-//       if (mounted) setState(() => _isSheetOpen = false);
-//     }
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final mediaQuery = MediaQuery.of(context);
-//     final bottomPadding = mediaQuery.padding.bottom;
-//     final screenHeight = mediaQuery.size.height;
-//     final maxSheetHeight = screenHeight * 0.93;
-//     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
-//     // 80% of screen height
-//
-//     return AnnotatedRegion<SystemUiOverlayStyle>(
-//       value: _isSheetOpen ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
-//       child: Stack(
-//         children: [
-//           // Main content with scale and slide animation
-//           AnimatedBuilder(
-//             animation: _controller,
-//             builder: (context, child) {
-//               final topPadding = Tween<double>(begin: 0.0, end: 55.0).transform(_controller.value);
-//               final horizontalPadding = Tween<double>(begin: 0.0, end: 10.0).transform(_controller.value);
-//
-//               return Padding(
-//                 padding: EdgeInsets.only(
-//                   top: topPadding,
-//                   left: horizontalPadding,
-//                   right: horizontalPadding,
-//                 ),
-//                 child: Transform.scale(
-//                   scale: _scaleAnimation.value,
-//                   alignment: Alignment.topCenter,
-//                   child: ClipRRect(
-//                     borderRadius: BorderRadius.circular(_isSheetOpen ? 20 : 0),
-//                     child: AbsorbPointer(
-//                       absorbing: _isSheetOpen,
-//                       child: widget.child,
-//                     ),
-//                   ),
-//                 ),
-//               );
-//             },
-//           ),
-//
-//           // Overlay for dimming
-//           if (_isSheetOpen)
-//             AnimatedBuilder(
-//               animation: _controller,
-//               builder: (context, child) => GestureDetector(
-//                 onTap: closeSheet,
-//                 child: Container(
-//                   color: Colors.black.withOpacity(0.3 * _controller.value),
-//                 ),
-//               ),
-//             ),
-//
-//           // Bottom sheet with height animation
-//           if (_isSheetOpen)
-//             Positioned(
-//               left: 0,
-//               right: 0,
-//               bottom: 0,
-//               child: AnimatedBuilder(
-//                 animation: _controller,
-//                 builder: (context, child) {
-//                   final height = maxSheetHeight * _sheetHeightFactor.value;
-//
-//                   return Container(
-//                     height: height,
-//                     decoration:  BoxDecoration(
-//                       color: theme.background,
-//                       borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
-//                     ),
-//                     child: SingleChildScrollView(
-//                       child: Padding(
-//                         padding: EdgeInsets.only(
-//                           left: 20,
-//                           right: 20,
-//                           top: 20,
-//                           bottom: bottomPadding + 20,
-//                         ),
-//                         child: widget.bottomSheet,
-//                       ),
-//                     ),
-//                   );
-//                 },
-//               ),
-//             ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   @override
-//   void dispose() {
-//     _controller.dispose();
-//     super.dispose();
-//   }
-// }
