@@ -46,10 +46,9 @@ class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateM
   late StreamSubscription<AuthState> _stateSub;
   bool isLoading = false;
 
-  // NEW: animate only the options card
   late final AnimationController _optionsCtrl;
   late final Animation<double> _optionsOpacity;
-  late final Animation<Offset> _optionsSlide; // slide up a bit
+  late final Animation<Offset> _optionsSlide;
 
   static const String privacyPolicyUrl = 'https://vitty-legal.github.io/vitty-privacy/';
 
@@ -65,12 +64,10 @@ class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateM
       }
     });
 
-    // focus after a bit
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) _focusNode.requestFocus();
     });
 
-    // NEW: options entrance animation
     _optionsCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 350),
@@ -82,14 +79,13 @@ class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateM
     );
 
     _optionsSlide = Tween<Offset>(
-      begin: const Offset(0, 0.06), // ~ slight down
+      begin: const Offset(0, 0.06),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _optionsCtrl,
       curve: Curves.easeOutCubic,
     ));
 
-    // kick it after first frame so logo appears instantly
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _optionsCtrl.forward();
     });
@@ -119,28 +115,51 @@ class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateM
           : Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          SizedBox(height: screenHeight * 0.3),
+          SizedBox(height: screenHeight * 0.25),
 
-          // IMPORTANT: plain Image (NO Hero) so the logo stays exactly where it was on splash
+          // EXACT MATCH: Same size container as splash screen
           SizedBox(
             width: VittyLogoConfig.logoWidth,
-            height: VittyLogoConfig.logoHeight,
-            child: Hero(
-              tag: 'penny_logo',
-              child: Image.asset(
-                'assets/images/ying yang full.png',
-                width: screenWidth * 0.80,
-                height: screenHeight * 0.2,
-                fit: BoxFit.contain,
-              ),
+            height: VittyLogoConfig.logoHeight, // Same as splash
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center, // Same as splash
+              children: [
+                // EXACT HERO MATCH: Same dimensions & properties as splash
+                Hero(
+                  tag: 'penny_logo',
+                  transitionOnUserGestures: true,
+                  child: Image.asset(
+                    'assets/images/ying yang.png',
+                    width: VittyLogoConfig.logoWidth,     // EXACT same width
+                    height: VittyLogoConfig.vittyTextHeight, // EXACT same height as splash
+                    fit: BoxFit.contain,                  // EXACT same fit
+                  ),
+                ),
+
+                // EXACT spacing as splash
+                // const SizedBox(height: 8), // Commented out same as splash
+
+                Image.asset(
+                  'assets/images/Vitty.ai2.png',
+                  width: VittyLogoConfig.logoWidth,
+                  height: VittyLogoConfig.vittyTextHeight,
+                  fit: BoxFit.contain,
+                ),
+
+                Image.asset(
+                  'assets/images/वित्तीय2.png',
+                  width: VittyLogoConfig.logoWidth,
+                  height: VittyLogoConfig.hindiTextHeight,
+                  fit: BoxFit.contain,
+                ),
+              ],
             ),
           ),
 
+          SizedBox(height: screenHeight * 0.15),
 
-
-          SizedBox(height: screenHeight * 0.2),
-
-          // Animate ONLY the options/card in
+          // Animated options card
           FadeTransition(
             opacity: _optionsOpacity,
             child: SlideTransition(
@@ -164,16 +183,16 @@ class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateM
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Google
+                      // Google Sign In
                       googleSignIn(context),
 
                       if (showApple) ...[
                         const SizedBox(height: 20),
                         AuthButton(
-                          icon: const Icon(Icons.apple, color: Colors.black, size: 27),
+                          icon: Image.asset('assets/images/apple.png', height: 20),
                           label: 'Continue with Apple',
-                          onTap: () async {HapticFeedback.mediumImpact();
-
+                          onTap: () async {
+                            HapticFeedback.mediumImpact();
                             await locator<AuthService>().handleAppleSignIn((flow) {
                               if (!mounted) return;
                               if (flow == AuthFlow.home) {
@@ -184,7 +203,7 @@ class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateM
                             });
                           },
                         ),
-                        const SizedBox(height: 33),
+                        const SizedBox(height: 20),
                       ] else ...[
                         const SizedBox(height: 8),
                       ],
@@ -208,10 +227,10 @@ class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateM
                               TextSpan(
                                 text: "Terms & Conditions",
                                 style: const TextStyle(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w500,
-                                  decoration: TextDecoration.underline,
-                                  fontFamily: "DM Sans"
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w500,
+                                    decoration: TextDecoration.underline,
+                                    fontFamily: "DM Sans"
                                 ),
                                 recognizer: TapGestureRecognizer()
                                   ..onTap = () => _launchUrl(privacyPolicyUrl),
@@ -220,9 +239,9 @@ class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateM
                               TextSpan(
                                 text: "Privacy Policy",
                                 style: const TextStyle(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w500,
-                                  decoration: TextDecoration.underline,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w500,
+                                    decoration: TextDecoration.underline,
                                     fontFamily: "DM Sans"
                                 ),
                                 recognizer: TapGestureRecognizer()

@@ -446,7 +446,7 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
                     // Center content
                     Expanded(
                       child: CirclingBorderWidget(
-                        capsuleHeight: 20,
+                        capsuleHeight: 35,
                         duration: Duration(milliseconds: 2000),
                         strokeWidth: 3.5,
                         shouldAnimate: _shouldTriggerAnimation,
@@ -641,7 +641,7 @@ class CirclingBorderWidget extends StatefulWidget {
     this.animateOnce = true, // NEW: Default to animate once
     this.strokeWidth = 2.0,
     this.radius = 16.0,
-    this.capsuleHeight = 56.0,
+    this.capsuleHeight = 76.0,
     this.horizontalInset = 80.0,
     this.contentPadding = const EdgeInsets.symmetric(horizontal: 18.0),
     this.visibleFraction = 0.5, // one side line, one side open
@@ -653,7 +653,7 @@ class CirclingBorderWidget extends StatefulWidget {
       const LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
-        colors: [Color(0xFFFF9000), Color(0xFFED4300)],
+        colors: [Color(0xFFFF9000), Color(0xFFED4300),Color(0xffF66A0000)],
       ),
         assert(visibleFraction > 0 && visibleFraction < 1,
         'visibleFraction must be between 0 and 1'),
@@ -784,7 +784,7 @@ class _HalfSweepPainter extends CustomPainter {
     final r = radius.clamp(0.0, math.min(rect.width, rect.height) / 2);
 
     // Full capsule path (closed)
-    final Path capsule = Path()..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(r)));
+    final Path capsule = Path()..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(10)));
     final metric = capsule.computeMetrics().first;
     final L = metric.length;
 

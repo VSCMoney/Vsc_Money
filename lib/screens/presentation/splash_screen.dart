@@ -19,7 +19,6 @@ import 'onboarding/onoarding_page.dart';
 
 
 
-
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
   @override
@@ -28,19 +27,30 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
   late AnimationController _controller;
+  late AnimationController _exitController; // Exit animation controller
+
   late Animation<double> _opacityAnimation;
   late Animation<double> _scaleAnimation;
+  late Animation<double> _textFadeOut; // Text fade-out
 
   final authService = locator<AuthService>();
   bool _navigated = false;
+  bool _isExiting = false;
   Timer? _navigationTimer;
 
   @override
   void initState() {
     super.initState();
 
+    // Main splash animation
     _controller = AnimationController(
       duration: const Duration(milliseconds: 900),
+      vsync: this,
+    );
+
+    // Text exit fade controller
+    _exitController = AnimationController(
+      duration: const Duration(milliseconds: 400),
       vsync: this,
     );
 
@@ -52,9 +62,14 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       CurvedAnimation(parent: _controller, curve: const Interval(0.3, 1.0, curve: Curves.easeOutBack)),
     );
 
+    // Texts only fade out on exit
+    _textFadeOut = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _exitController, curve: Curves.easeOut),
+    );
+
     _controller.forward().then((_) => _handleNavigation());
 
-    // Safety timeout
+    // Hard timeout fallback
     _navigationTimer = Timer(const Duration(seconds: 15), () {
       if (!_navigated && mounted) {
         debugPrint('⏰ Splash timeout - forcing navigation to login');
@@ -64,8 +79,18 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Optional: precache to avoid flicker during hero
+    precacheImage(const AssetImage('assets/images/ying yang.png'), context);
+    precacheImage(const AssetImage('assets/images/Vitty.ai2.png'), context);
+    precacheImage(const AssetImage('assets/images/वित्तीय2.png'), context);
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
+    _exitController.dispose();
     _navigationTimer?.cancel();
     super.dispose();
   }
@@ -77,49 +102,68 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     return Scaffold(
       backgroundColor: theme.background,
       body: Center(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) => Opacity(
-            opacity: _opacityAnimation.value,
-            child: Transform.scale(
-              scale: _scaleAnimation.value,
-              child: SizedBox(
-                width: VittyLogoConfig.logoWidth,
-                height: VittyLogoConfig.logoHeight,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // ✅ UPDATED: No rotation, simplified Hero
-                    Hero(
-                      tag: 'penny_logo',
-                      transitionOnUserGestures: true,
-                      child: Image.asset(
-                        'assets/images/ying yang.png',
-                        width: VittyLogoConfig.logoWidth,
-                        height: VittyLogoConfig.yingYangHeight,
-                        fit: BoxFit.contain,
+        child: IgnorePointer( // ✨ block taps while exiting
+          ignoring: _isExiting,
+          child: AnimatedBuilder(
+            animation: Listenable.merge([_controller, _exitController]),
+            builder: (context, child) => Opacity(
+              opacity: _opacityAnimation.value,
+              child: Transform.scale(
+                scale: _scaleAnimation.value,
+                child: SizedBox(
+                  width: VittyLogoConfig.logoWidth,
+                  height: VittyLogoConfig.logoHeight,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Logo: stays visible and flies via Hero AFTER text fade
+                      Hero(
+                        tag: 'penny_logo',
+                        transitionOnUserGestures: true,
+                        flightShuttleBuilder: (flightContext, animation, flightDirection, fromHeroContext, toHeroContext) {
+                          final fromHero = fromHeroContext.widget as Hero;
+                          final toHero = toHeroContext.widget as Hero;
+                          return AnimatedBuilder(
+                            animation: animation,
+                            builder: (context, child) {
+                              return flightDirection == HeroFlightDirection.push
+                                  ? toHero.child
+                                  : fromHero.child;
+                            },
+                          );
+                        },
+                        child: Image.asset(
+                          'assets/images/ying yang.png',
+                          width: VittyLogoConfig.logoWidth,
+                          height: VittyLogoConfig.vittyTextHeight,
+                          fit: BoxFit.contain,
+                        ),
                       ),
-                    ),
 
-                    Hero(
-                      tag: 'sub_logo',
-                      child: Image.asset(
-                        'assets/images/Vitty.ai2.png',
-                        width: VittyLogoConfig.logoWidth,
-                        height: VittyLogoConfig.vittyTextHeight,
-                        fit: BoxFit.contain,
+                      // ✨ Texts: fade OUT before navigation triggers Hero
+                      FadeTransition(
+                        opacity: _textFadeOut,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Image.asset(
+                              'assets/images/Vitty.ai2.png',
+                              width: VittyLogoConfig.logoWidth,
+                              height: VittyLogoConfig.vittyTextHeight,
+                              fit: BoxFit.contain,
+                            ),
+                            Image.asset(
+                              'assets/images/वित्तीय2.png',
+                              width: VittyLogoConfig.logoWidth,
+                              height: VittyLogoConfig.hindiTextHeight,
+                              fit: BoxFit.contain,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-
-                    // Hindi text (no Hero)
-                    Image.asset(
-                      'assets/images/वित्तीय2.png',
-                      width: VittyLogoConfig.logoWidth,
-                      height: VittyLogoConfig.hindiTextHeight,
-                      fit: BoxFit.contain,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -129,7 +173,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     );
   }
 
-  // ======= UPDATED: Navigation logic with Hero for onboarding AND sign-in =======
   void _handleNavigation() async {
     if (_navigated) return;
 
@@ -142,7 +185,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       });
 
       final prefs = futures[0] as SharedPreferences;
-
       final endPointService = EndPointService();
       final hasNetwork = endPointService.currentNetworkStatus != NetworkStatus.noInternet;
 
@@ -228,22 +270,32 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     });
   }
 
-  void _navigateToRoute(String route) {
+  // 🔑 Updated: wait for text fade before pushing (so Hero starts after fade)
+  Future<void> _navigateToRoute(String route) async {
     if (_navigated) return;
     _navigated = true;
     _navigationTimer?.cancel();
 
-    // ✅ UPDATED: Hero animation for both onboarding AND phone_otp (sign-in)
     final wantsHeroFlight = (route == '/onboarding' || route == '/phone_otp');
 
     try {
       if (!mounted) return;
 
       if (wantsHeroFlight) {
-        context.push(route); // push => both pages coexist => Hero flies
-        debugPrint('✅ Navigated to: $route (PUSH with Hero animation)');
+        setState(() => _isExiting = true);
+
+        // Fade out texts fully before starting Hero transition
+        await _exitController.forward();
+
+        if (!mounted) return;
+        context.push(route); // This will now start AFTER fade completes
+        debugPrint('✅ Navigated to: $route (PUSH with Hero after text fade)');
       } else {
-        context.go(route);   // replace for others (no Hero)
+        // Direct navigation for non-Hero routes (no text fade needed)
+        // small micro-delay to avoid jank
+        await Future.delayed(const Duration(milliseconds: 80));
+        if (!mounted) return;
+        context.go(route);
         debugPrint('✅ Navigated to: $route (GO replace, no Hero)');
       }
     } catch (e) {
@@ -300,7 +352,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 }
 
 
-// ✅ Helper extension for fire-and-forget operations
+
+
+
 extension UnawaiteExtension on Future {
   void get unawaited => {};
 }

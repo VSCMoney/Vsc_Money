@@ -206,7 +206,8 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
     final double horizontalPadding = 23.0;
     final double logoHeight = isTablet ? 50 : 46;
     final double spacing = 12;
-    final theme = locator<ThemeService>().currentTheme;
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
 
     return Stack(
       clipBehavior: Clip.none,
@@ -267,12 +268,19 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                                                 child: Row(
                                                   mainAxisAlignment: MainAxisAlignment.center,
                                                   children: [
-                                                    Image.asset(
-                                                      "assets/images/Vitty.ai2.png",
-                                                      height: 20,
-                                                      fit: BoxFit.contain,
-                                                    ),
-                                                    const SizedBox(width: 4),
+                                                    // Image.asset(
+                                                    //   "assets/images/Vitty.ai2.png",
+                                                    //   height: 20,
+                                                    //   fit: BoxFit.contain,
+                                                    // ),
+                                                    Text('Vitty',style: TextStyle(
+                                                      fontWeight: FontWeight.w800,
+                                                      fontFamily: "Josefin Sans",
+                                                      fontSize: 22,
+                                                      color: theme.icon,
+                                                      letterSpacing: 1.0,
+                                                    ),),
+                                                    const SizedBox(width: 0),
                                                     GestureDetector(
                                                       onTap: _toggleDropdown,
                                                       child: AnimatedRotation(
@@ -431,9 +439,9 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
               animation: _dropdownAnimation,
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: theme.box,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE5E5E5), width: 1),
+                  border: Border.all(color: theme.border, width: 1),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.1),
@@ -446,20 +454,20 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Material(
-                      color: Colors.transparent,
+                      color: theme.box,
                       child: InkWell(
                         onTap: _onShareTap,
                         borderRadius: BorderRadius.zero,
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           width: double.infinity,
-                          child: const Center(
+                          child:  Center(
                             child: Text(
                               'Share',
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w400,
-                                color: Colors.black,
+                                color: theme.text,
                                 fontFamily: 'DM Sans',
                               ),
                             ),
@@ -473,20 +481,20 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                       margin: const EdgeInsets.symmetric(horizontal: 16),
                     ),
                     Material(
-                      color: Colors.transparent,
+                      color: theme.box,
                       child: InkWell(
                         onTap: _onCopyTap,
                         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           width: double.infinity,
-                          child: const Center(
+                          child:  Center(
                             child: Text(
                               'Copy',
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w400,
-                                color: Colors.black,
+                                color: theme.text,
                                 fontFamily: 'DM Sans',
                               ),
                             ),
@@ -529,7 +537,8 @@ class _BoldNewChatIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = locator<ThemeService>().currentTheme;
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     return Stack(
       alignment: Alignment.center,
       children: [

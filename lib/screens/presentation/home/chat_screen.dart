@@ -1,10 +1,10 @@
-// ignore_for_file: unused_field
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
@@ -217,7 +217,7 @@ class _ChatScreenState extends State<ChatScreen>
 
     if (!_scrollController.hasClients) return;
     final max = _scrollController.position.maxScrollExtent;
-    setState(() {});
+   // setState(() {});
   }
 
   void _setupSubscriptions() {
@@ -254,6 +254,12 @@ class _ChatScreenState extends State<ChatScreen>
       if (_showScrollToBottomButton != shouldShowScrollToBottomButton) {
         setState(() => _showScrollToBottomButton = shouldShowScrollToBottomButton);
       }
+
+
+      // if(_scrollController.offset < _scrollController.position.maxScrollExtent - adjustment && !widget.chatService.isTyping){
+      //   _scrollController.jumpTo(_scrollController.position.maxScrollExtent - adjustment);
+      // }
+      // print("OFFSET ${_scrollController.offset} ||| MAX EXTENT ${_scrollController.position.maxScrollExtent} ||| adjustment ${adjustment}");
     });
   }
 
@@ -483,14 +489,15 @@ class _ChatScreenState extends State<ChatScreen>
                           itemBuilder: (context, index) {
                             if (index == messages.length) {
                               if(messages.isNotEmpty){
-                                final chatH = widget.chatService.chatViewportHeight + 47; // ab constant
+                                final chatH = widget.chatService.chatViewportHeight; // ab constant
                                 final adjustment = ChatUIHelper.calculateScrollAdjustment(
                                   chatHeight: chatH,
                                   latestUserMessageHeight: _latestUserMessageHeight,
                                 );
 
-                                print("Chatheight :${chatH} |||  ${adjustment} ||| ${_latestUserMessageHeight}");
-                                return SizedBox(height: math.max(0, adjustment));
+                                if (kDebugMode && index == messages.length) {
+                                  //print("Chatheight :${chatH} |||  ${adjustment} ||| ${_latestUserMessageHeight}");
+                                }                                return SizedBox(height: math.max(0, adjustment));
                               }else{
                                 return Container();
                               }
@@ -575,6 +582,656 @@ class _ChatScreenState extends State<ChatScreen>
     );
   }
 }
+
+
+// class ChatScreen extends StatefulWidget {
+//   final ChatSession? session;
+//   final ChatService chatService;
+//   final void Function(int)? onNavigateToTab;
+//   final void Function(bool)? onFirstMessageComplete;
+//   final GlobalKey<ChatGPTBottomSheetWrapperState>? sheetKey;
+//   final Function(String)? onAskVitty;
+//   final void Function(String)? onStockTap;
+//   final bool isThreadMode;
+//   final VoidCallback? onSendMessageStarted;
+//
+//   const ChatScreen({
+//     Key? key,
+//     required this.session,
+//     required this.chatService,
+//     this.onNavigateToTab,
+//     this.onFirstMessageComplete,
+//     this.onAskVitty,
+//     this.isThreadMode = false,
+//     this.sheetKey,
+//     this.onStockTap,
+//     this.onSendMessageStarted,
+//   }) : super(key: key);
+//
+//   @override
+//   State<ChatScreen> createState() => _ChatScreenState();
+// }
+//
+// class _ChatScreenState extends State<ChatScreen>
+//     with WidgetsBindingObserver, TickerProviderStateMixin {
+//   final TextEditingController _controller = TextEditingController();
+//   final FocusNode _focusNode = FocusNode();
+//   final _textFieldKey = GlobalKey();
+//
+//   ScrollController _scrollController = ScrollController();
+//   late StreamSubscription<bool> _scrollLockSub;
+//
+//   bool _isScrollLocked = false;
+//   static const double _lockEps = 0.5;
+//   double _lastBottomInset = 0.0;
+//   double _inputHeight = 0.0;
+//
+//   // Services
+//   final AudioService _audioService = AudioService.instance;
+//
+//   // UI state
+//   bool _showExpandedInput = false;
+//   double _keyboardInset = 0;
+//   double _chatHeight = 0; // Local chat height
+//   final Map<String, double> _messageHeights = {};
+//   double _latestUserMessageHeight = 52;
+//   bool _showScrollToBottomButton = false;
+//
+//   // Track user message heights by index for stability
+//   final Map<int, double> _userMessageHeights = {};
+//   double get _layoutGutter => MediaQuery.of(context).size.width * 0.06;
+//
+//   // Subscriptions
+//   late StreamSubscription _messagesSubscription;
+//   StreamSubscription? _isTypingSubscription;
+//   late StreamSubscription _hasLoadedMessagesSubscription;
+//   late StreamSubscription _firstMessageCompleteSubscription;
+//
+//   // NotificationListener auto-jump variables
+//   bool _shouldAutoJump = true;
+//   bool _isUserScrolling = false;
+//   bool _isAutoScrolling = false; // Track if we're doing auto scroll
+//   Timer? _scrollEndTimer;
+//
+//   // NEW: Freeze last bot bubble height during user scroll
+//   bool _freezeWhileScroll = false;
+//   double? _lastBotMeasuredHeight;
+//
+//   // NEW: memoized adjustment to avoid jitter
+//   double _lastAdj = 0.0;
+//   static const double _adjEps = 0.5;
+//
+//   // Get current adjustment dynamically (but we now memoize in build)
+//   double get _currentAdjustment {
+//     final messages = widget.chatService.messages;
+//     if (messages.isEmpty) return 0.0;
+//     return ChatUIHelper.calculateScrollAdjustment(
+//       chatHeight: _chatHeight,
+//       latestUserMessageHeight: _latestUserMessageHeight,
+//     );
+//   }
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//
+//     _audioService.initialize();
+//     _setupSubscriptions();
+//
+//     if (kDebugMode) {
+//       print("🖥️ ChatScreen initState - session: ${widget.session?.id ?? 'null'}");
+//       print("📊 Current messages count: ${widget.chatService.messages.length}");
+//     }
+//
+//     WidgetsBinding.instance.addObserver(this);
+//
+//     // Only auto-focus in non-thread mode when there are no messages
+//     if (!widget.isThreadMode) {
+//       Future.delayed(const Duration(milliseconds: 300), () {
+//         if (mounted && widget.chatService.messages.isEmpty) {
+//           FocusScope.of(context).requestFocus(_focusNode);
+//         }
+//       });
+//     }
+//
+//     _setupScrollListener();
+//     _focusNode.addListener(_onFocusChange);
+//
+//     if (kDebugMode) {
+//       print("✅ ChatScreen initState complete - no message loading triggered");
+//     }
+//   }
+//
+//   void _setupSubscriptions() {
+//     _messagesSubscription = widget.chatService.messagesStream.listen((_) {
+//       if (mounted) setState(() {});
+//     });
+//
+//     _hasLoadedMessagesSubscription =
+//         widget.chatService.hasLoadedMessagesStream.listen((_) {
+//           if (mounted) setState(() {});
+//         });
+//
+//     _firstMessageCompleteSubscription =
+//         widget.chatService.firstMessageCompleteStream.listen((isComplete) {
+//           if (isComplete) {
+//             widget.onFirstMessageComplete?.call(isComplete);
+//           }
+//         });
+//
+//     // Scroll-lock state subscribe
+//     _scrollLockSub = widget.chatService.isScrollLockedStream.listen((locked) {
+//       _isScrollLocked = locked;
+//       if (!mounted) return;
+//       setState(() {});
+//       if (kDebugMode) {
+//         print("🔒 Scroll ${locked ? 'LOCKED' : 'UNLOCKED'}");
+//       }
+//     });
+//
+//     // Listen for typing changes to handle bot completion
+//     _isTypingSubscription =
+//         widget.chatService.isTypingStream.listen((isTyping) {
+//           if (!isTyping) {
+//             _onBotResponseComplete();
+//           }
+//         });
+//   }
+//
+//   void _setupScrollListener() {
+//     _scrollController.addListener(() {
+//       if (!_scrollController.hasClients) return;
+//
+//       final shouldShowScrollToBottomButton =
+//           _scrollController.offset <
+//               _scrollController.position.maxScrollExtent - 100;
+//
+//       if (_showScrollToBottomButton != shouldShowScrollToBottomButton) {
+//         setState(() => _showScrollToBottomButton = shouldShowScrollToBottomButton);
+//       }
+//     });
+//   }
+//
+//   // Handle scroll notifications
+//   bool _handleScrollNotification(ScrollNotification notification) {
+//     if (!_scrollController.hasClients || !_shouldAutoJump) {
+//       return false;
+//     }
+//
+//     if (notification is ScrollStartNotification) {
+//       // Mark this only for user-driven scrolls
+//       if (!_isAutoScrolling) {
+//         _freezeWhileScroll = true;
+//         _isUserScrolling = true;
+//         _scrollEndTimer?.cancel();
+//         if (kDebugMode) {
+//           print("🎯 User started scrolling (freeze bot height: $_freezeWhileScroll)");
+//         }
+//       }
+//     }
+//
+//     if (notification is ScrollUpdateNotification) {
+//       // Skip if we're auto-scrolling to prevent infinite loop
+//       if (_isAutoScrolling) {
+//         if (kDebugMode) {
+//           print("⏭️ Skipping scroll event - auto scrolling in progress");
+//         }
+//         return false;
+//       }
+//
+//       final currentOffset = notification.metrics.pixels;
+//       final maxScrollExtent = notification.metrics.maxScrollExtent;
+//       final scrollDelta = notification.scrollDelta ?? 0.0;
+//
+//       // Use memoized adjustment for stability
+//       final threshold = maxScrollExtent - _lastAdj;
+//
+//       if (kDebugMode) {
+//         print("📊 Scroll Update:");
+//         print("  Current: $currentOffset");
+//         print("  Max: $maxScrollExtent");
+//         print("  Threshold: $threshold (maxExtent - adj)");
+//         print("  Delta: $scrollDelta");
+//         print("  Adjustment(memo): $_lastAdj");
+//         print("  _shouldAutoJump: $_shouldAutoJump");
+//         print("  _isAutoScrolling: $_isAutoScrolling");
+//       }
+//
+//       // Check if user is scrolling down and reached the threshold
+//       if (_shouldAutoJump && scrollDelta > 0 && currentOffset >= threshold) {
+//         if (kDebugMode) {
+//           print("🚀 Auto-jumping to maxScrollExtent!");
+//         }
+//
+//         // Set flag to prevent infinite loop
+//         _isAutoScrolling = true;
+//
+//         // Auto-jump to maxScrollExtent
+//         WidgetsBinding.instance.addPostFrameCallback((_) {
+//           if (_scrollController.hasClients) {
+//             _scrollController
+//                 .animateTo(
+//               maxScrollExtent,
+//               duration: const Duration(milliseconds: 300),
+//               curve: Curves.easeOut,
+//             )
+//                 .then((_) {
+//               // Reset flag after animation completes
+//               _isAutoScrolling = false;
+//               if (kDebugMode) {
+//                 print("🎯 Auto-scroll animation completed");
+//               }
+//             });
+//           }
+//         });
+//       }
+//
+//       // Disable auto-jump if user scrolls up significantly
+//       if (scrollDelta < -10) {
+//         if (kDebugMode) {
+//           print("🔴 User scrolling up - disabling auto jump");
+//         }
+//         setState(() => _shouldAutoJump = false);
+//       }
+//     }
+//
+//     if (notification is ScrollEndNotification) {
+//       _scrollEndTimer?.cancel();
+//       _scrollEndTimer = Timer(const Duration(milliseconds: 100), () {
+//         _isUserScrolling = false;
+//         _freezeWhileScroll = false; // unfreeze after user stops
+//         // Re-enable auto-jump if user is at the bottom
+//         final currentOffset = notification.metrics.pixels;
+//         final maxScrollExtent = notification.metrics.maxScrollExtent;
+//
+//         if (currentOffset >= maxScrollExtent - 10) {
+//           if (kDebugMode) {
+//             print("🟢 User at bottom - enabling auto jump (unfreeze: $_freezeWhileScroll)");
+//           }
+//           setState(() => _shouldAutoJump = true);
+//         } else {
+//           if (kDebugMode) {
+//             print("ℹ️ Scroll end away from bottom (unfreeze: $_freezeWhileScroll)");
+//           }
+//         }
+//       });
+//     }
+//
+//     return false; // Don't consume the notification
+//   }
+//
+//   // Called when bot response is complete
+//   void _onBotResponseComplete() {
+//     if (kDebugMode) {
+//       print("🤖 Bot response complete");
+//     }
+//     // Nothing else required; height stabilization is handled via freeze + memoized spacer
+//   }
+//
+//   @override
+//   void didChangeMetrics() {
+//     if (!mounted) return;
+//
+//     WidgetsBinding.instance.addPostFrameCallback((_) {
+//       if (!mounted) return;
+//
+//       final dispatcher = WidgetsBinding.instance.platformDispatcher;
+//       final view = dispatcher.implicitView ??
+//           (dispatcher.views.isNotEmpty ? dispatcher.views.first : null);
+//       final double bottomInset = view?.viewInsets.bottom ?? 0.0;
+//
+//       if ((bottomInset - _lastBottomInset).abs() < 0.5) return;
+//       _lastBottomInset = bottomInset;
+//
+//       setState(() {
+//         _keyboardInset = bottomInset;
+//       });
+//     });
+//   }
+//
+//   void _onFocusChange() {
+//     if (mounted) {
+//       setState(() => _showExpandedInput = _focusNode.hasFocus);
+//     }
+//   }
+//
+//   Future<void> _sendMessage() async {
+//     if (_controller.text.trim().isEmpty) return;
+//     widget.onSendMessageStarted?.call();
+//
+//     // Re-enable auto-jump for new message
+//     setState(() => _shouldAutoJump = true);
+//
+//     _focusNode.unfocus();
+//     FocusManager.instance.primaryFocus?.unfocus();
+//
+//     final messageText = _controller.text.trim();
+//     _controller.clear();
+//
+//     try {
+//       await widget.chatService
+//           .sendMessage(widget.chatService.currentSession?.id, messageText);
+//
+//       await Future.delayed(const Duration(milliseconds: 200));
+//
+//       if (_scrollController.hasClients) {
+//         ChatScrollHelper.scrollToLatestLikeChatPage(
+//           scrollController: _scrollController,
+//           chatHeight: _chatHeight,
+//         );
+//       }
+//     } catch (e) {
+//       if (!mounted) return;
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         SnackBar(
+//           content: Text('Failed to send message: $e'),
+//           backgroundColor: Colors.red,
+//           duration: const Duration(seconds: 3),
+//         ),
+//       );
+//     }
+//   }
+//
+//   void _stopResponse() {
+//     final sid = widget.chatService.currentSession?.id;
+//     if (sid != null && sid.isNotEmpty) {
+//       widget.chatService.stopResponse(sid);
+//     }
+//   }
+//
+//   void _onStockTap(String assetId) {
+//     widget.onStockTap?.call(assetId);
+//   }
+//
+//   void _onUserMessageHeightMeasured(String messageKey, double height) {
+//     if (!mounted || height <= 0) return;
+//
+//     _messageHeights[messageKey] = height;
+//
+//     final messages = widget.chatService.messages;
+//     double latestHeight = 52;
+//
+//     for (int i = messages.length - 1; i >= 0; i--) {
+//       final msg = messages[i];
+//       if (msg['role'] == 'user') {
+//         final resolvedKey = msg['id']?.toString() ?? 'msg_$i';
+//         final h = _messageHeights[resolvedKey];
+//         if (h != null) {
+//           latestHeight = h;
+//           break;
+//         }
+//       }
+//     }
+//
+//     if (_latestUserMessageHeight != latestHeight) {
+//       setState(() => _latestUserMessageHeight = latestHeight);
+//
+//       ChatScrollHelper.scrollToLatestLikeChatPage(
+//         scrollController: _scrollController,
+//         chatHeight: _chatHeight,
+//       );
+//     }
+//   }
+//
+//   void _onAskVittyFromSelection(String selectedText) {
+//     widget.onAskVitty?.call(selectedText);
+//   }
+//
+//   void _onRetryMessage(String originalMessage) {
+//     widget.chatService.retryMessage(originalMessage);
+//   }
+//
+//   // Debug helper
+//   void _logMetrics() {
+//     if (!kDebugMode) return;
+//     final maxScroll = _scrollController.hasClients
+//         ? _scrollController.position.maxScrollExtent
+//         : 0.0;
+//     final offset =
+//     _scrollController.hasClients ? _scrollController.offset : 0.0;
+//     print(
+//         "latestheight: $_latestUserMessageHeight |||Chatheight: $_chatHeight ||| Adj(memo): $_lastAdj ||| maxscroll: $maxScroll |||${maxScroll - _lastAdj} ||| $offset");
+//   }
+//
+//   Widget _buildMessageRow(Map<String, Object> msg, int index) {
+//     final bool isLatest = index == widget.chatService.messages.length - 1;
+//     final bool isBot = msg['role'] == 'bot';
+//     final bool isUser = msg['role'] == 'user';
+//
+//     final messageId = msg['id']?.toString() ?? 'msg_$index';
+//     final Key messageKey = ValueKey(messageId);
+//
+//     // Base row
+//     Widget row = MessageRowWidget(
+//       key: messageKey,
+//       message: Map<String, dynamic>.from(msg),
+//       isLatest: isLatest,
+//       onAskVitty: _onAskVittyFromSelection,
+//       onStockTap: _onStockTap,
+//       onBotRenderComplete: (isLatest && isBot)
+//           ? () => widget.chatService.markUiRenderCompleteForLatest()
+//           : null,
+//       onHeightMeasuredWithValue: isUser
+//           ? (double height) => _onUserMessageHeightMeasured(messageId, height)
+//           : null,
+//       onRetryMessage: _onRetryMessage,
+//     );
+//
+//     // NEW: measure last bot row height and freeze during user scroll
+//     if (isLatest && isBot) {
+//       row = MeasureSize(
+//         onChange: (size) {
+//           // Update stored height only when NOT freezing (to avoid jitter)
+//           if (!_freezeWhileScroll && size.height > 0) {
+//             if (_lastBotMeasuredHeight == null ||
+//                 (size.height - _lastBotMeasuredHeight!).abs() > 0.5) {
+//               setState(() {
+//                 _lastBotMeasuredHeight = size.height;
+//               });
+//               if (kDebugMode) {
+//                 print("📐 Last bot height measured: $_lastBotMeasuredHeight");
+//               }
+//             }
+//           }
+//         },
+//         child: (_freezeWhileScroll && _lastBotMeasuredHeight != null)
+//             ? SizedBox(
+//           height: _lastBotMeasuredHeight,
+//           child: row,
+//         )
+//             : row,
+//       );
+//     }
+//
+//     return GestureDetector(
+//       behavior: HitTestBehavior.opaque,
+//       onTap: () => FocusScope.of(context).unfocus(),
+//       child: row,
+//     );
+//   }
+//
+//   @override
+//   void dispose() {
+//     _messagesSubscription.cancel();
+//     _isTypingSubscription?.cancel();
+//     _hasLoadedMessagesSubscription.cancel();
+//     _firstMessageCompleteSubscription.cancel();
+//     _scrollLockSub.cancel();
+//     _scrollEndTimer?.cancel();
+//
+//     WidgetsBinding.instance.removeObserver(this);
+//     _focusNode.removeListener(_onFocusChange);
+//     _focusNode.dispose();
+//     _controller.dispose();
+//     _scrollController.dispose();
+//     super.dispose();
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+//     final isListening = _audioService.isListening;
+//
+//     final messages = widget.chatService.messages;
+//     final hasAnyMessages = messages.isNotEmpty;
+//     final hasUserMessages = messages.any((m) => m['role'] == 'user');
+//     final isTyping = widget.chatService.isTyping;
+//
+//     final shouldShowSuggestions = widget.isThreadMode
+//         ? (!hasAnyMessages && !isTyping && _controller.text.isEmpty)
+//         : (_controller.text.isEmpty &&
+//         !isTyping &&
+//         (!hasUserMessages ||
+//             (!widget.chatService.hasLoadedMessages && !hasAnyMessages)));
+//
+//     return Scaffold(
+//       backgroundColor: theme.background,
+//       resizeToAvoidBottomInset: true,
+//       body: Stack(
+//         children: [
+//           Column(
+//             children: [
+//               Expanded(
+//                 child: LayoutBuilder(
+//                   builder: (context, constraints) {
+//                     // Update local chat height
+//                     _chatHeight = constraints.maxHeight;
+//
+//                     if (!widget.chatService.isViewportFixed &&
+//                         _keyboardInset == 0.0 &&
+//                         _chatHeight > 0) {
+//                       widget.chatService.commitViewportOnce(_chatHeight);
+//                     }
+//
+//                     // NEW: compute and memoize adjustment with epsilon to avoid rebuild churn
+//                     final newAdj = ChatUIHelper.calculateScrollAdjustment(
+//                       chatHeight: _chatHeight,
+//                       latestUserMessageHeight: _latestUserMessageHeight,
+//                     );
+//                     if ((newAdj - _lastAdj).abs() > _adjEps) {
+//                       WidgetsBinding.instance.addPostFrameCallback((_) {
+//                         if (mounted) {
+//                           setState(() => _lastAdj = newAdj);
+//                         }
+//                       });
+//                     }
+//
+//                     return Stack(
+//                       children: [
+//                         GestureDetector(
+//                           behavior: HitTestBehavior.translucent,
+//                           onTap: () => FocusScope.of(context).unfocus(),
+//                           child: Container(
+//                             height: double.infinity,
+//                             width: double.infinity,
+//                             color: Colors.transparent,
+//                           ),
+//                         ),
+//
+//                         // NotificationListener wrapped around ListView
+//                         NotificationListener<ScrollNotification>(
+//                           onNotification: _handleScrollNotification,
+//                           child: ListView.builder(
+//                             controller: _scrollController,
+//                             reverse: false,
+//                             physics: const ClampingScrollPhysics(),
+//                             padding: EdgeInsets.symmetric(
+//                               horizontal: _layoutGutter,
+//                               vertical: 20,
+//                             ),
+//                             itemCount: messages.length + 1,
+//                             itemBuilder: (context, index) {
+//                               if (index == messages.length) {
+//                                 if (messages.isNotEmpty) {
+//                                   // STABLE spacer using memoized _lastAdj
+//                                   if (kDebugMode) {
+//                                     _logMetrics();
+//                                   }
+//                                   return SizedBox(height: math.max(0, _lastAdj));
+//                                 } else {
+//                                   return const SizedBox.shrink();
+//                                 }
+//                               }
+//
+//                               final msg = messages[index];
+//                               return _buildMessageRow(msg, index);
+//                             },
+//                           ),
+//                         ),
+//                       ],
+//                     );
+//                   },
+//                 ),
+//               ),
+//
+//               // Suggestions
+//               isListening
+//                   ? const SizedBox.shrink()
+//                   : AnimatedSwitcher(
+//                 duration: const Duration(milliseconds: 350),
+//                 switchInCurve: Curves.easeOutCubic,
+//                 switchOutCurve: Curves.easeInCubic,
+//                 transitionBuilder:
+//                     (Widget child, Animation<double> animation) {
+//                   return FadeTransition(
+//                     opacity: animation,
+//                     child: SlideTransition(
+//                       position: Tween<Offset>(
+//                         begin: const Offset(0.0, 0.15),
+//                         end: Offset.zero,
+//                       ).animate(animation),
+//                       child: child,
+//                     ),
+//                   );
+//                 },
+//                 child: shouldShowSuggestions
+//                     ? SuggestionsWidget(
+//                   key: const ValueKey('suggestions'),
+//                   controller: _controller,
+//                   onAskVitty: _onAskVittyFromSelection,
+//                   onSuggestionSelected: () {
+//                     if (mounted) setState(() {});
+//                   },
+//                 )
+//                     : const SizedBox.shrink(
+//                   key: ValueKey('emptySuggestions'),
+//                 ),
+//               ),
+//
+//               const SizedBox(height: 5),
+//
+//               MeasureSize(
+//                 onChange: (size) {
+//                   if ((size.height - _inputHeight).abs() > 0.5) {
+//                     setState(() => _inputHeight = size.height);
+//                     widget.chatService.updateFrameHeights(
+//                       input: _inputHeight,
+//                       chatViewport: _chatHeight,
+//                     );
+//                   }
+//                 },
+//                 child: ChatInputWidget(
+//                   controller: _controller,
+//                   focusNode: _focusNode,
+//                   textFieldKey: _textFieldKey,
+//                   isTyping: isTyping,
+//                   keyboardInset: _keyboardInset,
+//                   onSendMessage: _sendMessage,
+//                   onStopResponse: _stopResponse,
+//                   onTextChanged: () {
+//                     if (mounted) setState(() {});
+//                   },
+//                   audioService: _audioService,
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
 
 class MeasureSize extends SingleChildRenderObjectWidget {
   final void Function(Size size) onChange;

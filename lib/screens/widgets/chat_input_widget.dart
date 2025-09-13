@@ -573,9 +573,9 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
   static const int _kMaxLines = 10;       // ✅ > 6 lines allowed
   static const double _recordingHeight = 26.0;
 
-  // Speeds - Made faster for snappier feel
-  static const Duration _toVoiceDuration = Duration(milliseconds: 280); // ⚡ Reduced from 240ms
-  static const Duration _toTextDuration  = Duration(milliseconds: 380); // ⚡ Reduced from 380ms
+  // Speeds
+  static const Duration _toVoiceDuration = Duration(milliseconds: 240);
+  static const Duration _toTextDuration  = Duration(milliseconds: 380);
 
   int _textLines = 1;
   Duration _heightAnimDuration = _toVoiceDuration;
@@ -584,9 +584,8 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
   void initState() {
     super.initState();
 
-    // ⚡ Faster content animation for snappier feel
     _contentController = AnimationController(
-      duration: const Duration(milliseconds: 120), // Reduced from 200ms
+      duration: const Duration(milliseconds: 200),
       vsync: this,
     );
 
@@ -601,7 +600,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
     _recorderOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _contentController,
-        curve: const Interval(0.1, 1.0, curve: Curves.easeIn), // Earlier start
+        curve: const Interval(0.2, 1.0, curve: Curves.easeIn),
         reverseCurve: Curves.easeOut,
       ),
     );
@@ -661,102 +660,65 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
     if (clamped != _textLines) setState(() => _textLines = clamped);
   }
 
-  // ---------- ⚡ OPTIMIZED transitions for instant response ----------
+  // ---------- transitions ----------
   Future<void> _startRecording() async {
-    // ⚡ Immediate haptic feedback
     HapticFeedback.mediumImpact();
 
-    // ⚡ Start recording IMMEDIATELY without waiting for keyboard
-    final existingText = widget.controller.text.trim();
+    // hide keyboard first
+    widget.focusNode.unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
 
-    // ⚡ Set up UI state instantly
+    // text → voice
     setState(() {
       _heightAnimDuration = _toVoiceDuration;
       _preparing = true;
-      _isOverwritingTranscript = existingText.isNotEmpty;
-      _shouldPreventFocus = true; // Prevent focus changes during recording
+      _isOverwritingTranscript = widget.controller.text.isNotEmpty;
+      _shouldPreventFocus = false;
     });
 
-    // ⚡ Start content animation immediately
+    // fade text out, show recorder
     _contentController.forward(from: 0);
 
-    // ⚡ Start recording in parallel with UI animation (don't await)
-    _startRecordingAsync(existingText);
-
-    // ⚡ Hide keyboard in parallel (non-blocking)
-    _hideKeyboardAsync();
-  }
-
-  // ⚡ Non-blocking keyboard hiding
-  void _hideKeyboardAsync() {
-    // Don't await this - let it happen in background
-    Future.microtask(() {
-      if (mounted) {
-        widget.focusNode.unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      }
-    });
-  }
-
-  // ⚡ Non-blocking recording start
-  void _startRecordingAsync(String existingText) async {
+    // start mic
     try {
-      // ⚡ Start recording immediately - no artificial delays
-      await widget.audioService.startRecording(existingText: existingText);
-    } catch (error) {
+     // await Future.delayed(Duration(seconds: 1));
+      await widget.audioService.startRecording(
+        existingText: widget.controller.text.trim(),
+      );
+    } catch (_) {
       if (!mounted) return;
-
-      // Handle error gracefully
-      print("Recording error: $error");
       _returnToNormal();
-
-      // Show error to user
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not start recording. Please try again.'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
     }
   }
 
   void _returnToNormal() {
     // voice → text
     setState(() {
-      _heightAnimDuration = _toTextDuration;
+      _heightAnimDuration = _toTextDuration; // thoda slow for smoothness
       _preparing = false;
       _isOverwritingTranscript = false;
       _shouldPreventFocus = false;
     });
 
-    // ⚡ Faster content animation timing
-    Future.delayed(Duration(milliseconds: 50), () {
+    // height animate hotey hi content ko reverse fade-in karao
+    Future.delayed(_heightAnimDuration, () {
       if (mounted) _contentController.reverse();
     });
   }
 
   void _onRecordingComplete() {
     _returnToNormal();
-
-    // ⚡ Faster refocus timing
-    Future.delayed(_heightAnimDuration + const Duration(milliseconds: 100), () {
+    // after animations, refocus
+    Future.delayed(_heightAnimDuration + const Duration(milliseconds: 200), () {
       if (!mounted) return;
       setState(() => _shouldPreventFocus = false);
-
-      // ⚡ Only refocus if user wants to continue typing
-      if (widget.controller.text.isEmpty) {
-        FocusScope.of(context).requestFocus(widget.focusNode);
-      }
+      FocusScope.of(context).requestFocus(widget.focusNode);
     });
   }
 
   void _onRecordingCancel() {
     HapticFeedback.mediumImpact();
     _returnToNormal();
-
-    // ⚡ Immediate focus management
     widget.focusNode.unfocus();
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _shouldPreventFocus = true);
@@ -792,6 +754,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
             offset: const Offset(0, 1),
           ),
         ],
+        //border: Border.all(color: theme.box),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(10),
           topRight: Radius.circular(10),
@@ -801,11 +764,12 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ------- ⚡ FASTER HEIGHT ANIMATION -------
+          // ------- HEIGHT ANIMATION (smooth both ways) -------
           AnimatedContainer(
             duration: _heightAnimDuration,
-            curve: Curves.easeInOutCubic, // ⚡ Smoother curve for better feel
+            curve: Curves.easeInOut,
             height: targetHeight,
+            // no clipBehavior here (no assertion)
             child: Stack(
               children: [
                 AnimatedBuilder(
@@ -845,6 +809,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
                             ),
                             hintText: 'Ask anything',
                             border: InputBorder.none,
+                            // zyada comfortable bottom padding
                             contentPadding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
                             isDense: false,
                           ),

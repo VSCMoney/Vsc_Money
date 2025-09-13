@@ -18,12 +18,16 @@ class VIttyLoader extends StatelessWidget {
       child: Container(
         width: double.infinity,
         color: theme.background,
-        child: Lottie.asset(
-          'assets/images/vitty_loader.json',
-          width: 200, // or any size you want
-          height: 100,
-          fit: BoxFit.contain,
-        ),
+        child: 
+        // Lottie.asset(
+        //   'assets/images/new_loader.json',
+        //   width: 200, // or any size you want
+        //   height: 100,
+        //   repeat: true,
+        //   fit: BoxFit.contain,
+        //   animate: true,
+        // ),
+        Image.asset("assets/images/new_loader.gif",height: 100,width: 200,fit: BoxFit.contain,)
       ),
     );
   }

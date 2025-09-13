@@ -124,38 +124,140 @@ import '../../services/theme_service.dart';
 
 
 // measure_size.dart
+import 'dart:ui' as ui;
+import 'package:flutter/widgets.dart';
+
+// measure_size.dart
+import 'package:flutter/widgets.dart';
+
 typedef OnWidgetSizeChange = void Function(Size size);
 
 class MeasureSize extends SingleChildRenderObjectWidget {
   final OnWidgetSizeChange onChange;
-  const MeasureSize({Key? key, required this.onChange, required Widget child})
-      : super(key: key, child: child);
+
+  /// Chhote-chhote layout jitters ignore karne ke liye
+  /// (px me). Default 0.5 px.
+  final double minDelta;
+
+  /// Kitne post-frame “stable frames” wait karein before notify.
+  /// Default 1 (turant). 2-3 rakhoge to flicker aur kam hoga.
+  final int stableFrames;
+
+  /// True = child.size measure karo (jaise Container),
+  /// False = khud widget ka size (this.size).
+  final bool useChildSize;
+
+  const MeasureSize({
+    Key? key,
+    required this.onChange,
+    required Widget child,
+    this.minDelta = 0.5,
+    this.stableFrames = 1,
+    this.useChildSize = true,
+  }) : super(key: key, child: child);
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderMeasureSize(onChange);
+      _RenderMeasureSize(
+        onChange: onChange,
+        minDelta: minDelta,
+        stableFrames: stableFrames,
+        useChildSize: useChildSize,
+      );
 
   @override
   void updateRenderObject(
-      BuildContext context, covariant _RenderMeasureSize renderObject) {
-    renderObject.onChange = onChange;
+      BuildContext context,
+      covariant _RenderMeasureSize renderObject,
+      ) {
+    renderObject
+      ..onChange = onChange
+      ..minDelta = minDelta
+      ..stableFrames = stableFrames
+      ..useChildSize = useChildSize;
   }
 }
 
 class _RenderMeasureSize extends RenderProxyBox {
-  _RenderMeasureSize(this.onChange);
+  _RenderMeasureSize({
+    required this.onChange,
+    required this.minDelta,
+    required this.stableFrames,
+    required this.useChildSize,
+  });
+
   OnWidgetSizeChange onChange;
-  Size? _oldSize;
+  double minDelta;
+  int stableFrames;
+  bool useChildSize;
+
+  Size? _lastReportedSize;
+  Size? _pendingSize;
+  bool _callbackScheduled = false;
+
+  bool _areClose(Size a, Size b, double eps) {
+    return (a.width - b.width).abs() < eps &&
+        (a.height - b.height).abs() < eps;
+  }
 
   @override
   void performLayout() {
     super.performLayout();
-    final newSize = child?.size ?? Size.zero;
-    if (_oldSize == newSize) return;
-    _oldSize = newSize;
-    WidgetsBinding.instance.addPostFrameCallback((_) => onChange(newSize));
+
+    // Child ka size chahiye to child?.size; warna apna hi size
+    final currentSize = useChildSize ? (child?.size ?? Size.zero) : size;
+
+    // Agar first time report kar rahe ya noticeable change hai
+    if (_lastReportedSize == null ||
+        !_areClose(currentSize, _lastReportedSize!, minDelta)) {
+      _pendingSize = currentSize;
+      _scheduleCallbackIfNeeded();
+    }
+  }
+
+  void _scheduleCallbackIfNeeded() {
+    if (_callbackScheduled) return;
+    _callbackScheduled = true;
+
+    // Post-frame notify; agar stableFrames > 1 hai to kuch extra frames wait
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (stableFrames <= 1) {
+        _fire();
+        return;
+      }
+
+      int remaining = stableFrames - 1;
+      void waitMore() {
+        if (remaining == 0) {
+          _fire();
+          return;
+        }
+        remaining--;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          waitMore();
+        });
+      }
+
+      waitMore();
+    });
+  }
+
+  void _fire() {
+    _callbackScheduled = false;
+    final toReport = _pendingSize;
+    if (toReport == null) return;
+
+    // Final guard: agar lastReported ke bahut close hai to skip
+    if (_lastReportedSize != null &&
+        _areClose(toReport, _lastReportedSize!, minDelta)) {
+      return;
+    }
+
+    _lastReportedSize = toReport;
+    onChange(toReport);
   }
 }
+
 
 
 

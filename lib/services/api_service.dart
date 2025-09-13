@@ -1204,7 +1204,7 @@ class ApiException implements Exception {
 
 class ConsoleHttpLogger {
   static bool useColors = true;
-  static int defaultBodyMax = 100000;
+  static int defaultBodyMax = 300;
   static bool prettyPrintJson = true;
 
   static String _pretty(String body, {bool forceRaw = false}) {

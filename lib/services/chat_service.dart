@@ -1265,7 +1265,12 @@ class ChatService{
     String? firstMessageForTitle,
     bool debugLog = true,
   }) async {
-    await SessionManager.checkTokenValidityAndRefresh();
+    final ok = await SessionManager.checkTokenValidityAndRefresh(silent: false);
+    if (!ok || SessionManager.token == null) {
+      throw StateError('Not authenticated (no/expired token)');
+    }
+    final String token = SessionManager.token!;
+
 
     final stats = _StreamDebugStats();
     if (debugLog) {
@@ -1286,7 +1291,7 @@ class ChatService{
         'Content-Type': 'application/json',
         'Accept': 'text/event-stream',
         if (SessionManager.token != null) 'Authorization': 'Bearer ${SessionManager.token}',
-        if (SessionManager.refreshToken != null) 'X-Refresh-Token': SessionManager.refreshToken!,
+       // if (SessionManager.refreshToken != null) 'X-Refresh-Token': SessionManager.refreshToken!,
       });
 
       final body = <String, dynamic>{

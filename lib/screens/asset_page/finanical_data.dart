@@ -310,6 +310,7 @@ class _FinancialChartsWidgetState extends State<FinancialChartsWidget> {
         ),
         // bars
         Expanded(
+          flex: 1,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

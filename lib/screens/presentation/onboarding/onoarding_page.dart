@@ -168,7 +168,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   int _currentPage = 0;
   bool _isLoading = false;
   bool _preloaded = false;
-  bool _marked = false;
+  // Remove _marked as we don't need to mark onboarding started
 
   // Add timer for auto-changing background
   Timer? _backgroundTimer;
@@ -198,7 +198,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   void initState() {
     super.initState();
-    _markOnboardingAsStarted();
+    // Remove the call to _markOnboardingAsStarted()
     _startBackgroundTimer();
   }
 
@@ -230,11 +230,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     _backgroundTimer = null;
   }
 
-  Future<void> _markOnboardingAsStarted() async {
-    if (_marked) return;
-    await _authService.markOnboardingCompleted();
-    _marked = true;
-  }
+  // Remove _markOnboardingAsStarted method entirely
 
   Future<void> _handleContinue() async {
     if (_currentPage < _titles.length - 1) {
@@ -252,6 +248,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
     if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
+      // ONLY mark onboarding as completed when user actually finishes it
+      await _authService.markOnboardingCompleted();
+
       await _authService.completeOnboarding((flow) {
         if (!mounted) return;
         switch (flow) {
@@ -383,17 +382,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
                             subtitles: _subtitles,
                             titleHeight: 120,
                             titleStyle: const TextStyle(
-                              fontSize: 45,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                              height: 1.2,
-                              fontFamily: "DM Sans"
+                                fontSize: 45,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                height: 1.2,
+                                fontFamily: "DM Sans"
                             ),
                             subtitleStyle: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.white70,
-                              fontWeight: FontWeight.w400,
-                              height: 1.5,
+                                fontSize: 16,
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w400,
+                                height: 1.5,
                                 fontFamily: "DM Sans"
                             ),
                           ),
