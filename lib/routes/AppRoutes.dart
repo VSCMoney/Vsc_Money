@@ -9,6 +9,7 @@ import 'package:vscmoney/screens/presentation/search_stock_screen.dart';
 import 'package:vscmoney/screens/asset_page/assets_page.dart';
 
 import '../models/chat_session.dart';
+import '../new_chat_screen.dart';
 import '../screens/presentation/onboarding/onoarding_page.dart';
 
 
@@ -28,7 +29,7 @@ import '../testpage.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
-
+final chatservice = locator<ChatService>();
 class AppRouter {
   static final router = GoRouter(
     navigatorKey: rootNavigatorKey,
@@ -40,7 +41,7 @@ class AppRouter {
         name: 'splash',
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
-          child: SplashScreen(),
+          child:SplashScreen(),
          // child:  StockDetailPage(stockName: "Zomato", stockSymbol: "Zomato", onClose: (){}),
           transitionsBuilder: dissolveTransition,
         ),
@@ -71,7 +72,6 @@ class AppRouter {
           );
         },
       ),
-
 
 
       GoRoute(

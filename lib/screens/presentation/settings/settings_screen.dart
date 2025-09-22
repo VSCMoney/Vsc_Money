@@ -112,165 +112,237 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final width = MediaQuery.of(context).size.width;
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
-    return Scaffold(
-      backgroundColor: theme.background,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
+    return MediaQuery.removePadding(
+      context: context,
+      removeTop: true,
+      child: Scaffold(
+        backgroundColor: theme.background,
+        body: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
 
-            // Top Bar
-            Row(
-              //mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSettingsAppBar(),
+              const SizedBox(height: 20),
+
+              // Top Bar
+              // Row(
+              //   //mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              //   children: [
+              //   Container(
+              //     //color: Colors.black,
+              //     child: GestureDetector(
+              //     behavior: HitTestBehavior.opaque,        // <-- ensure taps register
+              //     onTap: (){
+              //       HapticFeedback.mediumImpact();
+              //       _closeSheet();
+              //     },
+              //     child: Padding(
+              //       padding: const EdgeInsets.all(12.0),   // <-- comfy hit area
+              //       child: Image.asset(
+              //         "assets/images/cancel.png",
+              //         height: 30,
+              //         color: theme.icon,
+              //       ),
+              //     ),
+              //                 ),
+              //   ),
+              //
+              //     SizedBox(width: 108),
+              //     Text(
+              //       "Settings",
+              //       style: TextStyle(
+              //         fontFamily: 'DM Sans',
+              //         fontSize: 20,
+              //         fontWeight: FontWeight.w500,
+              //         color: theme.text,
+              //       ),
+              //     ),
+              //     const SizedBox(width: 28), // Placeholder for alignment
+              //   ],
+              // ),
+              //
+              // const SizedBox(height: 20),
+
+              // Profile Card
               Container(
-                //color: Colors.black,
-                child: GestureDetector(
-                behavior: HitTestBehavior.opaque,        // <-- ensure taps register
-                onTap: (){
-                  HapticFeedback.mediumImpact();
-                  _closeSheet();
+                padding:  EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.box,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const CircleAvatar(
+                      radius: 26,
+                      backgroundImage: NetworkImage("https://i.pravatar.cc/100"),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("RGB",
+                              style: TextStyle(
+                                fontFamily: 'DM Sans',
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: theme.text,
+                              )),
+                          SizedBox(height: 2),
+                          Text("+91 94XXXXXX32",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w400,
+                                fontFamily: 'DM Sans',
+                                fontSize: 14,
+                                color: theme.text,
+                              )),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.edit, size: 16,color: theme.icon,)
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              // General
+              const SectionHeader("General"),
+              SettingsGroup(
+                tiles: const [
+                  SettingsTile(icon: Icons.place_outlined, title: "Personalise"),
+                  SettingsTile(icon: Icons.dark_mode_outlined, title: "Dark Mode", hasSwitch: true),
+                ],
+              ),
+
+              const SizedBox(height: 28),
+
+              // Account
+              const SectionHeader("Account"),
+              SettingsGroup(
+                tiles: const [
+                  SettingsTile(icon: Icons.group_outlined, title: "Nominee"),
+                  SettingsTile(
+                    icon: Icons.add_circle_outline,
+                    title: "Subscription",
+                    trailingText: "Free Plan",
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 28),
+
+              // Privacy
+              const SectionHeader("Privacy"),
+              SettingsGroup(
+                tiles: const [
+                  SettingsTile(icon: Icons.security_outlined, title: "Data Protection"),
+                  SettingsTile(icon: Icons.lock_outline, title: "App Lock", hasSwitch: true),
+                ],
+              ),
+
+              const SizedBox(height: 28),
+
+              // Logout
+              GestureDetector(
+                onTap: () {
+                  _confirmLogout(context);
                 },
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),   // <-- comfy hit area
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: theme.box,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child:  Row(
+                    children: [
+                      Icon(Icons.logout, color: theme.icon),
+                      SizedBox(width: 10),
+                      Text(
+                        "Logout",
+                        style: TextStyle(
+                          fontFamily: 'DM Sans',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: theme.text,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildSettingsAppBar() {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
+    return Container(
+      height: 60,
+      // decoration: BoxDecoration(
+      //   color: theme.box,
+      //   boxShadow: [
+      //     BoxShadow(
+      //       color: Colors.black.withOpacity(0.1),
+      //       blurRadius: 10,
+      //       offset: const Offset(0, 4),
+      //     ),
+      //   ],
+      // ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 06),
+        child: Row(
+          children: [
+            // Left – Close (same behavior as NotesPage back)
+            InkWell(
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                _closeSheet();
+              },
+              borderRadius: BorderRadius.circular(24),
+              child: SizedBox(
+                width: 40,
+                height: 40,
+                child: Center(
                   child: Image.asset(
                     "assets/images/cancel.png",
                     height: 30,
                     color: theme.icon,
                   ),
                 ),
-                            ),
-              ),
-
-                SizedBox(width: 108),
-                Text(
-                  "Settings",
-                  style: TextStyle(
-                    fontFamily: 'DM Sans',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w500,
-                    color: theme.text,
-                  ),
-                ),
-                const SizedBox(width: 28), // Placeholder for alignment
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // Profile Card
-            Container(
-              padding:  EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.box,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const CircleAvatar(
-                    radius: 26,
-                    backgroundImage: NetworkImage("https://i.pravatar.cc/100"),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("RGB",
-                            style: TextStyle(
-                              fontFamily: 'DM Sans',
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: theme.text,
-                            )),
-                        SizedBox(height: 2),
-                        Text("+91 94XXXXXX32",
-                            style: TextStyle(
-                              fontWeight: FontWeight.w400,
-                              fontFamily: 'DM Sans',
-                              fontSize: 14,
-                              color: theme.text,
-                            )),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.edit, size: 16,color: theme.icon,)
-                ],
               ),
             ),
 
-            const SizedBox(height: 28),
-
-            // General
-            const SectionHeader("General"),
-            SettingsGroup(
-              tiles: const [
-                SettingsTile(icon: Icons.place_outlined, title: "Personalise"),
-                SettingsTile(icon: Icons.dark_mode_outlined, title: "Dark Mode", hasSwitch: true),
-              ],
-            ),
-
-            const SizedBox(height: 28),
-
-            // Account
-            const SectionHeader("Account"),
-            SettingsGroup(
-              tiles: const [
-                SettingsTile(icon: Icons.group_outlined, title: "Nominee"),
-                SettingsTile(
-                  icon: Icons.add_circle_outline,
-                  title: "Subscription",
-                  trailingText: "Free Plan",
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 28),
-
-            // Privacy
-            const SectionHeader("Privacy"),
-            SettingsGroup(
-              tiles: const [
-                SettingsTile(icon: Icons.security_outlined, title: "Data Protection"),
-                SettingsTile(icon: Icons.lock_outline, title: "App Lock", hasSwitch: true),
-              ],
-            ),
-
-            const SizedBox(height: 28),
-
-            // Logout
-            GestureDetector(
-              onTap: () {
-                _confirmLogout(context);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: theme.box,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child:  Row(
-                  children: [
-                    Icon(Icons.logout, color: theme.icon),
-                    SizedBox(width: 10),
-                    Text(
-                      "Logout",
-                      style: TextStyle(
-                        fontFamily: 'DM Sans',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: theme.text,
-                      ),
-                    ),
-                  ],
+            // Center – Title (perfectly centered)
+            Expanded(
+              child: Text(
+                'Settings',
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: theme.text,
+                  fontFamily: "DM Sans",
                 ),
               ),
             ),
+
+
+            const SizedBox(width: 40, height: 40),
+            Divider(thickness: 1,),
           ],
         ),
       ),
     );
   }
+
 }

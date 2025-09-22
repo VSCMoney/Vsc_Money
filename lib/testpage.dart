@@ -9,6 +9,8 @@ import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
@@ -17,13 +19,20 @@ import 'dart:async';
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:vscmoney/chat_message_row_widget.dart';
 import 'package:vscmoney/constants/bottomsheet.dart';
+import 'package:vscmoney/constants/chat_typing_indicator.dart';
 import 'package:vscmoney/constants/colors.dart';
+import 'package:vscmoney/constants/widgets.dart';
 import 'package:vscmoney/screens/presentation/home/chat_screen.dart';
 import 'package:vscmoney/services/asset_service.dart';
 import 'package:vscmoney/services/chat_service.dart';
+import 'package:vscmoney/services/locator.dart';
 import 'package:vscmoney/services/theme_service.dart';
+import 'package:vscmoney/user_message_widget.dart';
 
+import 'bot_response_widget.dart';
+import 'input_field_widget.dart';
 import 'models/asset_model.dart';
 import 'models/chat_message.dart';
 import 'models/chat_session.dart';
@@ -2416,100 +2425,6 @@ class _VPCMiddlewareDemoPageState extends State<VPCMiddlewareDemoPage> {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/// A small pill that wraps (in a Wrap) and has a flowing gradient.
-class NotePill extends StatefulWidget {
-  final String label;
-  final VoidCallback? onTap;
-
-  const NotePill({
-    super.key,
-    required this.label,
-    this.onTap,
-  });
-
-  @override
-  State<NotePill> createState() => _NotePillState();
-}
-
-class _NotePillState extends State<NotePill>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c =
-  AnimationController(vsync: this, duration: const Duration(seconds: 3))
-    ..repeat();
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: AnimatedBuilder(
-        animation: _c,
-        builder: (_, __) {
-          // Slide the gradient diagonally for a soft “flow” effect
-          final t = _c.value; // 0 → 1
-          final begin = Alignment(-1.2 + 2.4 * t, -1.2);
-          final end = Alignment(1.2 + 2.4 * t, 1.2);
-      
-          return InkWell(
-            onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: const [Color(0xFFF1EAE4), Color(0xFFFFFFFF)],
-                  begin: begin,
-                  end: end,
-                ),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min, // <- so it hugs its content
-                children: [
-                  Image.asset("assets/images/notes.png", width: 12, height: 12),
-                  const SizedBox(width: 6),
-                  Text(
-                    widget.label,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.black,
-                      fontWeight: FontWeight.w500,
-                      fontFamily: 'DM Sans',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
 
 
 

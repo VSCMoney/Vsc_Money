@@ -524,6 +524,7 @@ import 'package:flutter/services.dart';
 
 // imports for your theme/services/widgets remain same
 
+
 class ChatInputWidget extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -597,10 +598,18 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
       ),
     );
 
+    // _recorderOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+    //   CurvedAnimation(
+    //     parent: _contentController,
+    //     curve: const Interval(0.2, 1.0, curve: Curves.easeIn),
+    //     reverseCurve: Curves.easeOut,
+    //   ),
+    // );
+
     _recorderOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _contentController,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeIn),
+        curve: Curves.easeIn,             // ✅ no initial 40ms stall
         reverseCurve: Curves.easeOut,
       ),
     );
@@ -664,43 +673,44 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
   Future<void> _startRecording() async {
     HapticFeedback.mediumImpact();
 
-    // hide keyboard first
-    widget.focusNode.unfocus();
-    FocusManager.instance.primaryFocus?.unfocus();
-
-    // text → voice
+    // ✅ 1) Instant switch to voice UI (no wait)
     setState(() {
-      _heightAnimDuration = _toVoiceDuration;
       _preparing = true;
       _isOverwritingTranscript = widget.controller.text.isNotEmpty;
       _shouldPreventFocus = false;
+      _heightAnimDuration = const Duration(milliseconds: 250); // entry fast
     });
 
-    // fade text out, show recorder
-    _contentController.forward(from: 0);
+    // ✅ Recorder turant visible — fade controller ko force set
+    _contentController.stop();
+    _contentController.value = 1.0; // recorderOpacity=1, textOpacity=0
 
-    // start mic
-    try {
-     // await Future.delayed(Duration(seconds: 1));
-      await widget.audioService.startRecording(
-        existingText: widget.controller.text.trim(),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      _returnToNormal();
-    }
+    // ✅ 2) Keyboard ko next frame me hide karo (reflow delay se bacho)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.focusNode.unfocus();
+      FocusManager.instance.primaryFocus?.unfocus();
+    });
+
+    // ✅ 3) Mic start background me — await mat karo
+    // ignore: unawaited_futures
+    widget.audioService
+        .startRecording(existingText: widget.controller.text.trim())
+        .catchError((_) {
+      if (mounted) _returnToNormal();
+    });
   }
+
 
   void _returnToNormal() {
     // voice → text
     setState(() {
-      _heightAnimDuration = _toTextDuration; // thoda slow for smoothness
+      _heightAnimDuration = _toTextDuration;
       _preparing = false;
       _isOverwritingTranscript = false;
       _shouldPreventFocus = false;
     });
 
-    // height animate hotey hi content ko reverse fade-in karao
+
     Future.delayed(_heightAnimDuration, () {
       if (mounted) _contentController.reverse();
     });
@@ -708,7 +718,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
 
   void _onRecordingComplete() {
     _returnToNormal();
-    // after animations, refocus
+
     Future.delayed(_heightAnimDuration + const Duration(milliseconds: 200), () {
       if (!mounted) return;
       setState(() => _shouldPreventFocus = false);
@@ -837,7 +847,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
             padding: EdgeInsets.only(
               bottom: 0.0,
               top: 0.0,
-              left: showRecorder ? 0 : 10,
+              left: showRecorder ? 0 : 5, // ⬅️ Changed from 10 to 5 (left shift)
               right: 0,
             ),
             child: Stack(
@@ -894,4 +904,6 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
     );
   }
 }
+
+
 

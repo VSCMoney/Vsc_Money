@@ -38,6 +38,7 @@ PreferredSize appBar(
   );
 }
 
+// ======= AnimatedAppBar (normal Hero target; NO rotation here) =======
 class AnimatedAppBar extends StatefulWidget {
   final String title;
   final VoidCallback onNewChatTap;
@@ -60,7 +61,6 @@ class AnimatedAppBar extends StatefulWidget {
 
 class _AnimatedAppBarState extends State<AnimatedAppBar>
     with TickerProviderStateMixin {
-  // REMOVED: _logoSpinCtrl, _logoSpin  // UPDATED: no rotation on app bar
   late final AnimationController _logoChangeCtrl;
 
   // Yin–Yang out
@@ -72,8 +72,6 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
   late final Animation<double> _textFadeIn;   // 0→1
   late final Animation<double> _textScaleIn;  // 0.94→1
 
-  bool _showVittyLogo = false;
-  bool _isChangingLogo = false;
   bool _transitionStarted = false;
   bool _isDropdownVisible = false;
 
@@ -84,8 +82,6 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
   @override
   void initState() {
     super.initState();
-
-    // REMOVED spin controller setup  // UPDATED
 
     _logoChangeCtrl = AnimationController(
       vsync: this,
@@ -129,40 +125,19 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
 
     if (widget.isDashboard) {
       Future.delayed(const Duration(milliseconds: 650), () {
-        if (mounted && !_transitionStarted) _startLogoChange();
+        if (mounted && !_transitionStarted) {
+          _transitionStarted = true;
+          _logoChangeCtrl.forward(from: 0);
+        }
       });
     }
   }
 
   @override
   void dispose() {
-    // REMOVED: _logoSpinCtrl.dispose();  // UPDATED
     _logoChangeCtrl.dispose();
     _dropdownController.dispose();
     super.dispose();
-  }
-
-  // REMOVED _spinLogoOnce()  // UPDATED
-
-  void _startLogoChange() {
-    _transitionStarted = true;
-    _logoChangeCtrl.forward(from: 0);
-  }
-
-  void _animateLogoChange() {
-    if (_isChangingLogo) return;
-
-    setState(() {
-      _isChangingLogo = true;
-    });
-
-    _logoChangeCtrl.forward().then((_) {
-      setState(() {
-        _showVittyLogo = true;
-        _isChangingLogo = false;
-      });
-      _logoChangeCtrl.reset();
-    });
   }
 
   void _toggleDropdown() {
@@ -208,10 +183,18 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
     final double spacing = 12;
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
-
     return Stack(
       clipBehavior: Clip.none,
       children: [
+        // Tap barrier to close dropdown (positioned below dropdown)
+        if (_isDropdownVisible)
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _closeDropdown,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -241,7 +224,7 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                                   child: Stack(
                                     alignment: Alignment.center,
                                     children: [
-                                      // ✅ Yin–Yang base (fades/scales) — NO rotation on appbar (UPDATED)
+                                      // ✅ Yin–Yang base (fades/scales) — NO rotation on appbar
                                       Opacity(
                                         opacity: 1.0 - _yinFadeOut.value,
                                         child: Transform.scale(
@@ -268,18 +251,15 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                                                 child: Row(
                                                   mainAxisAlignment: MainAxisAlignment.center,
                                                   children: [
-                                                    // Image.asset(
-                                                    //   "assets/images/Vitty.ai2.png",
-                                                    //   height: 20,
-                                                    //   fit: BoxFit.contain,
-                                                    // ),
-                                                    Text('Vitty',style: TextStyle(
-                                                      fontWeight: FontWeight.w800,
-                                                      fontFamily: "Josefin Sans",
-                                                      fontSize: 22,
-                                                      color: theme.icon,
-                                                      letterSpacing: 1.0,
-                                                    ),),
+                                                    Text('Vitty',
+                                                      style: TextStyle(
+                                                        fontWeight: FontWeight.w800,
+                                                        fontFamily: "Josefin Sans",
+                                                        fontSize: 22,
+                                                        color: theme.icon,
+                                                        letterSpacing: 1.0,
+                                                      ),
+                                                    ),
                                                     const SizedBox(width: 0),
                                                     GestureDetector(
                                                       onTap: _toggleDropdown,
@@ -393,7 +373,7 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                                 ),
                               ),
                               if (widget.isDashboard && widget.showNewChatButton) ...[
-                                SizedBox(width: 15),
+                                const SizedBox(width: 15),
                                 Material(
                                   color: Colors.transparent,
                                   child: InkWell(
@@ -407,7 +387,6 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                                       child: _BoldNewChatIcon(),
                                     ),
                                   ),
-
                                 ),
                               ],
                             ],
@@ -429,7 +408,7 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
           ],
         ),
 
-        // Dropdown positioned below the logo
+        // Dropdown positioned below the logo (now on top of tap barrier)
         if (_isDropdownVisible)
           Positioned(
             top: 100,
@@ -457,7 +436,7 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                       color: theme.box,
                       child: InkWell(
                         onTap: _onShareTap,
-                        borderRadius: BorderRadius.zero,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           width: double.infinity,
@@ -517,20 +496,10 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
               },
             ),
           ),
-
-        // Tap barrier to close dropdown
-        if (_isDropdownVisible)
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: _closeDropdown,
-              child: Container(color: Colors.transparent),
-            ),
-          ),
       ],
     );
   }
 }
-
 
 class _BoldNewChatIcon extends StatelessWidget {
   const _BoldNewChatIcon();

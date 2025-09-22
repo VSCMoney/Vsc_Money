@@ -1839,8 +1839,6 @@ class _ComparisonTableWidgetState extends State<ComparisonTableWidget>
 
 
 
-
-
 class KeyValueTableWidget extends StatefulWidget {
   final String? heading;
   final List<Map<String, dynamic>> rows;
@@ -1997,7 +1995,7 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
     for (final k in priority) {
       if (count >= 4) break;
       if (lower.containsKey(k) && lower[k] != null && !_isOverviewField(k)) {
-        result[_label(k)] = _format(k, lower[k]);
+        result[_label(k)] = _formatRaw(lower[k]); // Show raw data
         count++;
       }
     }
@@ -2014,7 +2012,7 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
             if (_shouldHideField(key) || _isOverviewField(key)) continue;
             final v = ne.value;
             if (v != null && (v is num || v is String)) {
-              result[_label(key)] = _format(key, v);
+              result[_label(key)] = _formatRaw(v); // Show raw data
               count++;
             }
           }
@@ -2031,7 +2029,7 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
         if (!_isNameField(key) && e.value != null && e.value is! Map) {
           final lab = _label(key);
           if (!result.containsKey(lab)) {
-            result[lab] = _format(key, e.value);
+            result[lab] = _formatRaw(e.value); // Show raw data
             count++;
           }
         }
@@ -2074,29 +2072,9 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
         .join(' ');
   }
 
-  String _format(String k, dynamic v) {
+  // UPDATED: Show raw data without any formatting
+  String _formatRaw(dynamic v) {
     if (v == null) return '—';
-    final lk = k.toLowerCase();
-
-    if (lk.contains('price') || lk.contains('market_cap') || lk.contains('market cap')) {
-      if (v is num) {
-        if (v > 10000000) return '₹${(v / 10000000).toStringAsFixed(1)}Cr';
-        if (v > 100000) return '₹${(v / 100000).toStringAsFixed(1)}L';
-        return '₹${v.toStringAsFixed(2)}';
-      }
-    }
-    if (lk.contains('return') || lk.contains('change') || lk.contains('growth') || lk.contains('yield')) {
-      if (v is num) return '${v.toStringAsFixed(1)}%';
-    }
-    if (lk.contains('rating') || lk.contains('score')) {
-      if (v is num) return '${v.toStringAsFixed(1)}/5';
-    }
-    if (v is String) return v;
-    if (v is num) {
-      if (v > 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
-      if (v > 1000) return '${(v / 1000).toStringAsFixed(1)}K';
-      return v.toStringAsFixed(1);
-    }
     return v.toString();
   }
 
@@ -2331,10 +2309,10 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
                 softWrap: true,
                 textWidthBasis: TextWidthBasis.parent,
                 style:  TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'DM Sans',
-                  color: theme.text
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'DM Sans',
+                    color: theme.text
                 ),
               ),
             ),
@@ -2377,6 +2355,543 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
     );
   }
 }
+
+// class KeyValueTableWidget extends StatefulWidget {
+//   final String? heading;
+//   final List<Map<String, dynamic>> rows;
+//   final List<String>? columnOrder;
+//   final Function(String idOrFallback)? onCardTap;
+//   final double cardSpacing;
+//   final double headerBottomSpacing;
+//
+//   const KeyValueTableWidget({
+//     Key? key,
+//     this.heading,
+//     required this.rows,
+//     this.columnOrder,
+//     this.onCardTap,
+//     this.cardSpacing = 8,
+//     this.headerBottomSpacing = 8,
+//   }) : super(key: key);
+//
+//   @override
+//   State<KeyValueTableWidget> createState() => _KeyValueTableWidgetState();
+// }
+//
+// class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
+//     with TickerProviderStateMixin {
+//   late List<AnimationController> _fadeControllers;
+//   late List<Animation<double>> _fadeAnimations;
+//   late AnimationController _headerController;
+//   late Animation<double> _headerAnimation;
+//
+//   bool _shouldHideField(String k) => k.trim().toLowerCase() == '_id';
+//
+//   bool _isOverviewField(String k) {
+//     final lk = k.toLowerCase();
+//     return lk == 'overview.sector' ||
+//         lk == 'description' ||
+//         lk == 'summary' ||
+//         lk == 'overview.desc';
+//   }
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _initAnims();
+//     _startAnims();
+//   }
+//
+//   void _initAnims() {
+//     _headerController = AnimationController(
+//       duration: const Duration(milliseconds: 500),
+//       vsync: this,
+//     );
+//     _headerAnimation =
+//         CurvedAnimation(parent: _headerController, curve: Curves.easeOutCubic);
+//
+//     _fadeControllers = List.generate(
+//       widget.rows.length,
+//           (_) => AnimationController(
+//         duration: const Duration(milliseconds: 500),
+//         vsync: this,
+//       ),
+//     );
+//     _fadeAnimations = _fadeControllers
+//         .map((c) => CurvedAnimation(parent: c, curve: Curves.easeOutCubic))
+//         .toList();
+//   }
+//
+//   void _startAnims() {
+//     _headerController.forward();
+//     for (var i = 0; i < _fadeControllers.length; i++) {
+//       Future.delayed(Duration(milliseconds: 120 * i), () {
+//         if (mounted) _fadeControllers[i].forward();
+//       });
+//     }
+//   }
+//
+//   @override
+//   void didUpdateWidget(KeyValueTableWidget old) {
+//     super.didUpdateWidget(old);
+//     if (widget.rows.length != old.rows.length) {
+//       _disposeAnims();
+//       _initAnims();
+//       _startAnims();
+//     }
+//   }
+//
+//   void _disposeAnims() {
+//     _headerController.dispose();
+//     for (final c in _fadeControllers) {
+//       c.dispose();
+//     }
+//   }
+//
+//   @override
+//   void dispose() {
+//     _disposeAnims();
+//     super.dispose();
+//   }
+//
+//   // -------------------- data helpers --------------------
+//
+//   String? _getCaseInsensitive(Map<String, dynamic> row, List<String> keys) {
+//     final lower = {for (final e in row.entries) e.key.toLowerCase(): e.value};
+//     for (final k in keys) {
+//       final v = lower[k.toLowerCase()];
+//       if (v != null) return v.toString();
+//     }
+//     return null;
+//   }
+//
+//   String _extractEntityName(Map<String, dynamic> row) {
+//     final v = _getCaseInsensitive(row, ['name', 'company', 'symbol', 'ticker', 'title']);
+//     return (v == null || v.trim().isEmpty) ? 'Entity' : v.trim();
+//   }
+//
+//   String _extractEntityId(Map<String, dynamic> row) {
+//     final v = _getCaseInsensitive(row, ['_id', 'id']);
+//     return v?.trim() ?? '';
+//   }
+//
+//   Map<String, String> _processRowData(Map<String, dynamic> row) {
+//     final processed = <String, String>{};
+//     processed['name'] = _extractEntityName(row);
+//     processed.addAll(_extractImportantFields(row));
+//     return processed;
+//   }
+//
+//   Map<String, String> _extractImportantFields(Map<String, dynamic> row) {
+//     final result = <String, String>{};
+//     final priority = [
+//       'price',
+//       'sector',
+//       'category',
+//       'industry',
+//       'market_cap',
+//       'pe_ratio',
+//       'revenue',
+//       'profit',
+//       'rating',
+//       'score',
+//       'percentage',
+//       'change',
+//       'volume',
+//       'returns',
+//       'yield',
+//       'growth',
+//       // backend sometimes uses spaced labels:
+//       'current price',
+//       'market cap',
+//     ];
+//     int count = 0;
+//
+//     // priority (case-insensitive)
+//     final lower = {for (final e in row.entries) e.key.toLowerCase(): e.value};
+//     for (final k in priority) {
+//       if (count >= 4) break;
+//       if (lower.containsKey(k) && lower[k] != null && !_isOverviewField(k)) {
+//         result[_label(k)] = _format(k, lower[k]);
+//         count++;
+//       }
+//     }
+//
+//     // nested maps
+//     if (count < 4) {
+//       for (final e in row.entries) {
+//         if (count >= 4) break;
+//         if (e.value is Map) {
+//           final nested = Map<String, dynamic>.from(e.value as Map);
+//           for (final ne in nested.entries) {
+//             if (count >= 4) break;
+//             final key = ne.key;
+//             if (_shouldHideField(key) || _isOverviewField(key)) continue;
+//             final v = ne.value;
+//             if (v != null && (v is num || v is String)) {
+//               result[_label(key)] = _format(key, v);
+//               count++;
+//             }
+//           }
+//         }
+//       }
+//     }
+//
+//     // remaining top-level
+//     if (count < 4) {
+//       for (final e in row.entries) {
+//         if (count >= 4) break;
+//         final key = e.key;
+//         if (_shouldHideField(key) || _isOverviewField(key)) continue;
+//         if (!_isNameField(key) && e.value != null && e.value is! Map) {
+//           final lab = _label(key);
+//           if (!result.containsKey(lab)) {
+//             result[lab] = _format(key, e.value);
+//             count++;
+//           }
+//         }
+//       }
+//     }
+//     return result;
+//   }
+//
+//   bool _isNameField(String k) {
+//     final lk = k.toLowerCase();
+//     return lk == 'name' || lk == 'company' || lk == 'symbol' || lk == 'ticker' || lk == 'title';
+//   }
+//
+//   String _label(String k) {
+//     const map = {
+//       'price': 'Price',
+//       'current price': 'Current Price',
+//       'sector': 'Sector',
+//       'market_cap': 'Market Cap',
+//       'market cap': 'Market Cap',
+//       'pe_ratio': 'P/E',
+//       'dividend_yield': 'Dividend',
+//       'revenue': 'Revenue',
+//       'profit': 'Profit',
+//       'rating': 'Rating',
+//       'volume': 'Volume',
+//       'change': 'Change',
+//       'returns': 'Returns',
+//       'yield': 'Yield',
+//       'growth': 'Growth',
+//       'industry': 'Industry',
+//       'category': 'Category',
+//     };
+//     final lk = k.toLowerCase();
+//     if (map.containsKey(lk)) return map[lk]!;
+//     final cleaned = lk.replaceAll('_', ' ').replaceAll('.', ' ');
+//     return cleaned
+//         .split(' ')
+//         .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+//         .join(' ');
+//   }
+//
+//   String _format(String k, dynamic v) {
+//     if (v == null) return '—';
+//     final lk = k.toLowerCase();
+//
+//     if (lk.contains('price') || lk.contains('market_cap') || lk.contains('market cap')) {
+//       if (v is num) {
+//         if (v > 10000000) return '₹${(v / 10000000).toStringAsFixed(1)}Cr';
+//         if (v > 100000) return '₹${(v / 100000).toStringAsFixed(1)}L';
+//         return '₹${v.toStringAsFixed(2)}';
+//       }
+//     }
+//     if (lk.contains('return') || lk.contains('change') || lk.contains('growth') || lk.contains('yield')) {
+//       if (v is num) return '${v.toStringAsFixed(1)}%';
+//     }
+//     if (lk.contains('rating') || lk.contains('score')) {
+//       if (v is num) return '${v.toStringAsFixed(1)}/5';
+//     }
+//     if (v is String) return v;
+//     if (v is num) {
+//       if (v > 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
+//       if (v > 1000) return '${(v / 1000).toStringAsFixed(1)}K';
+//       return v.toStringAsFixed(1);
+//     }
+//     return v.toString();
+//   }
+//
+//   String _pickId(Map<String, dynamic> row) {
+//     final v = _getCaseInsensitive(row, ['_id', 'id', 'isin', 'symbol', 'ticker']);
+//     return (v == null || v.trim().isEmpty) ? _extractEntityName(row) : v.trim();
+//   }
+//
+//   String _extractOverview(Map<String, dynamic> row) {
+//     final lower = {for (final e in row.entries) e.key.toLowerCase(): e.value};
+//     for (final k in ['overview.sector', 'description', 'summary']) {
+//       final v = lower[k];
+//       if (v != null && v.toString().trim().isNotEmpty) return v.toString().trim();
+//     }
+//     for (final k in ['meta', 'details', 'company']) {
+//       final obj = row[k];
+//       if (obj is Map) {
+//         final lower2 = {for (final e in obj.entries) e.key.toLowerCase(): e.value};
+//         for (final f in ['overview.sector', 'description', 'summary']) {
+//           final v = lower2[f];
+//           if (v != null && v.toString().trim().isNotEmpty) return v.toString().trim();
+//         }
+//       }
+//     }
+//     return '';
+//   }
+//
+//   // -------------------- NEW: single-row stats helpers --------------------
+//
+//   Widget _statTile(String label, String value) {
+//     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         Text(
+//           label,
+//           maxLines: 1,
+//           overflow: TextOverflow.ellipsis,
+//           style: TextStyle(
+//             fontSize: 12,
+//             color: theme.text.withOpacity(0.7),
+//             fontWeight: FontWeight.w400,
+//             fontFamily: "DM Sans",
+//             height: 1.5,
+//           ),
+//         ),
+//         const SizedBox(height: 3),
+//         Text(
+//           value,
+//           maxLines: 2,
+//           overflow: TextOverflow.ellipsis,
+//           style: TextStyle(
+//             fontSize: 14,
+//             fontWeight: FontWeight.w500,
+//             color: theme.text,
+//             fontFamily: "DM Sans",
+//             height: 1.5,
+//           ),
+//         ),
+//       ],
+//     );
+//   }
+//
+//   /// Exactly one horizontal row with up to 3 stats; truncates if tight.
+//   Widget _statsOneRow(List<MapEntry<String, String>> entries) {
+//     final shown = entries.take(3).toList();
+//     if (shown.isEmpty) return const SizedBox.shrink();
+//
+//     return Padding(
+//       padding: const EdgeInsets.only(left: 70, right: 8), // align under title (avatar offset)
+//       child: Row(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           for (int i = 0; i < shown.length; i++) ...[
+//             Expanded(child: _statTile(shown[i].key, shown[i].value)),
+//             if (i < shown.length - 1) const SizedBox(width: 16),
+//           ],
+//         ],
+//       ),
+//     );
+//   }
+//
+//   // -------------------- UI --------------------
+//
+//   Widget _card(Map<String, dynamic> row, Animation<double> anim, int i) {
+//     final data = _processRowData(row);
+//     final name = data['name'] ?? 'Entity';
+//     final fields = Map<String, String>.from(data)..remove('name');
+//     final entries = fields.entries.toList();
+//     final overview = _extractOverview(row);
+//     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+//
+//     return FadeTransition(
+//       opacity: anim,
+//       child: SlideTransition(
+//         position: Tween<Offset>(begin: const Offset(0, .06), end: Offset.zero).animate(anim),
+//         child: GestureDetector(
+//           onTap: () => widget.onCardTap?.call(_pickId(row)),
+//           child: Container(
+//             margin: EdgeInsets.only(
+//               bottom: i < widget.rows.length - 1 ? widget.cardSpacing : 0,
+//             ),
+//             padding: const EdgeInsets.all(16),
+//             decoration: BoxDecoration(
+//               color: theme.card,
+//               borderRadius: BorderRadius.circular(12),
+//               border: Border.all(color: theme.background, width: 1),
+//               boxShadow: [
+//                 BoxShadow(
+//                   color: Colors.black.withOpacity(0.1),
+//                   blurRadius: 8,
+//                   offset: const Offset(0, 2),
+//                 ),
+//               ],
+//             ),
+//             child: Stack(
+//               children: [
+//                 Column(
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     // Header row with name and bookmark
+//                     Row(
+//                       children: [
+//                         Expanded(
+//                           child: Padding(
+//                             padding: const EdgeInsets.only(left: 70),
+//                             child: Text(
+//                               name,
+//                               style: TextStyle(
+//                                 fontSize: 16,
+//                                 fontWeight: FontWeight.w600,
+//                                 color: theme.text,
+//                                 fontFamily: "DM Sans",
+//                                 height: 1.0,
+//                               ),
+//                             ),
+//                           ),
+//                         ),
+//                         Icon(Icons.bookmark_border, size: 25, color: theme.icon),
+//                       ],
+//                     ),
+//
+//                     // 🔸 Single-row stats (max 3)
+//                     if (entries.isNotEmpty) ...[
+//                       const SizedBox(height: 6),
+//                       _statsOneRow(entries),
+//                     ],
+//
+//                     if (overview.isNotEmpty) ...[
+//                       const SizedBox(height: 8),
+//                       Padding(
+//                         padding: const EdgeInsets.only(left: 0),
+//                         child: Text(
+//                           overview,
+//                           style: TextStyle(
+//                             fontFamily: 'DM Sans',
+//                             fontSize: 13,
+//                             height: 1.4,
+//                             color: theme.text.withOpacity(0.8),
+//                             fontWeight: FontWeight.w400,
+//                           ),
+//                         ),
+//                       ),
+//                     ],
+//                   ],
+//                 ),
+//
+//                 // Company logo/avatar with transparent background
+//                 Positioned(
+//                   top: 12,
+//                   left: 0,
+//                   child: Container(
+//                     width: 44,
+//                     height: 44,
+//                     decoration: BoxDecoration(
+//                       borderRadius: BorderRadius.circular(8),
+//                       // ✅ REMOVED: color property to make background transparent
+//                     ),
+//                     child: ClipRRect(
+//                       borderRadius: BorderRadius.circular(8),
+//                       child: ColorFiltered(
+//                         // ✅ ADDED: Remove white background from image
+//                         colorFilter: const ColorFilter.mode(
+//                           Colors.white,
+//                           BlendMode.multiply,
+//                         ),
+//                         child: Image.network(
+//                           "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRCvh-j7HsTHJ8ZckknAoiZMx9VcFmsFkv72g&s",
+//                           fit: BoxFit.cover,
+//                           errorBuilder: (context, error, stackTrace) {
+//                             return Container(
+//                               decoration: BoxDecoration(
+//                                 color: Colors.transparent, // ✅ UPDATED: Transparent fallback
+//                                 borderRadius: BorderRadius.circular(8),
+//                               ),
+//                               child: Icon(
+//                                 Icons.business,
+//                                 color: theme.icon ?? Colors.grey,
+//                                 size: 24,
+//                               ),
+//                             );
+//                           },
+//                         ),
+//                       ),
+//                     ),
+//                   ),
+//                 ),
+//               ],
+//             ),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _header(String text) {
+//     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+//     return FadeTransition(
+//       opacity: _headerAnimation,
+//       child: SlideTransition(
+//         position: Tween<Offset>(begin: const Offset(0, .06), end: Offset.zero)
+//             .animate(_headerAnimation),
+//         child: Row(
+//           children: [
+//             const Text('🔰 '),
+//             Expanded(
+//               child: Text(
+//                 text,
+//                 maxLines: 2,
+//                 overflow: TextOverflow.visible,
+//                 textAlign: TextAlign.justify,
+//                 softWrap: true,
+//                 textWidthBasis: TextWidthBasis.parent,
+//                 style:  TextStyle(
+//                   fontSize: 18,
+//                   fontWeight: FontWeight.w700,
+//                   fontFamily: 'DM Sans',
+//                   color: theme.text
+//                 ),
+//               ),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     if (widget.rows.isEmpty) return const SizedBox.shrink();
+//
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         if ((widget.heading ?? '').isNotEmpty)
+//           Column(
+//             crossAxisAlignment: CrossAxisAlignment.start,
+//             children: [
+//               const SizedBox(height: 8),
+//               Divider( thickness: 0, color: Colors.grey.shade300),
+//               const SizedBox(height: 8),
+//               _header(widget.heading!),
+//               const SizedBox(height: 12),
+//             ],
+//           ),
+//         ...widget.rows.asMap().entries.map((e) {
+//           final i = e.key;
+//           final anim =
+//           i < _fadeAnimations.length ? _fadeAnimations[i] : _headerAnimation;
+//           return Column(
+//             children: [
+//               _card(e.value, anim, i),
+//               const SizedBox(height: 8),
+//             ],
+//           );
+//         }),
+//       ],
+//     );
+//   }
+// }
 
 
 

@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:vscmoney/services/locator.dart';
+import 'package:vscmoney/services/theme_service.dart';
 
 import '../core/helpers/themes.dart';
 
@@ -27,7 +29,7 @@ class VIttyLoader extends StatelessWidget {
         //   fit: BoxFit.contain,
         //   animate: true,
         // ),
-        Image.asset("assets/images/new_loader.gif",height: 100,width: 200,fit: BoxFit.contain,)
+       locator<ThemeService>().isDark?  Image.asset("assets/images/new_loader_dark.gif",height: 100,width: 200,fit: BoxFit.contain,): Image.asset("assets/images/new_loader.gif",height: 100,width: 200,fit: BoxFit.contain,)
       ),
     );
   }

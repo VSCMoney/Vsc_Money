@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:vscmoney/testpage.dart';
 import '../../../constants/app_bar.dart';
 import '../../../constants/bottomsheet.dart';
 import '../../../models/chat_session.dart';
+import '../../../new_chat_screen.dart';
 import '../../../services/chat_service.dart';
 import '../../../services/theme_service.dart';
 import '../../widgets/drawer.dart';
@@ -137,14 +139,14 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // NEW: Method called when send button is clicked (for immediate divider)
-  void _onSendMessageStarted() {
-    if (!_showDivider) {
-      setState(() {
-        _showDivider = true;
-      });
-    }
-  }
+  // // NEW: Method called when send button is clicked (for immediate divider)
+  // void _onSendMessageStarted() {
+  //   if (!_showDivider) {
+  //     setState(() {
+  //       _showDivider = true;
+  //     });
+  //   }
+  // }
 
   void _openSettingsSheet() {
     final settingsSheet = BottomSheetManager.buildSettingsSheet(
@@ -310,17 +312,22 @@ class _HomeScreenState extends State<HomeScreen> {
       )
           : null,
       body: _chatService.isInitialized
-          ? ChatScreen(
-        key: const ValueKey('chat-screen'), // <- stable
-        session: _chatService.currentSession, // <- nullable allowed
+          ?
+      // ChatScreen(
+      //   key: const ValueKey('chat-screen'), // <- stable
+      //   session: _chatService.currentSession, // <- nullable allowed
+      //   chatService: _chatService,
+      //   onFirstMessageComplete: (isComplete) {
+      //     if (isComplete) setState(() {});
+      //   },
+      //   //onSendMessageStarted: _onSendMessageStarted, // NEW: Pass callback
+      //   onStockTap: _openStockDetailSheet,
+      //   onAskVitty: _openAskVittySheet,
+      // )
+      NewChatScreen(
         chatService: _chatService,
-        onFirstMessageComplete: (isComplete) {
-          if (isComplete) setState(() {});
-        },
-        onSendMessageStarted: _onSendMessageStarted, // NEW: Pass callback
-        onStockTap: _openStockDetailSheet,
-        onAskVitty: _openAskVittySheet,
       )
+
           : SizedBox.shrink(),
     );
   }

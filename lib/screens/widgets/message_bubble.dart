@@ -315,39 +315,32 @@ class MessageBubble extends StatelessWidget {
                   constraints: BoxConstraints(
                     maxWidth: MediaQuery.of(context).size.width * 0.6,
                   ),
-                  child: MeasureSize(
-                    onChange: (size) {
-                      // ALWAYS called after layout; height is reliable
-                      onHeightMeasured?.call();
-                      onHeightMeasuredWithValue?.call(size.height);
-                    },
-                    child: Container(
-                      key: bubbleKey, // optional, safe to keep
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      margin: const EdgeInsets.only(bottom: 2),
-                      decoration: BoxDecoration(
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                        color: theme.message,
-                        borderRadius: BorderRadius.circular(22),
-                      ),
-                      child: Text(
-                        message,
-                        style: TextStyle(
-                          height: 1.9,
-                          fontFamily: 'DM Sans',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: theme.text,
+                  child: Container(
+                    key: bubbleKey, // optional, safe to keep
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    margin: const EdgeInsets.only(bottom: 2),
+                    decoration: BoxDecoration(
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
                         ),
+                      ],
+                      color: theme.message,
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: Text(
+                      message,
+                      style: TextStyle(
+                        height: 1.9,
+                        fontFamily: 'DM Sans',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: theme.text,
                       ),
                     ),
                   ),
