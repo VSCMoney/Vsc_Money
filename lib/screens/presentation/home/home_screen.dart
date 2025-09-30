@@ -326,6 +326,8 @@ class _HomeScreenState extends State<HomeScreen> {
       // )
       NewChatScreen(
         chatService: _chatService,
+        onStockTap: _openStockDetailSheet,
+        onAskVitty: _openAskVittySheet,
       )
 
           : SizedBox.shrink(),

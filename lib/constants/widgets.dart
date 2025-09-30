@@ -2251,33 +2251,26 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
                     height: 44,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
-                      // ✅ REMOVED: color property to make background transparent
+                      color: Colors.transparent, // ✅ Transparent background
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: ColorFiltered(
-                        // ✅ ADDED: Remove white background from image
-                        colorFilter: const ColorFilter.mode(
-                          Colors.white,
-                          BlendMode.multiply,
-                        ),
-                        child: Image.network(
-                          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRCvh-j7HsTHJ8ZckknAoiZMx9VcFmsFkv72g&s",
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: Colors.transparent, // ✅ UPDATED: Transparent fallback
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                Icons.business,
-                                color: theme.icon ?? Colors.grey,
-                                size: 24,
-                              ),
-                            );
-                          },
-                        ),
+                      child: Image.network(
+                        "https://i.pinimg.com/736x/6b/ed/12/6bed123accf95b38fb97e32f39df4c2e.jpg",
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.business,
+                              color: theme.icon ?? Colors.grey,
+                              size: 24,
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),

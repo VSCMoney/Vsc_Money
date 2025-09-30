@@ -64,13 +64,13 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
   late final AnimationController _logoChangeCtrl;
 
   // Yin–Yang out
-  late final Animation<double> _yinFadeOut;   // 0→1
-  late final Animation<double> _yinScaleOut;  // 1→0.88
+  late final Animation<double> _yinFadeOut;
+  late final Animation<double> _yinScaleOut;
 
-  // Vitty text in (wipe + subtle fade/scale)
-  late final Animation<double> _textReveal;   // widthFactor 0→1
-  late final Animation<double> _textFadeIn;   // 0→1
-  late final Animation<double> _textScaleIn;  // 0.94→1
+  // Vitty text in
+  late final Animation<double> _textReveal;
+  late final Animation<double> _textFadeIn;
+  late final Animation<double> _textScaleIn;
 
   bool _transitionStarted = false;
   bool _isDropdownVisible = false;
@@ -78,6 +78,10 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
   // Dropdown animation
   late final AnimationController _dropdownController;
   late final Animation<double> _dropdownAnimation;
+
+  // Dropdown state for Cupertino-style menu
+  final GlobalKey _titleAnchorKey = GlobalKey();
+  OverlayEntry? _dropdownEntry;
 
   @override
   void initState() {
@@ -135,6 +139,7 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
 
   @override
   void dispose() {
+    _hideDropdown();
     _logoChangeCtrl.dispose();
     _dropdownController.dispose();
     super.dispose();
@@ -142,305 +147,84 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
 
   void _toggleDropdown() {
     HapticFeedback.mediumImpact();
-    setState(() {
-      _isDropdownVisible = !_isDropdownVisible;
-    });
-
     if (_isDropdownVisible) {
-      _dropdownController.forward();
+      _hideDropdown();
     } else {
-      _dropdownController.reverse();
+      _showDropdown();
     }
   }
 
-  void _closeDropdown() {
-    setState(() {
-      _isDropdownVisible = false;
-    });
-    _dropdownController.reverse();
-  }
+  void _showDropdown() {
+    if (_dropdownEntry != null) return;
 
-  void _onShareTap() {
-    _closeDropdown();
-    HapticFeedback.mediumImpact();
-    // Add share functionality here
-    debugPrint("Share tapped");
-  }
+    final anchorCtx = _titleAnchorKey.currentContext;
+    if (anchorCtx == null) return;
 
-  void _onCopyTap() {
-    _closeDropdown();
-    HapticFeedback.mediumImpact();
-    // Add copy functionality here
-    debugPrint("Copy tapped");
-  }
+    final rb = anchorCtx.findRenderObject() as RenderBox;
+    final anchorOffset = rb.localToGlobal(Offset.zero);
+    final anchorSize = rb.size;
 
-  @override
-  Widget build(BuildContext context) {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final bool isTablet = screenWidth > 600;
-    final double horizontalPadding = 23.0;
-    final double logoHeight = isTablet ? 50 : 46;
-    final double spacing = 12;
+    final screen = MediaQuery.of(context).size;
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        // Tap barrier to close dropdown (positioned below dropdown)
-        if (_isDropdownVisible)
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: _closeDropdown,
-              child: Container(color: Colors.transparent),
-            ),
-          ),
+    final double cardWidth = math.min(screen.width - 32, 220);
+    final double estimatedHeight = 2 * 56.0; // Share + Copy
 
-        Column(
-          mainAxisSize: MainAxisSize.min,
+    final double left = ((anchorOffset.dx + anchorSize.width / 2) - cardWidth / 2)
+        .clamp(16.0, screen.width - cardWidth - 16.0);
+    double top = anchorOffset.dy + anchorSize.height + 8.0;
+
+    final bool overflowBottom = (top + estimatedHeight + 24) > screen.height;
+    if (overflowBottom) {
+      top = math.max(24.0, anchorOffset.dy - estimatedHeight - 8.0);
+    }
+
+    _dropdownEntry = OverlayEntry(
+      builder: (_) {
+        return Stack(
           children: [
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              color: theme.background,
-              child: SafeArea(
-                bottom: false,
-                child: SizedBox(
-                  height: 60,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // —— Center: Logo (Hero target) or Title ——
-                      widget.isDashboard
-                          ? Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Hero(
-                            tag: 'penny_logo',
-                            transitionOnUserGestures: true,
-                            child: AnimatedBuilder(
-                              animation: _logoChangeCtrl,
-                              builder: (context, _) {
-                                return SizedBox(
-                                  height: logoHeight,
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      // ✅ Yin–Yang base (fades/scales) — NO rotation on appbar
-                                      Opacity(
-                                        opacity: 1.0 - _yinFadeOut.value,
-                                        child: Transform.scale(
-                                          scale: _yinScaleOut.value,
-                                          child: Image.asset(
-                                            "assets/images/ying yang.png",
-                                            height: 36,
-                                            fit: BoxFit.contain,
-                                          ),
-                                        ),
-                                      ),
+            // Dim background
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _hideDropdown,
+                child: Container(color: Colors.black.withOpacity(0.05)),
+              ),
+            ),
 
-                                      // Vitty text reveal (unchanged)
-                                      Opacity(
-                                        opacity: _textFadeIn.value,
-                                        child: Transform.scale(
-                                          scale: _textScaleIn.value,
-                                          child: ClipRect(
-                                            child: Align(
-                                              alignment: Alignment.centerLeft,
-                                              widthFactor: _textReveal.value.clamp(0.0, 1.0),
-                                              child: Transform.translate(
-                                                offset: const Offset(8, 0),
-                                                child: Row(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Text('Vitty',
-                                                      style: TextStyle(
-                                                        fontWeight: FontWeight.w800,
-                                                        fontFamily: "Josefin Sans",
-                                                        fontSize: 22,
-                                                        color: theme.icon,
-                                                        letterSpacing: 1.0,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 0),
-                                                    GestureDetector(
-                                                      onTap: _toggleDropdown,
-                                                      child: AnimatedRotation(
-                                                        turns: _isDropdownVisible ? 0.5 : 0.0,
-                                                        duration: const Duration(milliseconds: 200),
-                                                        child: Icon(
-                                                          Icons.keyboard_arrow_down_rounded,
-                                                          size: 28,
-                                                          color: theme.icon?.withOpacity(0.7),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      )
-                          : Text(
-                        widget.title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: theme.text,
-                          fontSize: isTablet ? 22 : 20,
-                          fontFamily: 'DM Sans',
-                        ),
-                      ),
-
-                      // —— Left + Right actions ——
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Left: Drawer
-                          Builder(
-                            builder: (drawerContext) => Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(24),
-                                onTap: () {
-                                  HapticFeedback.mediumImpact();
-                                  FocusManager.instance.primaryFocus?.unfocus();
-                                  FocusScope.of(context).unfocus();
-                                  _closeDropdown();
-                                  final scaffold = Scaffold.maybeOf(drawerContext);
-                                  if (scaffold != null && scaffold.hasDrawer) {
-                                    scaffold.openDrawer();
-                                  } else {
-                                    Scaffold.of(drawerContext).openDrawer();
-                                  }
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 0),
-                                  child: SvgPicture.asset(
-                                    "assets/images/drawer.svg",
-                                    height: 32,
-                                    width: 32,
-                                    color: theme.icon,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          // Right: Actions
-                          Row(
-                            children: [
-                              InkWell(
-                                borderRadius: BorderRadius.circular(24),
-                                onTap: () {
-                                  HapticFeedback.lightImpact();
-                                  _closeDropdown();
-                                  final overlay = Overlay.of(context);
-                                  final renderBox = context.findRenderObject() as RenderBox;
-                                  final size = renderBox.size;
-                                  final offset = renderBox.localToGlobal(Offset.zero);
-
-                                  final entry = OverlayEntry(
-                                    builder: (context) => Positioned(
-                                      top: offset.dy + size.height + 8,
-                                      left: offset.dx + size.width / 1.5 - 60,
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: AnimatedComingSoonTooltip(),
-                                      ),
-                                    ),
-                                  );
-
-                                  overlay.insert(entry);
-                                  Future.delayed(const Duration(seconds: 2), () {
-                                    entry.remove();
-                                  });
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(4.0),
-                                  child: SvgPicture.asset(
-                                    "assets/images/new_notification.svg",
-                                    width: 20,
-                                    height: 20,
-                                    color: theme.icon,
-                                  ),
-                                ),
-                              ),
-                              if (widget.isDashboard && widget.showNewChatButton) ...[
-                                const SizedBox(width: 15),
-                                Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(24),
-                                    onTap: () {
-                                      _closeDropdown();
-                                      widget.onNewChatTap();
-                                    },
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(0.0),
-                                      child: _BoldNewChatIcon(),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
+            // Floating menu card
+            Positioned(
+              left: left,
+              top: top,
+              width: cardWidth,
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.box,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: theme.border, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                ),
-              ),
-            ),
-            if (widget.showDivider)
-              Container(
-                height: 1,
-                margin: EdgeInsets.zero,
-                color: Colors.grey.withOpacity(0.1),
-                width: double.infinity,
-              ),
-          ],
-        ),
-
-        // Dropdown positioned below the logo (now on top of tap barrier)
-        if (_isDropdownVisible)
-          Positioned(
-            top: 100,
-            left: MediaQuery.of(context).size.width * 0.3,
-            right: MediaQuery.of(context).size.width * 0.3,
-            child: AnimatedBuilder(
-              animation: _dropdownAnimation,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: theme.box,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: theme.border, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Material(
-                      color: theme.box,
-                      child: InkWell(
-                        onTap: _onShareTap,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          _hideDropdown();
+                          _onShareTap();
+                        },
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           width: double.infinity,
-                          child:  Center(
+                          child: Center(
                             child: Text(
                               'Share',
                               style: TextStyle(
@@ -453,21 +237,21 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                           ),
                         ),
                       ),
-                    ),
-                    Container(
-                      height: 1,
-                      color: const Color(0xFFF5F5F5),
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                    ),
-                    Material(
-                      color: theme.box,
-                      child: InkWell(
-                        onTap: _onCopyTap,
+                      Container(
+                        height: 1,
+                        color: theme.border.withOpacity(0.3),
+                        margin: const EdgeInsets.symmetric(horizontal: 0),
+                      ),
+                      InkWell(
+                        onTap: () {
+                          _hideDropdown();
+                          _onCopyTap();
+                        },
                         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           width: double.infinity,
-                          child:  Center(
+                          child: Center(
                             child: Text(
                               'Copy',
                               style: TextStyle(
@@ -480,21 +264,257 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-              builder: (context, child) {
-                return Transform.scale(
-                  scale: _dropdownAnimation.value,
-                  alignment: Alignment.topCenter,
-                  child: Opacity(
-                    opacity: _dropdownAnimation.value,
-                    child: child,
-                  ),
-                );
-              },
             ),
+          ],
+        );
+      },
+    );
+
+    Overlay.of(context, rootOverlay: true).insert(_dropdownEntry!);
+    setState(() => _isDropdownVisible = true);
+  }
+
+  void _hideDropdown() {
+    _dropdownEntry?.remove();
+    _dropdownEntry = null;
+    if (_isDropdownVisible) {
+      setState(() => _isDropdownVisible = false);
+    }
+  }
+
+  void _onShareTap() {
+    HapticFeedback.mediumImpact();
+    debugPrint("Share tapped");
+  }
+
+  void _onCopyTap() {
+    HapticFeedback.mediumImpact();
+    debugPrint("Copy tapped");
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isTablet = screenWidth > 600;
+    final double horizontalPadding = 23.0;
+    final double logoHeight = isTablet ? 50 : 46;
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+          color: theme.background,
+          child: SafeArea(
+            bottom: false,
+            child: SizedBox(
+              height: 60,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Center: Logo with dropdown
+                  widget.isDashboard
+                      ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Hero(
+                        tag: 'penny_logo',
+                        transitionOnUserGestures: true,
+                        child: AnimatedBuilder(
+                          animation: _logoChangeCtrl,
+                          builder: (context, _) {
+                            return SizedBox(
+                              height: logoHeight,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Yin-Yang base
+                                  Opacity(
+                                    opacity: 1.0 - _yinFadeOut.value,
+                                    child: Transform.scale(
+                                      scale: _yinScaleOut.value,
+                                      child: Image.asset(
+                                        "assets/images/ying yang.png",
+                                        height: 36,
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                  ),
+
+                                  // Vitty text reveal
+                                  Opacity(
+                                    opacity: _textFadeIn.value,
+                                    child: Transform.scale(
+                                      scale: _textScaleIn.value,
+                                      child: ClipRect(
+                                        child: Align(
+                                          alignment: Alignment.centerLeft,
+                                          widthFactor: _textReveal.value.clamp(0.0, 1.0),
+                                          child: Transform.translate(
+                                            offset: const Offset(8, 0),
+                                            child: Row(
+                                              key: _titleAnchorKey, // Anchor for dropdown
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  'Vitty',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w800,
+                                                    fontFamily: "Josefin Sans",
+                                                    fontSize: 22,
+                                                    color: theme.icon,
+                                                    letterSpacing: 1.0,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 0),
+                                                GestureDetector(
+                                                  onTap: _toggleDropdown,
+                                                  child: AnimatedRotation(
+                                                    turns: _isDropdownVisible ? 0.5 : 0.0,
+                                                    duration: const Duration(milliseconds: 200),
+                                                    child: Icon(
+                                                      Icons.keyboard_arrow_down_rounded,
+                                                      size: 28,
+                                                      color: theme.icon?.withOpacity(0.7),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  )
+                      : Text(
+                    widget.title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: theme.text,
+                      fontSize: isTablet ? 22 : 20,
+                      fontFamily: 'DM Sans',
+                    ),
+                  ),
+
+                  // Left + Right actions
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Left: Drawer
+                      Builder(
+                        builder: (drawerContext) => Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(24),
+                            onTap: () {
+                              HapticFeedback.mediumImpact();
+                              FocusManager.instance.primaryFocus?.unfocus();
+                              FocusScope.of(context).unfocus();
+                              _hideDropdown();
+                              final scaffold = Scaffold.maybeOf(drawerContext);
+                              if (scaffold != null && scaffold.hasDrawer) {
+                                scaffold.openDrawer();
+                              } else {
+                                Scaffold.of(drawerContext).openDrawer();
+                              }
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 0),
+                              child: SvgPicture.asset(
+                                "assets/images/drawer.svg",
+                                height: 32,
+                                width: 32,
+                                color: theme.icon,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Right: Actions
+                      Row(
+                        children: [
+                          InkWell(
+                            borderRadius: BorderRadius.circular(24),
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              _hideDropdown();
+                              final overlay = Overlay.of(context);
+                              final renderBox = context.findRenderObject() as RenderBox;
+                              final size = renderBox.size;
+                              final offset = renderBox.localToGlobal(Offset.zero);
+
+                              final entry = OverlayEntry(
+                                builder: (context) => Positioned(
+                                  top: offset.dy + size.height + 8,
+                                  left: offset.dx + size.width / 1.5 - 60,
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: AnimatedComingSoonTooltip(),
+                                  ),
+                                ),
+                              );
+
+                              overlay.insert(entry);
+                              Future.delayed(const Duration(seconds: 2), () {
+                                entry.remove();
+                              });
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(4.0),
+                              child: SvgPicture.asset(
+                                "assets/images/new_notification.svg",
+                                width: 20,
+                                height: 20,
+                                color: theme.icon,
+                              ),
+                            ),
+                          ),
+                          if (widget.isDashboard && widget.showNewChatButton) ...[
+                            const SizedBox(width: 15),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(24),
+                                onTap: () {
+                                  _hideDropdown();
+                                  widget.onNewChatTap();
+                                },
+                                child: const Padding(
+                                  padding: EdgeInsets.all(0.0),
+                                  child: _BoldNewChatIcon(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (widget.showDivider)
+          Container(
+            height: 1,
+            margin: EdgeInsets.zero,
+            color: Colors.grey.withOpacity(0.1),
+            width: double.infinity,
           ),
       ],
     );

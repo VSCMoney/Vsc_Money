@@ -119,55 +119,48 @@ class ChatService{
 
 
 
-
-  Future<void> sendNewMessage({required Message message, required BuildContext context}) async {
+  Future<void> sendNewMessage({required Message message, required BuildContext context, bool isThreadMode = false,}) async {
+    // 1) keyboard close
     FocusManager.instance.primaryFocus?.unfocus();
+
+    // 2) UI ko bolo ki bottom pin kare
     shouldPin = true;
+
     _isTypingSubject.add(true);
+    final messageText = (message.content ?? '').trim();
     textController.clear();
 
-    // 🔧 CRITICAL FIX: Clear pairs for first message in new session
-    final isFirstMessage = _currentSession == null ||
-        pairs.isEmpty ||
-        !messages.any((m) => m['role'] == 'user');
 
-    if (isFirstMessage) {
-      print("🧹 First message detected - clearing pairs");
-      pairs.clear();
-      _pairSubject.add([]);
-    }
-
-    print("📊 Pairs before adding new: ${pairs.length}");
-
-    // Create new pair
     final newPair = MessagePair(
       userMessage: message,
       isStreaming: true,
     );
-
     pairs.add(newPair);
     _pairSubject.add(List.from(pairs));
 
-    print("📊 Pairs after adding: ${pairs.length}");
-
-    // Wait for keyboard to actually close before calculating adjustment
-    await Future.delayed(const Duration(milliseconds: 300));
+    // 4) Keyboard settle (optional)
+    await Future.delayed(const Duration(milliseconds: 200));
 
     // NOW calculate adjustment with keyboard closed
-    adjustment = _calculateKeyboardAwareAdjustment(message.content!, context);
+    adjustment = _calculateKeyboardAwareAdjustment(message.content!, context, isThreadMode: isThreadMode);
 
     // Auto scroll to bottom
     if (scrollController.hasClients) {
       scrollController.animateTo(
         scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 250),
+        duration: const Duration(milliseconds: 650),
         curve: Curves.easeIn,
       );
     }
 
-    // Start real API streaming
-    await _startRealBotResponse(pairs.length - 1, message.content!);
+    // 6) Start streaming
+    await _startRealBotResponse(pairs.length - 1, messageText);
   }
+
+
+
+
+
   Future<void> _startRealBotResponse(int pairIndex, String userMessage) async {
     print("🟢 _startRealBotResponse called for pair $pairIndex");
     print("🟢 Current pairs count: ${pairs.length}");
@@ -206,86 +199,98 @@ class ChatService{
       // Listen to real stream and update pairs
       _streamSubscription = responseStream.listen(
             (chatMessage) {
-          print("📥 STREAM DATA: ${chatMessage.text.substring(0, math.min(50, chatMessage.text.length))}...");
-          print("📥 Current Status: ${chatMessage.currentStatus}");
-          print("📥 Message Type: ${chatMessage.messageType}");
-          print("📥 Is Table: ${chatMessage.isTable}");
+          if (pairIndex >= pairs.length) return;
 
-          if (pairIndex < pairs.length && pairs[pairIndex].botResponses.isNotEmpty) {
-            // Get the current bot response
-            final currentBotResponse = pairs[pairIndex].botResponses.last;
+          // STATUS ONLY → pair.currentStatus set karke return
+          final status = chatMessage.currentStatus?.trim();
+          if (status != null && status.isNotEmpty) {
+            pairs[pairIndex].currentStatus = status;
+            pairs[pairIndex].isStreaming = true;
+            _pairSubject.add(List.from(pairs));
+            return; // IMPORTANT
+          }
 
-            // Update the bot message with new data
-            pairs[pairIndex].botResponses[pairs[pairIndex].botResponses.length - 1] =
-                currentBotResponse.copyWith(
-                  content: chatMessage.text,
-                  streaming: !chatMessage.isComplete,
-                  currentStatus: chatMessage.currentStatus,
-                  isTable: chatMessage.isTable,
-                  structuredData: chatMessage.structuredData,
-                  messageType: chatMessage.messageType,
-                );
+          // Ensure a bot bubble exists
+          if (pairs[pairIndex].botResponses.isEmpty) {
+            pairs[pairIndex].botResponses.add(
+              Message(byUser: false, content: "", streaming: true, id: UniqueKey().toString()),
+            );
+          }
+          final lastIdx = pairs[pairIndex].botResponses.length - 1;
+          final currentBot = pairs[pairIndex].botResponses[lastIdx];
 
-            // Update pair-level status and streaming state
+          // STRUCTURED DATA (table/cards/list)
+          if (chatMessage.structuredData != null || chatMessage.isTable == true) {
+            pairs[pairIndex].botResponses[lastIdx] = currentBot.copyWith(
+              // content remain as-is (optional)
+              streaming: !chatMessage.isComplete,
+              isTable: chatMessage.isTable,
+              structuredData: chatMessage.structuredData,
+              messageType: chatMessage.messageType ?? 'unknown',
+            );
+
             pairs[pairIndex].isStreaming = !chatMessage.isComplete;
-            pairs[pairIndex].updateStatus(chatMessage.currentStatus);
-
-            // Handle structured data (tables, cards, etc.)
-            if (chatMessage.structuredData != null) {
-              pairs[pairIndex].addStructuredData(
-                messageType: chatMessage.messageType ?? 'unknown',
-                data: chatMessage.structuredData,
-                isTable: chatMessage.isTable,
-              );
-            }
-
+            pairs[pairIndex].currentStatus = null; // first meaningful content → hide status
             _pairSubject.add(List.from(pairs));
 
-            // Emit chunks for streaming widgets
-            _chunkSubject.add(chatMessage.text);
-
-            // If complete, unlock streaming
             if (chatMessage.isComplete) {
               _isTypingSubject.add(false);
               lockScroll();
-              print("✅ Real streaming complete - scroll locked");
-
-              // Clear status when complete
-              pairs[pairIndex].updateStatus(null);
-              _pairSubject.add(List.from(pairs));
             }
+            return;
           }
+
+          // TEXT CHUNKS (full-so-far overwrite)
+          final incomingText = chatMessage.text;
+          if (incomingText.isNotEmpty) {
+            pairs[pairIndex].botResponses[lastIdx] = currentBot.copyWith(
+              content: incomingText,
+              streaming: !chatMessage.isComplete,
+              isTable: chatMessage.isTable,
+              structuredData: chatMessage.structuredData,
+              messageType: chatMessage.messageType,
+            );
+
+            pairs[pairIndex].isStreaming = !chatMessage.isComplete;
+            pairs[pairIndex].currentStatus = null; // text aate hi shimmer off
+            _pairSubject.add(List.from(pairs));
+            _chunkSubject.add(incomingText);
+
+            if (chatMessage.isComplete) {
+              _isTypingSubject.add(false);
+              lockScroll();
+            }
+            return;
+          }
+
+          // else: noop frame
         },
         onError: (e) {
-          print("❌ Real stream error: $e");
           _isTypingSubject.add(false);
-
           if (pairIndex < pairs.length && pairs[pairIndex].botResponses.isNotEmpty) {
-            final currentBotResponse = pairs[pairIndex].botResponses.last;
-            pairs[pairIndex].botResponses[pairs[pairIndex].botResponses.length - 1] =
-                currentBotResponse.copyWith(
-                  content: "Connection failed. Please try again.",
-                  streaming: false,
-                  currentStatus: null,
-                );
+            final lastIdx = pairs[pairIndex].botResponses.length - 1;
+            final currentBot = pairs[pairIndex].botResponses[lastIdx];
+            pairs[pairIndex].botResponses[lastIdx] = currentBot.copyWith(
+              content: "Connection failed. Please try again.",
+              streaming: false,
+              currentStatus: null,
+            );
             pairs[pairIndex].isStreaming = false;
-            pairs[pairIndex].updateStatus(null);
+            pairs[pairIndex].currentStatus = null;
             _pairSubject.add(List.from(pairs));
           }
         },
         onDone: () {
-          print("✅ Real stream done");
           _isTypingSubject.add(false);
-
-          // Clear status when done
           if (pairIndex < pairs.length) {
-            pairs[pairIndex].updateStatus(null);
+            pairs[pairIndex].isStreaming = false;
+            pairs[pairIndex].currentStatus = null;
             _pairSubject.add(List.from(pairs));
           }
-
           lockScroll();
         },
       );
+
 
     } catch (e) {
       print("❌ Real stream setup error: $e");
@@ -307,10 +312,9 @@ class ChatService{
   }
 
 
-
-
-  double _calculateKeyboardAwareAdjustment(String content, BuildContext context) {
+  double _calculateKeyboardAwareAdjustment(String content, BuildContext context, {bool isThreadMode = false}) {
     final mediaQuery = MediaQuery.of(context);
+    final platform = Theme.of(context).platform;
 
     // Current state values
     final currentScreenHeight = mediaQuery.size.height;
@@ -321,7 +325,6 @@ class ChatService{
     const appBarHeight = kToolbarHeight;
 
     final availableHeight = currentScreenHeight - topPadding - bottomPadding - appBarHeight;
-
 
     final keyboardCompensation = keyboardHeight;
 
@@ -343,7 +346,8 @@ class ChatService{
     final screenWidth = mediaQuery.size.width;
     final messageWidth = screenWidth * 0.6;
 
-    final messageHeight = MessageMetrics.height(
+    // Original message height calculation
+    final originalMessageHeight = MessageMetrics.height(
       text: content,
       maxWidth: messageWidth - 28,
       style: const TextStyle(
@@ -354,21 +358,196 @@ class ChatService{
       ),
     );
 
-    // Calculate adjustment - add keyboard compensation to keep message up
-    var adjustment = availableHeight - totalChatInputHeight - messageHeight - 30 + keyboardCompensation - 100;
+    // CAP MESSAGE HEIGHT AT 150px
+    const double MAX_MESSAGE_HEIGHT = 150.0;
+    final cappedMessageHeight = originalMessageHeight > MAX_MESSAGE_HEIGHT
+        ? MAX_MESSAGE_HEIGHT
+        : originalMessageHeight;
 
-    print("🔧 Adjustment calculation:");
-    print("  availableHeight: $availableHeight");
-    print("  totalChatInputHeight: $totalChatInputHeight");
-    print("  messageHeight: $messageHeight");
+    int dynamicOffset;
+
+    if (platform == TargetPlatform.iOS) {
+      // iOS offsets (current working values)
+      if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
+        dynamicOffset = 130;
+      } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 90) {
+        dynamicOffset = 100;
+      } else if (cappedMessageHeight > 90 && cappedMessageHeight <= 150) {
+        dynamicOffset = 80;
+      } else if (cappedMessageHeight >= 150 && cappedMessageHeight <= 250) {
+        dynamicOffset = 60;
+      } else {
+        dynamicOffset = 90;
+      }
+    }
+    else if (platform == TargetPlatform.android) {
+      // Calculate base offset based on message height
+      int baseOffset;
+
+      if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
+        baseOffset = 110;
+      } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 90) {
+        baseOffset = 90;
+      } else if (originalMessageHeight == 90) {
+        baseOffset = 50;
+      } else if (cappedMessageHeight >= 120 && cappedMessageHeight <= 150) {
+        baseOffset = 60;
+      } else {
+        baseOffset = 120;
+      }
+
+      // Thread mode: add 60px for bottom sheet header + padding
+      dynamicOffset = isThreadMode ? baseOffset + 300 : baseOffset;
+
+      print("Android ${isThreadMode ? 'Thread' : 'Normal'} Mode - dynamicOffset: $dynamicOffset");
+    }
+    else {
+      dynamicOffset = 90;
+    }
+
+    // Calculate adjustment using CAPPED message height
+    var adjustment = availableHeight - totalChatInputHeight - cappedMessageHeight - 30 + keyboardCompensation - dynamicOffset;
+
+    print("🔧 Platform-Specific Adjustment calculation:");
+    print("  platform: ${platform.name}");
+    print("  isThreadMode: $isThreadMode");
+    print("  originalMessageHeight: $originalMessageHeight");
+    print("  cappedMessageHeight: $cappedMessageHeight");
+    print("  isMessageCapped: ${originalMessageHeight > MAX_MESSAGE_HEIGHT}");
+    print("  dynamicOffset: $dynamicOffset");
     print("  keyboardHeight: $keyboardHeight");
-    print("  keyboardCompensation: +$keyboardCompensation");
     print("  final adjustment: $adjustment");
 
     // Guard: never negative
     if (adjustment.isNaN || adjustment.isInfinite) adjustment = 0;
     return adjustment.clamp(0, 2000);
   }
+
+  // double _calculateKeyboardAwareAdjustment(String content, BuildContext context,{bool isThreadMode = false}) {
+  //   final mediaQuery = MediaQuery.of(context);
+  //   final platform = Theme.of(context).platform;
+  //
+  //   // Current state values
+  //   final currentScreenHeight = mediaQuery.size.height;
+  //   final keyboardHeight = mediaQuery.viewInsets.bottom;
+  //
+  //   final topPadding = mediaQuery.padding.top;
+  //   final bottomPadding = mediaQuery.padding.bottom;
+  //   const appBarHeight = kToolbarHeight;
+  //
+  //   final availableHeight = currentScreenHeight - topPadding - bottomPadding - appBarHeight;
+  //
+  //   final keyboardCompensation = keyboardHeight;
+  //
+  //   // ChatInputWidget height calculation
+  //   final textLines = _calculateTextLines(content);
+  //   const singleLineHeight = 55.0;
+  //   const lineHeight = 15.0;
+  //   const containerVerticalPadding = 20.0;
+  //   const actionsBarHeight = 44.0;
+  //   const bottomSpacing = 10.0;
+  //   final extraGap = textLines >= 2 ? 6.0 : 0.0;
+  //
+  //   final normalHeight = singleLineHeight + (textLines - 1) * lineHeight;
+  //   final textFieldHeight = normalHeight.clamp(singleLineHeight, singleLineHeight + 9 * lineHeight);
+  //
+  //   final totalChatInputHeight = containerVerticalPadding +
+  //       textFieldHeight + actionsBarHeight + bottomSpacing + extraGap;
+  //
+  //   final screenWidth = mediaQuery.size.width;
+  //   final messageWidth = screenWidth * 0.6;
+  //
+  //   // Original message height calculation
+  //   final originalMessageHeight = MessageMetrics.height(
+  //     text: content,
+  //     maxWidth: messageWidth - 28,
+  //     style: const TextStyle(
+  //       fontFamily: 'DM Sans',
+  //       fontSize: 16,
+  //       fontWeight: FontWeight.w500,
+  //       height: 1.9,
+  //     ),
+  //   );
+  //
+  //   // CAP MESSAGE HEIGHT AT 150px
+  //   const double MAX_MESSAGE_HEIGHT = 150.0;
+  //   final cappedMessageHeight = originalMessageHeight > MAX_MESSAGE_HEIGHT
+  //       ? MAX_MESSAGE_HEIGHT
+  //       : originalMessageHeight;
+  //
+  //   int dynamicOffset;
+  //
+  //   if (platform == TargetPlatform.iOS) {
+  //     // iOS offsets (current working values)
+  //     if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
+  //       dynamicOffset = 130;
+  //     } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 90) {
+  //       dynamicOffset = 100;
+  //     } else if (cappedMessageHeight > 90 && cappedMessageHeight <= 150) {
+  //       dynamicOffset = 80;
+  //     } else if (cappedMessageHeight >= 150 && cappedMessageHeight <= 250) {
+  //       dynamicOffset = 60;
+  //     } else {
+  //       dynamicOffset = 90;
+  //     }
+  //   }
+  //
+  //   else if (platform == TargetPlatform.android) {
+  //     if (isThreadMode) {
+  //       print("Android Thread Mode - ");
+  //       if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
+  //         dynamicOffset = 400; // 110 + 200
+  //       } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 90) {
+  //         dynamicOffset = 380; // 90 + 200
+  //       } else if (originalMessageHeight == 90) {
+  //         dynamicOffset = 360; // 60 + 200
+  //       } else if (cappedMessageHeight >= 120 && cappedMessageHeight <= 150) {
+  //         dynamicOffset = 340; // 60 + 200
+  //       } else {
+  //         dynamicOffset = 420; // 120 + 200
+  //       }
+  //       print("Thread mode Android final dynamicOffset: $dynamicOffset");
+  //     } else {
+  //       // Android Normal Mode - Standard adjustments
+  //       if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
+  //         dynamicOffset = 110;
+  //       } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 90) {
+  //         dynamicOffset = 90;
+  //       } else if (originalMessageHeight == 90) {
+  //         dynamicOffset = 50;
+  //       } else if (cappedMessageHeight >= 120 && cappedMessageHeight <= 150) {
+  //         dynamicOffset = 60;
+  //       } else {
+  //         dynamicOffset = 120;
+  //       }
+  //       print("Android Normal Mode - dynamicOffset: $dynamicOffset");
+  //     }
+  //   } else {
+  //     dynamicOffset = 90;
+  //   }
+  //
+  //
+  //   // Calculate adjustment using CAPPED message height
+  //   var adjustment = availableHeight - totalChatInputHeight - cappedMessageHeight - 30 + keyboardCompensation - dynamicOffset;
+  //
+  //   print("🔧 Platform-Specific Adjustment calculation:");
+  //   print("  platform: ${platform.name}");
+  //   print("  originalMessageHeight: $originalMessageHeight");
+  //   print("  cappedMessageHeight: $cappedMessageHeight");
+  //   print("  isMessageCapped: ${originalMessageHeight > MAX_MESSAGE_HEIGHT}");
+  //   print("  dynamicOffset: $dynamicOffset");
+  //   print("  keyboardHeight: $keyboardHeight");
+  //   print("  final adjustment: $adjustment");
+  //
+  //   // Guard: never negative
+  //   if (adjustment.isNaN || adjustment.isInfinite) adjustment = 0;
+  //   return adjustment.clamp(0, 2000);
+  // }
+
+
+
+
+
 
   int _calculateTextLines(String content) {
     if (content.isEmpty) return 1;
@@ -688,8 +867,6 @@ class ChatService{
 
 
 
-
-
   Future<void> loadMessages(String sessionId) async {
     print('🔍 CHAT: Loading messages for session: $sessionId');
 
@@ -698,12 +875,16 @@ class ChatService{
       print('📋 Found cached messages for session: $sessionId');
       final cachedMessages = _sessionMessagesCache[sessionId]!;
       _messagesSubject.add(List<Map<String, Object>>.from(cachedMessages));
+
+      // ✅ ADD: Convert cached messages to pairs
+      _convertMessagesToPairs(cachedMessages);
+
       _hasLoadedMessagesSubject.add(true);
       _checkAndNotifyFirstMessageComplete();
       return;
     }
 
-    // Otherwise load from API (your existing logic)
+    // Otherwise load from API
     _messagesSubject.add([]); // Clear current messages
 
     try {
@@ -720,9 +901,7 @@ class ChatService{
 
       for (int i = 0; i < data.length; i++) {
         final msg = data[i];
-
         final author = msg['author']?.toString() ?? '';
-
         final content = msg['message_text']?.toString() ??
             msg['Content']?.toString() ??
             msg['content']?.toString() ?? '';
@@ -740,6 +919,7 @@ class ChatService{
         } else if (authorLower.contains('vitty') ||
             authorLower.contains('bot') ||
             authorLower.contains('system') ||
+            authorLower == 'model' ||
             authorLower == 'tbd') {
           role = 'bot';
         } else {
@@ -765,6 +945,10 @@ class ChatService{
       _sessionMessagesCache[sessionId] = List<Map<String, Object>>.from(loaded);
 
       _messagesSubject.add(loaded);
+
+      // ✅ ADD: Convert loaded messages to pairs
+      _convertMessagesToPairs(loaded);
+
       _hasLoadedMessagesSubject.add(true);
       _checkAndNotifyFirstMessageComplete();
 
@@ -773,6 +957,137 @@ class ChatService{
       _hasLoadedMessagesSubject.add(true);
     }
   }
+
+// ✅ ADD: New helper method to convert messages to pairs
+  void _convertMessagesToPairs(List<Map<String, Object>> messages) {
+    pairs.clear();
+
+    for (int i = 0; i < messages.length; i++) {
+      final msg = messages[i];
+      final role = msg['role'] as String?;
+
+      if (role == 'user') {
+        // Create user message
+        final userMsg = Message(
+          id: msg['id']?.toString() ?? 'msg_$i',
+          byUser: true,
+          content: msg['content']?.toString() ?? '',
+          streaming: false,
+        );
+
+        // Look for next bot message
+        Message? botMsg;
+        if (i + 1 < messages.length && messages[i + 1]['role'] == 'bot') {
+          final botData = messages[i + 1];
+          botMsg = Message(
+            id: botData['id']?.toString() ?? 'msg_${i+1}',
+            byUser: false,
+            content: botData['content']?.toString() ?? '',
+            streaming: false,
+            isTable: botData['isTable'] as bool? ?? false,
+            structuredData: botData['tableData'] as Map<String, dynamic>?,
+            messageType: botData['type']?.toString(),
+          );
+        }
+
+        // Create pair
+        final pair = MessagePair(
+          userMessage: userMsg,
+          botResponses: botMsg != null ? [botMsg] : [],
+          isStreaming: false,
+        );
+
+        pairs.add(pair);
+      }
+    }
+
+    print("✅ Converted ${messages.length} messages to ${pairs.length} pairs");
+    _pairSubject.add(List.from(pairs));
+  }
+
+  // Future<void> loadMessages(String sessionId) async {
+  //   print('🔍 CHAT: Loading messages for session: $sessionId');
+  //
+  //   // First check if we have cached messages for this session
+  //   if (_sessionMessagesCache.containsKey(sessionId)) {
+  //     print('📋 Found cached messages for session: $sessionId');
+  //     final cachedMessages = _sessionMessagesCache[sessionId]!;
+  //     _messagesSubject.add(List<Map<String, Object>>.from(cachedMessages));
+  //     _hasLoadedMessagesSubject.add(true);
+  //     _checkAndNotifyFirstMessageComplete();
+  //     return;
+  //   }
+  //
+  //   // Otherwise load from API (your existing logic)
+  //   _messagesSubject.add([]); // Clear current messages
+  //
+  //   try {
+  //     final data = await _apiService.get(endpoint: '/chat/history/$sessionId');
+  //     print('🔍 CHAT: Raw API response type: ${data.runtimeType}');
+  //
+  //     if (data is! List) {
+  //       print('❌ Expected List but got ${data.runtimeType}');
+  //       _hasLoadedMessagesSubject.add(true);
+  //       return;
+  //     }
+  //
+  //     final loaded = <Map<String, Object>>[];
+  //
+  //     for (int i = 0; i < data.length; i++) {
+  //       final msg = data[i];
+  //
+  //       final author = msg['author']?.toString() ?? '';
+  //
+  //       final content = msg['message_text']?.toString() ??
+  //           msg['Content']?.toString() ??
+  //           msg['content']?.toString() ?? '';
+  //
+  //       if (content.isEmpty) {
+  //         print('⚠️ Empty content for message $i, skipping');
+  //         continue;
+  //       }
+  //
+  //       String role;
+  //       final authorLower = author.toLowerCase();
+  //
+  //       if (authorLower == 'user') {
+  //         role = 'user';
+  //       } else if (authorLower.contains('vitty') ||
+  //           authorLower.contains('bot') ||
+  //           authorLower.contains('system') ||
+  //           authorLower == 'tbd') {
+  //         role = 'bot';
+  //       } else {
+  //         role = 'bot';
+  //       }
+  //
+  //       print('📝 Adding message: role=$role, content=${content.substring(0, min(50, content.length))}...');
+  //
+  //       loaded.add({
+  //         'role': role,
+  //         'content': content,
+  //         'isComplete': true,
+  //         'isHistorical': true,
+  //         'timestamp': msg['timestamp']?.toString() ?? DateTime.now().toIso8601String(),
+  //         'author': author,
+  //         'id': '${sessionId}_${i}',
+  //       });
+  //     }
+  //
+  //     print('✅ CHAT: Successfully processed ${loaded.length} messages');
+  //
+  //     // Cache the loaded messages
+  //     _sessionMessagesCache[sessionId] = List<Map<String, Object>>.from(loaded);
+  //
+  //     _messagesSubject.add(loaded);
+  //     _hasLoadedMessagesSubject.add(true);
+  //     _checkAndNotifyFirstMessageComplete();
+  //
+  //   } catch (e) {
+  //     debugPrint("❌ Failed to load messages: $e");
+  //     _hasLoadedMessagesSubject.add(true);
+  //   }
+  // }
 
 
 
@@ -1707,9 +2022,6 @@ class ChatService{
       rethrow;
     }
   }
-
-
-
 
 
 

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:vscmoney/new_chat_screen.dart';
 import 'package:vscmoney/screens/AskVittyChat.dart';
 import 'package:vscmoney/screens/presentation/home/chat_screen.dart';
 
@@ -470,14 +471,8 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
     debugPrint("🔑 Using stable key for ChatScreen: $stableKey");
     debugPrint("📊 Current session: ${_currentSession?.id ?? 'null'}");
 
-    return ChatScreen(
-      key: ValueKey(stableKey),
-      session: _currentSession,
-      chatService: widget.chatService,
-      onAskVitty: _onAskVitty,
-      isThreadMode: true,
-      onFirstMessageComplete: _onFirstMessageComplete,
-    );
+    return NewChatScreen(chatService: widget.chatService, onAskVitty: _onAskVitty,isThreadMode:
+      true,);
   }
 
   String _formatTime(DateTime dt) {

@@ -525,12 +525,23 @@ import 'package:flutter/services.dart';
 // imports for your theme/services/widgets remain same
 
 
+import 'dart:async';
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+// NOTE: yeh aapke existing imports/dep hain — same rehne do
+// import 'audio_service.dart';
+// import 'voice_recorder_widget.dart';
+// import 'input_actions_bar_widget.dart';
+// import 'app_theme_extension.dart';
+
 class ChatInputWidget extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final GlobalKey textFieldKey;
   final bool isTyping;
-  final double keyboardInset;
+  final double keyboardInset; // (optional param, ab height lock logic self-sufficient hai)
   final VoidCallback onSendMessage;
   final VoidCallback onStopResponse;
   final VoidCallback onTextChanged;
@@ -559,7 +570,10 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
   bool _shouldPreventFocus = false;
   bool _preparing = false;
 
-  // Sirf content fade ke liye controller rakha
+  // NEW: jab tak keyboard visible hai, input ki height ko lock rakho
+  bool _lockHeightUntilKbGone = false;
+
+  // Sirf content fade ke liye controller
   late AnimationController _contentController;
   late Animation<double> _textFieldOpacity;
   late Animation<double> _recorderOpacity;
@@ -571,7 +585,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
   // ---- sizing ----
   static const double _singleLineHeight = 55.0;
   static const double _lineHeight = 15.0; // per extra line
-  static const int _kMaxLines = 10;       // ✅ > 6 lines allowed
+  static const int _kMaxLines = 10;
   static const double _recordingHeight = 26.0;
 
   // Speeds
@@ -598,18 +612,10 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
       ),
     );
 
-    // _recorderOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-    //   CurvedAnimation(
-    //     parent: _contentController,
-    //     curve: const Interval(0.2, 1.0, curve: Curves.easeIn),
-    //     reverseCurve: Curves.easeOut,
-    //   ),
-    // );
-
     _recorderOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _contentController,
-        curve: Curves.easeIn,             // ✅ no initial 40ms stall
+        curve: Curves.easeIn,
         reverseCurve: Curves.easeOut,
       ),
     );
@@ -632,10 +638,9 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
     _isListeningSubscription = widget.audioService.isListening$.listen((listening) {
       if (!mounted) return;
       if (listening) {
-        setState(() => _preparing = true); // already in voice UI
+        setState(() => _preparing = true); // voice UI
       } else {
-        // voice → text
-        _returnToNormal();
+        _returnToNormal(); // voice -> text
       }
     });
 
@@ -662,7 +667,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
   void _updateLineCount() {
     final text = widget.controller.text;
     int lines = text.isEmpty ? 1 : text.split('\n').length;
-    const avgCharsPerLine = 36; // tune per font/width
+    const avgCharsPerLine = 36;
     final wrapped = (text.length / avgCharsPerLine).ceil();
     lines = math.max(lines, wrapped);
     final clamped = lines.clamp(1, _kMaxLines);
@@ -673,25 +678,28 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
   Future<void> _startRecording() async {
     HapticFeedback.mediumImpact();
 
-    // ✅ 1) Instant switch to voice UI (no wait)
     setState(() {
       _preparing = true;
       _isOverwritingTranscript = widget.controller.text.isNotEmpty;
       _shouldPreventFocus = false;
-      _heightAnimDuration = const Duration(milliseconds: 250); // entry fast
+      _heightAnimDuration = const Duration(milliseconds: 250);
+      _lockHeightUntilKbGone = true; // 🔒 height lock till kb hides
     });
 
-    // ✅ Recorder turant visible — fade controller ko force set
+    // recorder UI ko instantly dikha do (opacity 1), text 0
     _contentController.stop();
-    _contentController.value = 1.0; // recorderOpacity=1, textOpacity=0
+    _contentController.value = 1.0;
 
-    // ✅ 2) Keyboard ko next frame me hide karo (reflow delay se bacho)
+    // ANDROID KEYBOARD ko turant dismiss karo — lag ka main reason yehi hota hai
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+
+    // next frame me unfocus to be safe (iOS + general)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.focusNode.unfocus();
       FocusManager.instance.primaryFocus?.unfocus();
     });
 
-    // ✅ 3) Mic start background me — await mat karo
+    // mic start background me
     // ignore: unawaited_futures
     widget.audioService
         .startRecording(existingText: widget.controller.text.trim())
@@ -699,7 +707,6 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
       if (mounted) _returnToNormal();
     });
   }
-
 
   void _returnToNormal() {
     // voice → text
@@ -710,7 +717,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
       _shouldPreventFocus = false;
     });
 
-
+    // thoda delay deke text field wapas fade-in
     Future.delayed(_heightAnimDuration, () {
       if (mounted) _contentController.reverse();
     });
@@ -718,7 +725,6 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
 
   void _onRecordingComplete() {
     _returnToNormal();
-
     Future.delayed(_heightAnimDuration + const Duration(milliseconds: 200), () {
       if (!mounted) return;
       setState(() => _shouldPreventFocus = false);
@@ -737,17 +743,34 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
+    // ✅ Real-time keyboard height (safe across iOS/Android)
+    final kbBottom = MediaQuery.viewInsetsOf(context).bottom;
+
     final showRecorder   = _preparing || widget.audioService.isListening;
     final isTranscribing = widget.audioService.isTranscribing;
 
+    // text-mode ka calculated height
     final visibleLines   = _textLines;
     final normalHeight   = _singleLineHeight + (visibleLines - 1) * _lineHeight;
     final maxAllowed     = _singleLineHeight + (_kMaxLines - 1) * _lineHeight;
 
-    // 👉 ab dono states me numeric height
-    final double targetHeight = showRecorder
+    // 🔑 Keyboard visible + recorder mode -> abhi height lock rakho (no shrink)
+    final bool holdHeight = (_lockHeightUntilKbGone && kbBottom > 0) ||
+        (showRecorder && kbBottom > 0);
+
+    final double targetHeight = holdHeight
+        ? normalHeight.clamp(_singleLineHeight, maxAllowed)
+        : (showRecorder
         ? _recordingHeight
-        : normalHeight.clamp(_singleLineHeight, maxAllowed);
+        : normalHeight.clamp(_singleLineHeight, maxAllowed));
+
+    // Keyboard gaya? lock hata do (next frame)
+    if (_lockHeightUntilKbGone && kbBottom == 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _lockHeightUntilKbGone = false);
+      });
+    }
 
     final double extraGap = visibleLines >= 2 ? 6.0 : 0.0;
 
@@ -764,7 +787,6 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
             offset: const Offset(0, 1),
           ),
         ],
-        //border: Border.all(color: theme.box),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(10),
           topRight: Radius.circular(10),
@@ -775,11 +797,11 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ------- HEIGHT ANIMATION (smooth both ways) -------
-          AnimatedContainer(
+          AnimatedContainer
+            (
             duration: _heightAnimDuration,
             curve: Curves.easeInOut,
-            height: targetHeight,
-            // no clipBehavior here (no assertion)
+            height: targetHeight, // 👈 lock/shrink logic yahin hai
             child: Stack(
               children: [
                 AnimatedBuilder(
@@ -802,7 +824,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
                           textAlignVertical: TextAlignVertical.top,
                           autofocus: !_shouldPreventFocus && !showRecorder,
                           minLines: 1,
-                          maxLines: _kMaxLines, // scroll after 10 lines
+                          maxLines: _kMaxLines,
                           controller: widget.controller,
                           focusNode: widget.focusNode,
                           decoration: InputDecoration(
@@ -819,7 +841,6 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
                             ),
                             hintText: 'Ask anything',
                             border: InputBorder.none,
-                            // zyada comfortable bottom padding
                             contentPadding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
                             isDense: false,
                           ),
@@ -847,7 +868,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
             padding: EdgeInsets.only(
               bottom: 0.0,
               top: 0.0,
-              left: showRecorder ? 0 : 5, // ⬅️ Changed from 10 to 5 (left shift)
+              left: showRecorder ? 0 : 5,
               right: 0,
             ),
             child: Stack(
@@ -904,6 +925,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
     );
   }
 }
+
 
 
 
