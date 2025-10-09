@@ -46,14 +46,24 @@ class _HomeScreenState extends State<HomeScreen> {
     _setupDividerListener();
   }
 
-  // NEW: Listen for messages to control divider
   void _setupDividerListener() {
-    _chatService.messagesStream.listen((messages) {
-      final hasUserMessage = messages.any((m) => m['role'] == 'user');
+    // ✅ NEW: Listen to pairStream instead of messagesStream
+    _chatService.pairStream.listen((pairs) {
+      final hasUserMessage = pairs.isNotEmpty;
 
       if (hasUserMessage != _showDivider) {
         setState(() {
           _showDivider = hasUserMessage;
+        });
+      }
+    });
+
+    // ✅ NEW: Also listen for first message complete (for new chat button)
+    _chatService.firstMessageCompleteStream.listen((isComplete) {
+      if (isComplete && mounted) {
+        print("✅ First message complete - triggering setState");
+        setState(() {
+          // This will rebuild with showNewChatButton = true
         });
       }
     });

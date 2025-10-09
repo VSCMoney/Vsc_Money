@@ -969,6 +969,7 @@ class _ChatScreenState extends State<ChatScreen>
                 },
                 child: shouldShowSuggestions
                     ? SuggestionsWidget(
+                  ghost: true,
                   key: const ValueKey('suggestions'),
                   controller: _controller,
                   onAskVitty: _onAskVittyFromSelection,
@@ -1041,6 +1042,12 @@ class _RenderMeasureSize extends RenderProxyBox {
     WidgetsBinding.instance.addPostFrameCallback((_) => onChange(newSize));
   }
 }
+
+
+
+
+
+
 
 
 

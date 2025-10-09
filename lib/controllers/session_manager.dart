@@ -19,10 +19,15 @@ class SessionManager {
   static const Duration _tokenLoadCacheDuration = Duration(seconds: 5);
 
   static String? get token => _token;
+
   static set token(String? value) => _token = value;
+
   static String? get refreshToken => _refreshToken;
+
   static set refreshToken(String? value) => _refreshToken = value;
+
   static String? get uid => _uid;
+
   static set uid(String? value) => _uid = value;
 
   static bool hasTokenInPrefs() {
@@ -58,7 +63,8 @@ class SessionManager {
     }
   }
 
-  static Future<void> saveTokens(String accessToken, String refreshToken, {String? uid}) async {
+  static Future<void> saveTokens(String accessToken, String refreshToken,
+      {String? uid}) async {
     final prefs = await SharedPreferences.getInstance();
     _token = accessToken;
     _refreshToken = refreshToken;
@@ -104,7 +110,8 @@ class SessionManager {
 
     // Check cooldown period to prevent rapid retries
     if (!force && _lastRefreshAttempt != null) {
-      final timeSinceLastAttempt = DateTime.now().difference(_lastRefreshAttempt!);
+      final timeSinceLastAttempt = DateTime.now().difference(
+          _lastRefreshAttempt!);
       if (timeSinceLastAttempt < _refreshCooldown) {
         print('🚫 Refresh cooldown active, skipping...');
         return false;
@@ -173,7 +180,9 @@ class SessionManager {
         utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
       );
       final expiry = payload['exp'];
-      final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final currentTime = DateTime
+          .now()
+          .millisecondsSinceEpoch ~/ 1000;
 
       // Add 30 second buffer to refresh before actual expiry
       return currentTime >= (expiry - 30);
@@ -191,7 +200,8 @@ class SessionManager {
         return null;
       }
 
-      final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      final payload = utf8.decode(
+          base64Url.decode(base64Url.normalize(parts[1])));
       final jsonPayload = json.decode(payload);
       return jsonPayload['uid'];
     } catch (e) {
@@ -207,12 +217,12 @@ class SessionManager {
 
   // ✅ Non-blocking token validation
   static Future<bool> checkTokenValidityAndRefresh({bool silent = true}) async {
-    // Check network status first
+    // Check network first
     try {
       final endpointService = EndPointService();
       if (endpointService.currentNetworkStatus == NetworkStatus.noInternet) {
         print('📡 No internet - skipping token validation');
-        return _token != null; // Return true if we have a token, regardless of expiry
+        return _token != null;
       }
     } catch (e) {
       print('Network status check failed: $e');
@@ -225,21 +235,15 @@ class SessionManager {
       return false;
     }
 
+    // ✅ CRITICAL: If token expired, WAIT for refresh
     if (isTokenExpired(_token!)) {
-      if (silent) {
-        // Don't block UI, refresh in background
-        tryRefreshToken().catchError((e) {
-          print("Background refresh failed: $e");
-        });
-        return true; // Allow request to proceed with current token
-      } else {
-        return await tryRefreshToken();
-      }
+      print('🔄 Token expired, refreshing now...');
+      return await tryRefreshToken(); // WAIT for this
     }
 
     return true;
-  }}
-
+  }
+}
 // class SessionManager {
 //   static String? _token;
 //   static String? _refreshToken;

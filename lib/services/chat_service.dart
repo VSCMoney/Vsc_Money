@@ -49,18 +49,20 @@ class ChatService{
   void resetForNewChat() {
     print("🧹 Resetting ChatService for new chat");
 
-    // Clear messages but preserve scroll lock state
     final currentLockState = _isScrollLocked.value;
     clear();
 
-    // Restore lock state after clear
     if (!_isScrollLocked.isClosed) {
       _isScrollLocked.add(currentLockState);
     }
 
     _currentSession = null;
     _showNewChatButton = false;
-    print("✅ ChatService reset complete - scroll lock preserved: $currentLockState");
+
+    // ✅ ADD: Reset first message complete flag
+    _firstMessageCompleteSubject.add(false);
+
+    print("✅ ChatService reset complete");
   }
 
   ChatSession? _currentSession;
@@ -119,17 +121,17 @@ class ChatService{
 
 
 
-  Future<void> sendNewMessage({required Message message, required BuildContext context, bool isThreadMode = false,}) async {
-    // 1) keyboard close
+  Future<void> sendNewMessage({
+    required Message message,
+    required BuildContext context,
+    bool isThreadMode = false,
+  }) async {
     FocusManager.instance.primaryFocus?.unfocus();
-
-    // 2) UI ko bolo ki bottom pin kare
     shouldPin = true;
-
     _isTypingSubject.add(true);
+
     final messageText = (message.content ?? '').trim();
     textController.clear();
-
 
     final newPair = MessagePair(
       userMessage: message,
@@ -138,25 +140,45 @@ class ChatService{
     pairs.add(newPair);
     _pairSubject.add(List.from(pairs));
 
-    // 4) Keyboard settle (optional)
     await Future.delayed(const Duration(milliseconds: 200));
 
-    // NOW calculate adjustment with keyboard closed
-    adjustment = _calculateKeyboardAwareAdjustment(message.content!, context, isThreadMode: isThreadMode);
+    // ✅ WAIT for next frame to ensure appBar height is updated
+    await Future.delayed(const Duration(milliseconds: 50));
 
-    // Auto scroll to bottom
+    // NOW calculate adjustment with current (updated) appBar height
+    adjustment = _calculateKeyboardAwareAdjustment(
+      message.content!,
+      context,
+      isThreadMode: isThreadMode,
+    );
+
     if (scrollController.hasClients) {
+      // Wait for layout to settle
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      final targetPosition = scrollController.position.maxScrollExtent - adjustment;
+
+      print("📍 Target scroll: $targetPosition");
+      print("  maxScrollExtent: ${scrollController.position.maxScrollExtent}");
+      print("  adjustment: $adjustment");
+
       scrollController.animateTo(
         scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 650),
-        curve: Curves.easeIn,
+        curve: Curves.easeInOut,
       );
     }
 
-    // 6) Start streaming
+    // if (scrollController.hasClients) {
+    //   scrollController.animateTo(
+    //     scrollController.position.maxScrollExtent,
+    //     duration: const Duration(milliseconds: 650),
+    //     curve: Curves.easeIn,
+    //   );
+    // }
+
     await _startRealBotResponse(pairs.length - 1, messageText);
   }
-
 
 
 
@@ -168,7 +190,6 @@ class ChatService{
 
     await Future.delayed(const Duration(milliseconds: 600));
 
-    // Create bot message with empty content initially
     final botResponse = Message(
       byUser: false,
       content: "",
@@ -196,21 +217,18 @@ class ChatService{
         firstMessageForTitle: !messages.any((m) => m['role'] == 'user') ? userMessage : null,
       );
 
-      // Listen to real stream and update pairs
       _streamSubscription = responseStream.listen(
             (chatMessage) {
           if (pairIndex >= pairs.length) return;
 
-          // STATUS ONLY → pair.currentStatus set karke return
           final status = chatMessage.currentStatus?.trim();
           if (status != null && status.isNotEmpty) {
             pairs[pairIndex].currentStatus = status;
             pairs[pairIndex].isStreaming = true;
             _pairSubject.add(List.from(pairs));
-            return; // IMPORTANT
+            return;
           }
 
-          // Ensure a bot bubble exists
           if (pairs[pairIndex].botResponses.isEmpty) {
             pairs[pairIndex].botResponses.add(
               Message(byUser: false, content: "", streaming: true, id: UniqueKey().toString()),
@@ -219,10 +237,9 @@ class ChatService{
           final lastIdx = pairs[pairIndex].botResponses.length - 1;
           final currentBot = pairs[pairIndex].botResponses[lastIdx];
 
-          // STRUCTURED DATA (table/cards/list)
+          // STRUCTURED DATA
           if (chatMessage.structuredData != null || chatMessage.isTable == true) {
             pairs[pairIndex].botResponses[lastIdx] = currentBot.copyWith(
-              // content remain as-is (optional)
               streaming: !chatMessage.isComplete,
               isTable: chatMessage.isTable,
               structuredData: chatMessage.structuredData,
@@ -230,17 +247,18 @@ class ChatService{
             );
 
             pairs[pairIndex].isStreaming = !chatMessage.isComplete;
-            pairs[pairIndex].currentStatus = null; // first meaningful content → hide status
+            pairs[pairIndex].currentStatus = null;
             _pairSubject.add(List.from(pairs));
 
             if (chatMessage.isComplete) {
               _isTypingSubject.add(false);
               lockScroll();
+              _checkAndNotifyFirstMessageComplete(); // ✅ ADDED
             }
             return;
           }
 
-          // TEXT CHUNKS (full-so-far overwrite)
+          // TEXT CHUNKS
           final incomingText = chatMessage.text;
           if (incomingText.isNotEmpty) {
             pairs[pairIndex].botResponses[lastIdx] = currentBot.copyWith(
@@ -252,18 +270,17 @@ class ChatService{
             );
 
             pairs[pairIndex].isStreaming = !chatMessage.isComplete;
-            pairs[pairIndex].currentStatus = null; // text aate hi shimmer off
+            pairs[pairIndex].currentStatus = null;
             _pairSubject.add(List.from(pairs));
             _chunkSubject.add(incomingText);
 
             if (chatMessage.isComplete) {
               _isTypingSubject.add(false);
               lockScroll();
+              _checkAndNotifyFirstMessageComplete(); // ✅ ADDED
             }
             return;
           }
-
-          // else: noop frame
         },
         onError: (e) {
           _isTypingSubject.add(false);
@@ -288,9 +305,9 @@ class ChatService{
             _pairSubject.add(List.from(pairs));
           }
           lockScroll();
+          _checkAndNotifyFirstMessageComplete(); // ✅ ADDED
         },
       );
-
 
     } catch (e) {
       print("❌ Real stream setup error: $e");
@@ -311,119 +328,7 @@ class ChatService{
     }
   }
 
-
-  double _calculateKeyboardAwareAdjustment(String content, BuildContext context, {bool isThreadMode = false}) {
-    final mediaQuery = MediaQuery.of(context);
-    final platform = Theme.of(context).platform;
-
-    // Current state values
-    final currentScreenHeight = mediaQuery.size.height;
-    final keyboardHeight = mediaQuery.viewInsets.bottom;
-
-    final topPadding = mediaQuery.padding.top;
-    final bottomPadding = mediaQuery.padding.bottom;
-    const appBarHeight = kToolbarHeight;
-
-    final availableHeight = currentScreenHeight - topPadding - bottomPadding - appBarHeight;
-
-    final keyboardCompensation = keyboardHeight;
-
-    // ChatInputWidget height calculation
-    final textLines = _calculateTextLines(content);
-    const singleLineHeight = 55.0;
-    const lineHeight = 15.0;
-    const containerVerticalPadding = 20.0;
-    const actionsBarHeight = 44.0;
-    const bottomSpacing = 10.0;
-    final extraGap = textLines >= 2 ? 6.0 : 0.0;
-
-    final normalHeight = singleLineHeight + (textLines - 1) * lineHeight;
-    final textFieldHeight = normalHeight.clamp(singleLineHeight, singleLineHeight + 9 * lineHeight);
-
-    final totalChatInputHeight = containerVerticalPadding +
-        textFieldHeight + actionsBarHeight + bottomSpacing + extraGap;
-
-    final screenWidth = mediaQuery.size.width;
-    final messageWidth = screenWidth * 0.6;
-
-    // Original message height calculation
-    final originalMessageHeight = MessageMetrics.height(
-      text: content,
-      maxWidth: messageWidth - 28,
-      style: const TextStyle(
-        fontFamily: 'DM Sans',
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
-        height: 1.9,
-      ),
-    );
-
-    // CAP MESSAGE HEIGHT AT 150px
-    const double MAX_MESSAGE_HEIGHT = 150.0;
-    final cappedMessageHeight = originalMessageHeight > MAX_MESSAGE_HEIGHT
-        ? MAX_MESSAGE_HEIGHT
-        : originalMessageHeight;
-
-    int dynamicOffset;
-
-    if (platform == TargetPlatform.iOS) {
-      // iOS offsets (current working values)
-      if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
-        dynamicOffset = 130;
-      } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 90) {
-        dynamicOffset = 100;
-      } else if (cappedMessageHeight > 90 && cappedMessageHeight <= 150) {
-        dynamicOffset = 80;
-      } else if (cappedMessageHeight >= 150 && cappedMessageHeight <= 250) {
-        dynamicOffset = 60;
-      } else {
-        dynamicOffset = 90;
-      }
-    }
-    else if (platform == TargetPlatform.android) {
-      // Calculate base offset based on message height
-      int baseOffset;
-
-      if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
-        baseOffset = 110;
-      } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 90) {
-        baseOffset = 90;
-      } else if (originalMessageHeight == 90) {
-        baseOffset = 50;
-      } else if (cappedMessageHeight >= 120 && cappedMessageHeight <= 150) {
-        baseOffset = 60;
-      } else {
-        baseOffset = 120;
-      }
-
-      // Thread mode: add 60px for bottom sheet header + padding
-      dynamicOffset = isThreadMode ? baseOffset + 300 : baseOffset;
-
-      print("Android ${isThreadMode ? 'Thread' : 'Normal'} Mode - dynamicOffset: $dynamicOffset");
-    }
-    else {
-      dynamicOffset = 90;
-    }
-
-    // Calculate adjustment using CAPPED message height
-    var adjustment = availableHeight - totalChatInputHeight - cappedMessageHeight - 30 + keyboardCompensation - dynamicOffset;
-
-    print("🔧 Platform-Specific Adjustment calculation:");
-    print("  platform: ${platform.name}");
-    print("  isThreadMode: $isThreadMode");
-    print("  originalMessageHeight: $originalMessageHeight");
-    print("  cappedMessageHeight: $cappedMessageHeight");
-    print("  isMessageCapped: ${originalMessageHeight > MAX_MESSAGE_HEIGHT}");
-    print("  dynamicOffset: $dynamicOffset");
-    print("  keyboardHeight: $keyboardHeight");
-    print("  final adjustment: $adjustment");
-
-    // Guard: never negative
-    if (adjustment.isNaN || adjustment.isInfinite) adjustment = 0;
-    return adjustment.clamp(0, 2000);
-  }
-
-  // double _calculateKeyboardAwareAdjustment(String content, BuildContext context,{bool isThreadMode = false}) {
+  // double _calculateKeyboardAwareAdjustment(String content, BuildContext context, {bool isThreadMode = false}) {
   //   final mediaQuery = MediaQuery.of(context);
   //   final platform = Theme.of(context).platform;
   //
@@ -480,58 +385,51 @@ class ChatService{
   //   if (platform == TargetPlatform.iOS) {
   //     // iOS offsets (current working values)
   //     if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
-  //       dynamicOffset = 130;
+  //       dynamicOffset = 120;
   //     } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 90) {
-  //       dynamicOffset = 100;
+  //       dynamicOffset = 90;
   //     } else if (cappedMessageHeight > 90 && cappedMessageHeight <= 150) {
-  //       dynamicOffset = 80;
-  //     } else if (cappedMessageHeight >= 150 && cappedMessageHeight <= 250) {
+  //       dynamicOffset = 70;
+  //     }else if (cappedMessageHeight ==120 ) {
   //       dynamicOffset = 60;
+  //     }
+  //     else if (cappedMessageHeight >= 150 && cappedMessageHeight <= 250) {
+  //       dynamicOffset = 50;
   //     } else {
   //       dynamicOffset = 90;
   //     }
   //   }
-  //
   //   else if (platform == TargetPlatform.android) {
-  //     if (isThreadMode) {
-  //       print("Android Thread Mode - ");
-  //       if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
-  //         dynamicOffset = 400; // 110 + 200
-  //       } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 90) {
-  //         dynamicOffset = 380; // 90 + 200
-  //       } else if (originalMessageHeight == 90) {
-  //         dynamicOffset = 360; // 60 + 200
-  //       } else if (cappedMessageHeight >= 120 && cappedMessageHeight <= 150) {
-  //         dynamicOffset = 340; // 60 + 200
-  //       } else {
-  //         dynamicOffset = 420; // 120 + 200
-  //       }
-  //       print("Thread mode Android final dynamicOffset: $dynamicOffset");
+  //     // Calculate base offset based on message height
+  //     int baseOffset;
+  //
+  //     if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
+  //       baseOffset = 110;
+  //     } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 90) {
+  //       baseOffset = 90;
+  //     } else if (originalMessageHeight == 90) {
+  //       baseOffset = 50;
+  //     } else if (cappedMessageHeight >= 120 && cappedMessageHeight <= 150) {
+  //       baseOffset = 60;
   //     } else {
-  //       // Android Normal Mode - Standard adjustments
-  //       if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
-  //         dynamicOffset = 110;
-  //       } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 90) {
-  //         dynamicOffset = 90;
-  //       } else if (originalMessageHeight == 90) {
-  //         dynamicOffset = 50;
-  //       } else if (cappedMessageHeight >= 120 && cappedMessageHeight <= 150) {
-  //         dynamicOffset = 60;
-  //       } else {
-  //         dynamicOffset = 120;
-  //       }
-  //       print("Android Normal Mode - dynamicOffset: $dynamicOffset");
+  //       baseOffset = 120;
   //     }
-  //   } else {
+  //
+  //     // Thread mode: add 60px for bottom sheet header + padding
+  //     dynamicOffset = isThreadMode ? baseOffset + 300 : baseOffset;
+  //
+  //     print("Android ${isThreadMode ? 'Thread' : 'Normal'} Mode - dynamicOffset: $dynamicOffset");
+  //   }
+  //   else {
   //     dynamicOffset = 90;
   //   }
-  //
   //
   //   // Calculate adjustment using CAPPED message height
   //   var adjustment = availableHeight - totalChatInputHeight - cappedMessageHeight - 30 + keyboardCompensation - dynamicOffset;
   //
   //   print("🔧 Platform-Specific Adjustment calculation:");
   //   print("  platform: ${platform.name}");
+  //   print("  isThreadMode: $isThreadMode");
   //   print("  originalMessageHeight: $originalMessageHeight");
   //   print("  cappedMessageHeight: $cappedMessageHeight");
   //   print("  isMessageCapped: ${originalMessageHeight > MAX_MESSAGE_HEIGHT}");
@@ -543,6 +441,273 @@ class ChatService{
   //   if (adjustment.isNaN || adjustment.isInfinite) adjustment = 0;
   //   return adjustment.clamp(0, 2000);
   // }
+
+
+  bool _isSmallIPhone13_14(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final double h = math.max(mq.size.height, mq.size.width);
+    return h >= 810.0 && h <= 846.0;
+  }
+
+
+
+
+
+
+
+  double _calculateKeyboardAwareAdjustment(String content, BuildContext context,{bool isThreadMode = false}) {
+    final mediaQuery = MediaQuery.of(context);
+    final platform = Theme.of(context).platform;
+
+    // Current state values
+    final currentScreenHeight = mediaQuery.size.height;
+    final keyboardHeight = mediaQuery.viewInsets.bottom;
+
+    final topPadding = mediaQuery.padding.top;
+    final bottomPadding = mediaQuery.padding.bottom;
+    const appBarHeight = kToolbarHeight;
+
+    final availableHeight = currentScreenHeight - topPadding - bottomPadding - appBarHeight;
+
+    final keyboardCompensation = keyboardHeight;
+
+    // ChatInputWidget height calculation
+    final textLines = _calculateTextLines(content);
+    const singleLineHeight = 55.0;
+    const lineHeight = 15.0;
+    const containerVerticalPadding = 20.0;
+    const actionsBarHeight = 44.0;
+    const bottomSpacing = 10.0;
+    final extraGap = textLines >= 2 ? 6.0 : 0.0;
+
+    final normalHeight = singleLineHeight + (textLines - 1) * lineHeight;
+    final textFieldHeight = normalHeight.clamp(singleLineHeight, singleLineHeight + 9 * lineHeight);
+
+    final totalChatInputHeight = containerVerticalPadding +
+        textFieldHeight + actionsBarHeight + bottomSpacing + extraGap;
+
+    final screenWidth = mediaQuery.size.width;
+    final messageWidth = screenWidth * 0.6;
+
+    // Original message height calculation
+    final originalMessageHeight = MessageMetrics.height(
+      text: content,
+      maxWidth: messageWidth - 28,
+      style: const TextStyle(
+        fontFamily: 'DM Sans',
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+        height: 1.9,
+      ),
+    );
+
+    // CAP MESSAGE HEIGHT AT 150px
+    const double MAX_MESSAGE_HEIGHT = 150.0;
+    final cappedMessageHeight = originalMessageHeight > MAX_MESSAGE_HEIGHT
+        ? MAX_MESSAGE_HEIGHT
+        : originalMessageHeight;
+
+    int dynamicOffset;
+
+
+    if (platform == TargetPlatform.iOS) {
+      final bool isSmall1314 = _isSmallIPhone13_14(context);
+
+      if (isSmall1314) {
+        if (isThreadMode) {
+          if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
+            dynamicOffset = 95;
+          } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 80) {
+            dynamicOffset = 78;
+          } else if (cappedMessageHeight >= 90 && cappedMessageHeight < 110) {
+            dynamicOffset = 65;
+          } else if (cappedMessageHeight >= 120 && cappedMessageHeight < 150) {
+            dynamicOffset = 58;
+          } else if (cappedMessageHeight >= 150 && cappedMessageHeight <= 250) {
+            dynamicOffset = 55;
+          } else {
+            dynamicOffset = 100;
+          }
+          print("iOS Small 13/14 Thread - dynamicOffset: $dynamicOffset");
+        } else {
+          print("this is iphone 14");
+          if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
+            dynamicOffset = 100;
+          } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 80) {
+            dynamicOffset = 85;
+          } else if (cappedMessageHeight >= 90 && cappedMessageHeight < 110) {
+            dynamicOffset = 70;
+          } else if (cappedMessageHeight >= 120 && cappedMessageHeight < 150) {
+            dynamicOffset = 58;
+          } else if (cappedMessageHeight >= 150 && cappedMessageHeight <= 250) {
+            dynamicOffset = 55;
+          } else {
+            dynamicOffset = 85;
+          }
+          print("iOS Small 13/14 Normal - dynamicOffset: $dynamicOffset");
+        }
+
+      } else {
+        // 🔸 Your existing iOS logic for other models (14 Pro/Max, 15, etc.)
+        if (isThreadMode) {
+          if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
+            dynamicOffset = 105; // 130 + 20
+          } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 80) {
+            dynamicOffset = 85;  // 110 + 20
+          } else if (cappedMessageHeight >= 90 && cappedMessageHeight < 150) {
+            dynamicOffset = 75;  // 90 + 20
+          } else if (cappedMessageHeight >= 150 && cappedMessageHeight <= 250) {
+            dynamicOffset = 60;  // 70 + 20
+          } else {
+            dynamicOffset = 110; // 90 + 20
+          }
+          print("iOS Thread Mode - dynamicOffset: $dynamicOffset");
+        } else {
+          if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
+            dynamicOffset = 120;
+          } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 80) {
+            dynamicOffset = 90;
+          } else if (cappedMessageHeight >= 90 && cappedMessageHeight < 110) {
+            dynamicOffset = 80;
+          } else if (cappedMessageHeight >= 120 && cappedMessageHeight < 140) {
+            dynamicOffset = 60;
+          } else if (cappedMessageHeight >= 150 && cappedMessageHeight <= 250) {
+            dynamicOffset = 60;
+          } else {
+            dynamicOffset = 90;
+          }
+        }
+      }
+    }
+
+
+
+    // if (platform == TargetPlatform.iOS) {
+    //   if (isThreadMode) {
+    //     // iOS Thread Mode - Add 20px to normal offsets
+    //     if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
+    //       dynamicOffset = 105; // 130 + 20
+    //     } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 80) {
+    //       dynamicOffset = 85; // 110 + 20
+    //     } else if (cappedMessageHeight >= 90 && cappedMessageHeight < 150) {
+    //       dynamicOffset = 75; // 90 + 20
+    //     } else if (cappedMessageHeight >= 150 && cappedMessageHeight <= 250) {
+    //       dynamicOffset = 60; // 70 + 20
+    //     } else {
+    //       dynamicOffset = 110; // 90 + 20
+    //     }
+    //     print("iOS Thread Mode - dynamicOffset: $dynamicOffset");
+    //   } else {
+    //     // iOS Normal Mode
+    //     if (cappedMessageHeight >= 30 && cappedMessageHeight <= 50) {
+    //       dynamicOffset = 105;
+    //     } else if (cappedMessageHeight >= 60 && cappedMessageHeight <= 80) {
+    //       dynamicOffset = 90;
+    //     } else if (cappedMessageHeight >= 90 && cappedMessageHeight < 110) {
+    //       dynamicOffset = 67;
+    //     } else if (cappedMessageHeight >= 120 && cappedMessageHeight < 140) {
+    //       dynamicOffset = 60;
+    //     }
+    //     else if (cappedMessageHeight >= 150 && cappedMessageHeight <= 250) {
+    //       dynamicOffset = 60;
+    //     } else {
+    //       dynamicOffset = 90;
+    //     }
+    //   }
+    // }
+
+
+
+
+
+
+
+    else if (platform == TargetPlatform.android) {
+      final mq = MediaQuery.of(context);
+      final availH = mq.size.height - mq.padding.top - mq.padding.bottom - kToolbarHeight;
+
+      // 1) Reference visible height you tuned on (change if your dev phone differs)
+      const double REF_AVAIL_H = 800.0;
+
+      // 2) Message bubble height at runtime (same as you do)
+      final bubbleW = (mq.size.width * 0.6) - 28;
+      final h = MessageMetrics.height(
+        text: content,
+        maxWidth: bubbleW,
+        style: const TextStyle(
+          fontFamily: 'DM Sans',
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          height: 1.9,
+        ),
+      ).clamp(30.0, 150.0);
+
+      // 3) Multi-stop interpolation helper
+      double lerpStops(double x, List<double> s, List<double> v) {
+        if (x <= s.first) return v.first;
+        if (x >= s.last)  return v.last;
+        int i = 0;
+        while (i < s.length - 1 && !(x >= s[i] && x <= s[i + 1])) i++;
+        final t = (x - s[i]) / (s[i + 1] - s[i]);
+        return v[i] + (v[i + 1] - v[i]) * t;
+      }
+
+      const stops = [30.0, 60.0, 90.0, 120.0, 150.0];
+
+      // 4) These are your tuned OFFSETS on your reference phone (in PX on REF_AVAIL_H)
+      //    If 30px bubble → 100 worked on your dev phone, put 100 in the list, etc.
+      final normalPx = [110.0, 75.0, 65.0, 45.0, 30.0];
+      final threadPx = [200.0, 180.0, 160.0, 140.0, 140.0];
+
+      // 5) Convert PX@ref to PERCENT of ref height (so they scale automatically)
+      final normalPct = normalPx.map((v) => v / REF_AVAIL_H).toList(growable: false);
+      final threadPct = threadPx.map((v) => v / REF_AVAIL_H).toList(growable: false);
+
+      // 6) Pick percent based on current message height, then scale by current availH
+      final basePercent = isThreadMode
+          ? lerpStops(h, stops, threadPct.cast<double>())
+          : lerpStops(h, stops, normalPct.cast<double>());
+
+      double off = basePercent * availH;
+
+      // 7) Tiny adjustment for gesture/bottom inset differences (0..8dp)
+      off += (mq.padding.bottom).clamp(0.0, 16.0) * 0.5;
+
+      // 8) Gentle safety bounds relative to screen, not hard numbers
+      final minOff = (availH * 0.05).clamp(30.0, 90.0);
+      final maxOff = (availH * 0.30).clamp(140.0, 300.0);
+      dynamicOffset = off.clamp(minOff, maxOff).round();
+    }
+
+
+    else {
+      dynamicOffset = 90;
+    }
+
+
+
+
+
+
+
+
+
+
+    var adjustment = availableHeight - totalChatInputHeight - cappedMessageHeight - 30 + keyboardCompensation - dynamicOffset;
+
+    print("🔧 Platform-Specific Adjustment calculation:");
+    print("  platform: ${platform.name}");
+    print("  originalMessageHeight: $originalMessageHeight");
+    print("  cappedMessageHeight: $cappedMessageHeight");
+    print("  isMessageCapped: ${originalMessageHeight > MAX_MESSAGE_HEIGHT}");
+    print("  dynamicOffset: $dynamicOffset");
+    print("  keyboardHeight: $keyboardHeight");
+    print("  final adjustment: $adjustment");
+
+    // Guard: never negative
+    if (adjustment.isNaN || adjustment.isInfinite) adjustment = 0;
+    return adjustment.clamp(0, 2000);
+  }
 
 
 
@@ -699,7 +864,18 @@ class ChatService{
     _isInitialized = false;
 
     try {
-      // Load sessions
+      // ✅ CRITICAL: Ensure token is valid FIRST
+      print('🔐 Checking token validity before loading sessions...');
+      final isValid = await SessionManager.checkTokenValidityAndRefresh(silent: false);
+
+      if (!isValid) {
+        print('❌ Token invalid after refresh attempt');
+        throw Exception('Authentication failed');
+      }
+
+      print('✅ Token valid, proceeding with sessions load');
+
+      // NOW load sessions with fresh token
       await _loadSessions();
 
       if (initialSessionId != null && initialSessionId.isNotEmpty) {
@@ -713,24 +889,21 @@ class ChatService{
           await createNewChatSession();
         }
       } else {
-        // For new chat, start with scroll locked
         _currentSession = null;
         _messagesSubject.add([]);
         _hasLoadedMessagesSubject.add(true);
-        lockScroll(); // 🔒 Ensure scroll is locked for new chat
+        lockScroll();
       }
 
       _isInitialized = true;
-    //  print('✅ ChatService initialized successfully - scroll locked: ${_isScrollLocked.value}');
 
     } catch (e) {
       print('❌ Failed to initialize ChatService: $e');
       _isInitialized = true;
       await createNewChatSession();
-      lockScroll(); // 🔒 Lock on error recovery too
+      lockScroll();
     }
   }
-
 
   Future<String> _ensureActiveSessionId([String? sessionId]) async {
     // No-op now. We don't pre-create. If null, /respond will create and stream session_created.
@@ -1631,7 +1804,7 @@ class ChatService{
 
       final body = <String, dynamic>{
         'uid': uid,
-        'input': utf8.decode(message.codeUnits),
+        'input': message,
         if (sessionId != null && sessionId.isNotEmpty) 'session_id': sessionId,
         'timestamp': _hitAtUtcIso
       };
@@ -2036,27 +2209,19 @@ class ChatService{
   }
 
   void _checkAndNotifyFirstMessageComplete() {
-    final currentMessages = _messagesSubject.value;
+    // ✅ NEW: Check pairs instead of old messages
+    final hasUserMessage = pairs.any((p) => p.userMessage != null);
+    final hasCompletedBot = pairs.any((p) =>
+    p.botResponses.isNotEmpty && !p.isStreaming
+    );
 
-    int userCount = 0;
-    int botCompleteCount = 0;
-
-    for (var m in currentMessages) {
-      if (m['role'] == 'user') {
-        userCount++;
-      }
-      if (m['role'] == 'bot' && (m['isComplete'] == true)) {
-        botCompleteCount++;
-      }
-    }
-
-    print("🔍 First message check:");
-    print("  userCount: $userCount");
-    print("  botCompleteCount: $botCompleteCount");
+    print("🔍 First message check (NEW pairs system):");
+    print("  hasUserMessage: $hasUserMessage");
+    print("  hasCompletedBot: $hasCompletedBot");
     print("  _showNewChatButton: $_showNewChatButton");
     print("  _isTyping: ${_isTypingSubject.value}");
 
-    final completed = userCount >= 1 && botCompleteCount >= 1;
+    final completed = hasUserMessage && hasCompletedBot;
 
     if (completed) {
       if (!_showNewChatButton) {
@@ -2064,16 +2229,13 @@ class ChatService{
         print("✅ Setting showNewChatButton = true");
       }
 
-      // ✅ CRITICAL FIX: Only notify first message complete when NOT typing
+      // Only notify when NOT typing
       if (!_firstMessageCompleteSubject.value && !_isTypingSubject.value) {
         _firstMessageCompleteSubject.add(true);
-        print("✅ Notifying first message complete (bot finished typing)");
-      } else if (_isTypingSubject.value) {
-        print("🚫 Not notifying first message complete - bot still typing");
+        print("✅ Notifying first message complete");
       }
     }
   }
-
 
 
 
@@ -2333,6 +2495,36 @@ class MessageMetrics {
   }
 }
 
+
+
+enum DroidSize { small, normal, tall, tablet }
+
+DroidSize _droidSize(BuildContext c, double availH, Orientation o) {
+  if (o == Orientation.landscape) {
+    if (availH < 420) return DroidSize.small;
+    if (availH < 520) return DroidSize.normal;
+    if (availH < 650) return DroidSize.tall;
+    return DroidSize.tablet;
+  } else {
+    if (availH < 760) return DroidSize.small;
+    if (availH < 860) return DroidSize.normal;
+    if (availH < 1000) return DroidSize.tall;
+    return DroidSize.tablet;
+  }
+}
+
+double _droidMultiplierFor(BuildContext c, double availH) {
+  final o = MediaQuery.of(c).orientation;
+  final s = _droidSize(c, availH, o);
+  double m;
+  switch (s) {
+    case DroidSize.small:  m = 0.92; break;
+    case DroidSize.normal: m = 1.00; break;
+    case DroidSize.tall:   m = 1.06; break;
+    case DroidSize.tablet: m = 1.12; break;
+  }
+  return m.clamp(0.9, 1.12);
+}
 
 
 

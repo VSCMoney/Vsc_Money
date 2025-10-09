@@ -13,6 +13,8 @@ import '../../services/locator.dart';
 import '../../services/theme_service.dart';
 import '../../services/voice_service.dart';
 
+
+
 class VoiceRecorderWidget extends StatefulWidget {
   final AudioService audioService;
   final VoidCallback onCancel;
@@ -51,12 +53,9 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
       if (mounted) setState(() {});
     });
 
-    // Add subscription for RMS values
     _displayedRmsSubscription = widget.audioService.displayedRms$.listen((rms) {
       if (mounted && _currentRms != rms) {
-        setState(() {
-          _currentRms = rms;
-        });
+        setState(() => _currentRms = rms);
       }
     });
   }
@@ -90,12 +89,13 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
         key: const ValueKey('loaderOnly'),
         children: [
           Expanded(
-            child: Container(
+            child: SizedBox(
               height: 45,
-              alignment: Alignment.center,
-              child: Lottie.asset(
-                'assets/images/mic_loading.json',
-                repeat: true,
+              child: Center(
+                child: Lottie.asset(
+                  'assets/images/mic_loading.json',
+                  repeat: true,
+                ),
               ),
             ),
           ),
@@ -103,85 +103,100 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
       );
     }
 
-    return Row(
+    // ✅ VISUALS: same layout, NO inner gesture detectors
+    final leftCircle = Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFF734012), width: 1),
+      ),
+      alignment: const Alignment(0, -0.15),
+      child: const _BoldThickCrossIcon(),
+    );
+
+    final rightCircle = Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.primary, width: 1),
+      ),
+      alignment: const Alignment(0, -0.15),
+      child: const _BoldThickCheckIcon(),
+    );
+
+    // 📌 Transparent full-overlay hit target: left half = cancel, right half = check
+    Widget _halfTapOverlay() {
+      return Positioned.fill(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            return GestureDetector(
+              behavior: HitTestBehavior.translucent, // invisible but tappable
+              onTapDown: (d) {
+                final dx = d.localPosition.dx;
+                if (dx < w / 2) {
+                  _cancelRecording();
+                } else {
+                  _stopRecordingAndTranscribe();
+                }
+              },
+            );
+          },
+        ),
+      );
+    }
+
+    return Stack(
       key: const ValueKey('micMode'),
+      clipBehavior: Clip.none,
       children: [
-        const SizedBox(width: 3),
+        // VISUAL ROW (unchanged look)
+        Row(
+          children: [
+            const SizedBox(width: 3),
 
-        // Cancel Button with increased tap area
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(24), // Larger radius for 48px area
-            onTap: _cancelRecording,
-            child: Container(
-              width: 48, // Increased from 40 to 48
-              height: 48, // Increased from 40 to 48
-              alignment: Alignment.center,
-              child: Container(
-                width: 40, // Original visual size
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Color(0xFF734012),
-                    width: 1,
-                  ),
-                ),
-                child: Center(
-                  child: _BoldThickCrossIcon(),
+            // Left icon (visual only)
+            SizedBox(
+              width: 56, // gives same perceived spacing as your padding earlier
+              child: Center(child: leftCircle),
+            ),
+
+            // Waveform (unchanged)
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: ChatGPTScrollingWaveform(
+                  key: const ValueKey('waveform'),
+                  isSpeech: isSpeaking,
+                  rms: _currentRms,
                 ),
               ),
             ),
-          ),
+
+            // Right icon (visual only)
+            SizedBox(
+              width: 56,
+              child: Center(child: rightCircle),
+            ),
+
+            const SizedBox(width: 3),
+          ],
         ),
 
-        // Waveform - removed StreamBuilder
-        Expanded(
-          flex: 2,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: ChatGPTScrollingWaveform(
-              key: const ValueKey('waveform'),
-              isSpeech: isSpeaking,
-              rms: _currentRms,
-            ),
-          ),
-        ),
-
-        // Check Button with increased tap area
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(24), // Larger radius for 48px area
-            onTap: _stopRecordingAndTranscribe,
-            child: Container(
-              width: 48, // Increased from 40 to 48
-              height: 48, // Increased from 40 to 48
-              alignment: Alignment.center,
-              child: Container(
-                width: 40, // Original visual size
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.primary,
-                    width: 1,
-                  ),
-                ),
-                child: Center(
-                  child: _BoldThickCheckIcon(),
-                ),
-              ),
-            ),
-          ),
-        ),
+        // 🔥 Transparent overlay that divides the whole row into two halves
+        _halfTapOverlay(),
       ],
     );
   }
 }
+
+
+
 
 class _BoldThickCheckIcon extends StatelessWidget {
   const _BoldThickCheckIcon();

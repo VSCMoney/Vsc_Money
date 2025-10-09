@@ -41,7 +41,7 @@ class AppRouter {
         name: 'splash',
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
-          child:SplashScreen(),
+          child: SplashScreen(),
          // child:  StockDetailPage(stockName: "Zomato", stockSymbol: "Zomato", onClose: (){}),
           transitionsBuilder: dissolveTransition,
         ),

@@ -362,9 +362,13 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
 
   Widget _buildHeaderWithDropdown() {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
-    final displayText = (_selectedText ?? '').length > 30
-        ? '${_selectedText!.substring(0, 27)}...'
-        : (_selectedText ?? 'asking');
+
+    // ✅ Better truncation logic
+    final displayText = (_selectedText ?? '').trim();
+    final shouldTruncate = displayText.length > 35; // Increased from 25
+    final truncatedText = shouldTruncate
+        ? '${displayText.substring(0, 32)}...' // Increased from 22
+        : displayText;
 
     return Container(
       decoration: BoxDecoration(
@@ -375,7 +379,6 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
       ),
       child: Column(
         children: [
-          // Header bar (tappable center -> opens popover)
           Material(
             color: theme.background,
             borderRadius: BorderRadius.circular(20),
@@ -386,7 +389,7 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 child: Row(
                   children: [
-                    // Close button (left)
+                    // Close button
                     GestureDetector(
                       onTap: () {
                         _hideDropdown();
@@ -397,9 +400,9 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
                         child: Icon(Icons.cancel_outlined, size: 24, color: theme.icon),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12), // Reduced from 16
 
-                    // Center title (anchor for the popover)
+                    // Center title
                     Expanded(
                       child: CirclingBorderWidget(
                         capsuleHeight: 35,
@@ -409,31 +412,43 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
                         animateOnce: true,
                         child: Center(
                           child: Container(
-                            key: _titleAnchorKey, // 👈 anchor
+                            key: _titleAnchorKey,
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width - 100, // Increased from 120
+                            ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Flexible(
-                                  child: Text(
-                                    displayText,
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                      color: theme.text,
-                                      fontFamily: 'DM Sans',
+                                  child: Tooltip(
+                                    message: displayText,
+                                    child: Text(
+                                      truncatedText,
+                                      style: TextStyle(
+                                        fontSize: 15.5, // Slightly reduced from 16
+                                        fontWeight: FontWeight.w600,
+                                        color: theme.text,
+                                        fontFamily: 'DM Sans',
+                                        letterSpacing: -0.2, // Tighter spacing for more text
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                      textAlign: TextAlign.center,
                                     ),
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
                                   ),
                                 ),
                                 if (_history.length > 1) ...[
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 6), // Reduced from 8
                                   AnimatedRotation(
                                     turns: _isDropdownExpanded ? 0.5 : 0.0,
                                     duration: const Duration(milliseconds: 200),
-                                    child: Icon(Icons.keyboard_arrow_down, color: theme.icon, size: 24),
+                                    child: Icon(
+                                      Icons.keyboard_arrow_down,
+                                      color: theme.icon,
+                                      size: 22, // Slightly smaller
+                                    ),
                                   ),
                                 ],
                               ],
@@ -443,8 +458,7 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
                       ),
                     ),
 
-                    // Right spacer
-                    const SizedBox(width: 32),
+                    const SizedBox(width: 28), // Reduced from 32
                   ],
                 ),
               ),
@@ -579,7 +593,6 @@ class _VittyThreadSheetState extends State<VittyThreadSheet>
   }
 }
 
-// ---------------- iOS-style Popover Menu ----------------
 
 class _CupertinoPopoverMenu extends StatefulWidget {
   final List<String> items;

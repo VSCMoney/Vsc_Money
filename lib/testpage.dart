@@ -18,6 +18,7 @@ import 'package:http/http.dart' as http;
 import 'dart:async';
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:lottie/lottie.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:vscmoney/chat_message_row_widget.dart';
 import 'package:vscmoney/constants/bottomsheet.dart';
@@ -2413,6 +2414,93 @@ class _VPCMiddlewareDemoPageState extends State<VPCMiddlewareDemoPage> {
 
 
 
+class DummyChatInput extends StatelessWidget {
+  const DummyChatInput({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Left Button (Cancel/Cross) - TAP AREA EXTENDED
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => print('Cancel tapped'),
+            child: Container(
+              color: Colors.red.withOpacity(0.3), // Shows FULL tap area
+              padding: const EdgeInsets.symmetric(
+                horizontal: 15, // ✅ Left/Right tap area
+                vertical: 12,   // ✅ Top/Bottom tap area
+              ),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.brown, width: 1),
+                ),
+                child: const Icon(Icons.close, size: 20, color: Colors.brown),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 30),
+
+          // Center Content (Waveform area)
+          Container(
+            width: 150,
+            height: 10,
+            color: Colors.blue.withOpacity(0.2),
+            alignment: Alignment.center,
+            child: const Text(
+              'Waveform Area',
+              style: TextStyle(fontSize: 12, color: Colors.blue),
+            ),
+          ),
+
+          const SizedBox(width: 30),
+
+          // Right Button (Check/Done) - TAP AREA EXTENDED
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => print('Check tapped'),
+            child: Container(
+              color: Colors.green.withOpacity(0.3), // Shows FULL tap area
+              padding: const EdgeInsets.symmetric(
+                horizontal: 15, // ✅ Left/Right tap area
+                vertical: 12,   // ✅ Top/Bottom tap area
+              ),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.amber,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.amber, width: 1),
+                ),
+                child: const Icon(Icons.check, size: 20, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 
 
@@ -2427,9 +2515,478 @@ class _VPCMiddlewareDemoPageState extends State<VPCMiddlewareDemoPage> {
 
 
 
+class TestOrb extends StatefulWidget {
+  const TestOrb({super.key});
+  @override
+  State<TestOrb> createState() => _TestOrbState();
+}
+
+class _TestOrbState extends State<TestOrb> {
+  static const double orbSize = 50;
+  static const double lottieSize = 50;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Column(
+        children: [
+          Center(
+            child: SizedBox(
+              width: 120,
+              height: 120,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // 1) Background
+                  Positioned.fill(
+                    child: Image.asset(
+                      'assets/images/orb_back.webp',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+
+                  // 2) Lottie BELOW the orb (so rim stays visible)
+                  ClipOval(
+                    child: SizedBox(
+                      width: lottieSize,
+                      height: lottieSize,
+                      child: Lottie.asset(
+                        'assets/images/retry1.json',
+                        fit: BoxFit.cover,
+                        repeat: true,
+                      ),
+                    ),
+                  ),
+
+                  // 3) Glass orb (blur INSIDE only)
+                  const GlassOrb(
+                    size: orbSize,
+                    blur: 10,
+                    edgeWidth: 2.0,
+                  ),
+
+                ],
+              ),
+            ),
+          ),
+          // SizedBox(
+          //   height: 50,
+          // ),
+          // Expanded(
+          //   child: PremiumShimmerWidget(
+          //     text: "Hello",
+          //     isComplete: false,
+          //    // baseColor: const Color(0xFF9CA3AF),
+          //    // highlightColor: const Color(0xFF6B7280),
+          //     baseColor: const Color(0xFF6B7280),
+          //     highlightColor: Color(0xFF9CA3AF)
+          //     ,
+          //   ),
+          // ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Truly transparent glass orb with proper 3D cues.
+class GlassOrb extends StatelessWidget {
+  final double size;
+  final double blur;
+  final double edgeWidth;
+
+  const GlassOrb({
+    super.key,
+    required this.size,
+    this.blur = 24,
+    this.edgeWidth = 1.6,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final r = size / 2;
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          // Ground shadow for depth
+          Positioned(
+            bottom: -r * 0.28,
+            child: Container(
+              width: r * 1.5,
+              height: r * 0.5,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(r),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x22000000),
+                    blurRadius: 22,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Blur only inside the circle (no tint)
+          ClipOval(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+              child: const SizedBox.expand(),
+            ),
+          ),
+
+          // Inner shadow (bottom-right) — gives spherical volume
+          CustomPaint(painter: _InnerShadowPainter()),
+
+          // Fresnel rim (soft edge glow)
+          CustomPaint(painter: _FresnelRimPainter()),
+
+          // Crisp edge line (subtle)
+          CustomPaint(painter: _EdgePainter(edgeWidth)),
+
+          // Soft highlight (top-left), gradient (no boxShadow hot-spot)
+          CustomPaint(painter: _HighlightPainter()),
+        ],
+      ),
+    );
+  }
+}
+
+/// Subtle inner shadow bottom-right (vignette) for 3D volume
+class _InnerShadowPainter extends CustomPainter {
+  @override
+  void paint(Canvas c, Size s) {
+    final r = s.shortestSide / 2;
+    final center = Offset(s.width / 2, s.height / 2);
+
+    final rect = Rect.fromCircle(center: center, radius: r * 0.95);
+    final paint = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(0.35, 0.35), // bottom-right bias
+        radius: 1.0,
+        colors: [
+          const Color(0xFF000000).withOpacity(0.08),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 1.0],
+      ).createShader(rect)
+      ..blendMode = BlendMode.srcOver;
+
+    c.drawCircle(center, r * 0.95, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Soft Fresnel rim (edge brighter than center)
+class _FresnelRimPainter extends CustomPainter {
+  @override
+  void paint(Canvas c, Size s) {
+    final r = s.shortestSide / 2;
+    final center = Offset(s.width / 2, s.height / 2);
+    final rect = Rect.fromCircle(center: center, radius: r);
+
+    final paint = Paint()
+      ..shader = RadialGradient(
+        // Slight top-left bias so it feels lit
+        center: const Alignment(-0.2, -0.2),
+        radius: 1.0,
+        colors: [
+          Colors.white.withOpacity(0.18), // inner edge glow
+          Colors.white.withOpacity(0.10),
+          Colors.white.withOpacity(0.04),
+          Colors.transparent,
+        ],
+        stops: const [0.72, 0.86, 0.95, 1.0],
+      ).createShader(rect);
+
+    c.drawCircle(center, r, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Crisp, subtle edge stroke so the boundary is always readable on white
+class _EdgePainter extends CustomPainter {
+  final double w;
+  _EdgePainter(this.w);
+
+  @override
+  void paint(Canvas c, Size s) {
+    final r = s.shortestSide / 2;
+    final center = Offset(s.width / 2, s.height / 2);
+
+    // faint dark halo for separation on bright backgrounds
+    final shadow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w + 1
+      ..color = Colors.black.withOpacity(0.06);
+    c.drawCircle(center, r - (w / 2), shadow);
+
+    // main edge
+    final edge = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w
+      ..color = Colors.white.withOpacity(0.6);
+    c.drawCircle(center, r - (w / 2), edge);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Soft elliptical highlight (no boxShadow hot-spot → no random white dot)
+class _HighlightPainter extends CustomPainter {
+  @override
+  void paint(Canvas c, Size s) {
+    final r = s.shortestSide / 2;
+    final center = Offset(s.width / 2, s.height / 2);
+
+    final highlightCenter =
+    Offset(center.dx - r * 0.28, center.dy - r * 0.28);
+
+    final rect = Rect.fromCenter(
+      center: highlightCenter,
+      width: r * 0.8,
+      height: r * 0.6,
+    );
+
+    final paint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          Colors.white.withOpacity(0.30),
+          Colors.white.withOpacity(0.08),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(rect)
+      ..blendMode = BlendMode.screen; // gentle additive look
+
+    c.save();
+    // squash into ellipse
+    c.translate(highlightCenter.dx, highlightCenter.dy);
+    c.scale(1.15, 0.9);
+    c.translate(-highlightCenter.dx, -highlightCenter.dy);
+    c.drawOval(rect, paint);
+    c.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
 
 
 
 
 
+
+
+
+
+
+
+
+class OrbIcon extends StatelessWidget {
+  final double size;        // e.g. 28–40 for prefix
+  final double blur;        // scale with size (size * 0.22 is a good start)
+  final double edgeWidth;
+  final String? lottie;     // optional Lottie under the glass
+
+  const OrbIcon({
+    super.key,
+    this.size = 32,
+    double? blur,
+    this.edgeWidth = 1.4,
+    this.lottie,
+  }) : blur = blur ?? (32 * 0.22);
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Optional: animated energy beneath the glass
+          if (lottie != null)
+            ClipOval(
+              child: SizedBox.square(
+                dimension: size,
+                child: Lottie.asset(lottie!, fit: BoxFit.cover, repeat: true),
+              ),
+            ),
+
+          // Ground shadow for separation (very subtle for tiny sizes)
+          Positioned(
+            bottom: -size * 0.14,
+            child: Container(
+              width: size * 0.72,
+              height: size * 0.22,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(size),
+                boxShadow: const [
+                  BoxShadow(color: Colors.transparent, blurRadius: 0, spreadRadius: 0),
+                ],
+              ),
+            ),
+          ),
+
+          // Glass blur (clips to the circle)
+          ClipOval(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+              child: const SizedBox.expand(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+
+
+
+
+
+
+
+class ShimmerStatusPill extends StatefulWidget {
+  final String label;                 // e.g. "Searching the internet"
+  final Duration sweepDuration;       // shimmer speed
+  const ShimmerStatusPill({
+    super.key,
+    required this.label,
+    this.sweepDuration = const Duration(milliseconds: 1400),
+  });
+
+  @override
+  State<ShimmerStatusPill> createState() => _ShimmerStatusPillState();
+}
+
+class _ShimmerStatusPillState extends State<ShimmerStatusPill>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: widget.sweepDuration)
+      ..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // base text style (SF Pro / Inter vibe)
+    const baseStyle = TextStyle(
+      fontSize: 13.5,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.2,
+      height: 1.2,
+      fontFamily: "DM Sans"
+    );
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const SizedBox(width: 8),
+
+                // TEXT + SHIMMER
+                AnimatedBuilder(
+                  animation: _ctrl,
+                  builder: (context, _) {
+                    // shimmer sweep position (−1 → 2) so it fully crosses text
+                    final t = _ctrl.value;                  // 0..1
+                    final x0 = -1.0 + 3.0 * t;              // -1 → 2
+                    final shimmerGradient = LinearGradient(
+                      begin: Alignment(-1 + x0, 0), end: Alignment(x0, 0),
+                      colors: [
+                        Colors.white.withOpacity(0.0),
+                        Colors.white.withOpacity(0.55), // bright band
+                        Colors.white.withOpacity(0.0),
+                      ],
+                      stops: const [0.25, 0.5, 0.75],
+                    );
+
+                    return ShaderMask(
+                      shaderCallback: (rect) => shimmerGradient
+                          .createShader(Rect.fromLTWH(0, 0, rect.width, rect.height)),
+                      blendMode: BlendMode.srcATop, // apply highlight over base text
+                      child: _DotsText(
+                        text: '${widget.label}',
+                        style: baseStyle.copyWith(color: Colors.black.withOpacity(0.78)),
+                      ),
+                    );
+                  },
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Animated dots: "", ".", "..", "..." (slow, subtle)
+class _DotsText extends StatefulWidget {
+  final String text;
+  final TextStyle style;
+  const _DotsText({required this.text, required this.style});
+
+  @override
+  State<_DotsText> createState() => _DotsTextState();
+}
+
+class _DotsTextState extends State<_DotsText> with SingleTickerProviderStateMixin {
+  late final AnimationController _dotsCtrl;
+  int _step = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _dotsCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
+      ..addStatusListener((s) {
+        if (s == AnimationStatus.completed) {
+          setState(() => _step = (_step + 1) % 4);
+          _dotsCtrl.forward(from: 0);
+        }
+      })
+      ..forward();
+  }
+
+  @override
+  void dispose() {
+    _dotsCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dots = '.' * _step;
+    return Text('${widget.text}', style: widget.style);
+  }
+}
 

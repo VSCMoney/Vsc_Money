@@ -367,12 +367,7 @@ class _InputActionsBarWidgetState extends State<InputActionsBarWidget> {
   Widget build(BuildContext context) {
     final theme = widget.theme;
 
-    // EXACT logic you want:
-    //   - Stop is visible the whole time while streaming (isTyping == true)
-    //   - Plus it appears instantly on Send (via latch)
     final bool showStop = widget.isTyping || _showStopLatch;
-
-    // Collapse the trailing space ONLY when there is truly nothing to show.
     final bool showSendSlot = showStop || widget.hasText || widget.isTranscribing;
 
     return RepaintBoundary(
@@ -382,38 +377,66 @@ class _InputActionsBarWidgetState extends State<InputActionsBarWidget> {
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // ATTACH — slight left nudge
-            Transform.translate(
-              offset: const Offset(_kAttachNudge, 0),
-              child: _squareButton(
-                onTap: () {
-                  HapticFeedback.mediumImpact();
-                  // attach flow
-                },
-                child: SvgPicture.asset(
-                  "assets/images/attach.svg",
-                  color: theme.icon,
-                  height: _kIconH,
-                  width: _kIconW,
-                  fit: BoxFit.contain,
+            // ✅ ATTACH - Centered properly
+            SizedBox(
+              width: _kHit,
+              height: _kHit,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    HapticFeedback.mediumImpact();
+                    // attach flow
+                  },
+                  borderRadius: BorderRadius.circular(_kHit / 2),
+                  child: Center(
+                    child: Transform.translate(
+                      offset: const Offset(0, 0), // ✅ No nudge for attach
+                      child: SvgPicture.asset(
+                        "assets/images/attach.svg",
+                        color: theme.icon,
+                        height: _kIconH,
+                        width: _kIconW,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
 
             const Spacer(),
 
-            // MIC
-            _squareButton(
-              onTap: widget.onStartRecording,
-              child: SvgPicture.asset(
-                "assets/images/mic.svg",
-                height: _kIconH,
-                width: _kIconW,
-                color: theme.icon,
+            // ✅ MIC - Centered with same structure as attach
+            SizedBox(
+              width: _kHit,
+              height: _kHit,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    widget.onStartRecording();
+                  },
+                  borderRadius: BorderRadius.circular(_kHit / 2),
+                  child: Center(
+                    child: Transform.translate(
+                      offset: const Offset(0, 0), // ✅ Same - no nudge
+                      child: SvgPicture.asset(
+                        "assets/images/mic.svg",
+                        height: _kIconH,
+                        width: _kIconW,
+                        color: theme.icon,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
 
-            // Gap + Send/Stop slot — collapses to 0 when hidden
+            // Send/Stop slot
             AnimatedContainer(
               duration: const Duration(milliseconds: 140),
               curve: Curves.easeInOut,
@@ -432,7 +455,6 @@ class _InputActionsBarWidgetState extends State<InputActionsBarWidget> {
                     if (current != null) current,
                   ],
                 ),
-                // Key by "stop vs send" so icon swaps smoothly without killing the slot
                 child: showStop
                     ? KeyedSubtree(
                   key: const ValueKey('stop'),

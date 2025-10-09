@@ -8,6 +8,9 @@ import 'package:vscmoney/screens/widgets/stock_tile_widget.dart';
 import '../../constants/chat_typing_indicator.dart';
 import '../../constants/widgets.dart';
 import '../../models/chat_message.dart';
+import '../../new_chat_screen.dart';
+import '../../services/chat_service.dart';
+import '../../services/theme_service.dart';
 import 'bot_message.dart';
 import 'message_bubble.dart';
 
@@ -353,8 +356,131 @@ class TypingIndicatorWithHapticsState extends State<TypingIndicatorWithHaptics> 
 
 
 
+///////////////////////////////// New Pair Widget////////////////////////////////////
 
 
 
+class NewPairWidget extends StatefulWidget {
+  final MessagePair pair;
+  final ChatService service;
+  final Function(String)? onAskVitty;
+  final Function(String)? onStockTap;
+
+  // 🔥 NEW: parent callback
+  final void Function(String text)? onEditStart;
+
+  const NewPairWidget({
+    super.key,
+    required this.pair,
+    required this.service,
+    this.onAskVitty,
+    this.onStockTap,
+    this.onEditStart,
+  });
+
+  @override
+  State<NewPairWidget> createState() => _NewPairWidgetState();
+}
+
+class _NewPairWidgetState extends State<NewPairWidget> {
+  void _copyToClipboard(BuildContext context) {
+    Clipboard.setData(
+      ClipboardData(text: widget.pair.userMessage.content ?? ""),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Copied to clipboard')),
+    );
+  }
+
+  // 🔥 Instead of opening a dialog, send text to parent input
+  void _editMessage(BuildContext context) {
+    final text = widget.pair.userMessage.content ?? '';
+    widget.onEditStart?.call(text);
+  }
+
+  String get _previewText {
+    final t = widget.pair.userMessage.content ?? '';
+    if (t.isEmpty) return 'Message';
+    return t.length > 30 ? '${t.substring(0, 30)}…' : t;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
+    final userBubble = ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.6,
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        margin: const EdgeInsets.only(bottom: 2),
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+          color: theme.message,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Text(
+          widget.pair.userMessage.content ?? "",
+          style: TextStyle(
+            height: 1.9,
+            fontFamily: 'DM Sans',
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: theme.text,
+          ),
+        ),
+      ),
+    );
+
+    return Column(
+      children: [
+        Transform.translate(
+          offset: const Offset(0, 10),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 0, bottom: 0, right: 10),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  const SizedBox(width: 14),
+                  // GestureDetector(
+                  //   onTap: () => _copyToClipboard(context),
+                  //   child: const Icon(Icons.copy, size: 14, color: Color(0xFF7E7E7E)),
+                  // ),
+                  const SizedBox(width: 10),
+
+                  IOSPopContextMenu(
+                    horizontalNudge: 258,
+                    verticalNudge: 100,
+                    previewText: _previewText,
+                    onCopy: () => _copyToClipboard(context),
+                    onEdit: () => _editMessage(context), // 🔥
+                    side: MenuSide.right,
+                    child: userBubble,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        NewBotResponsesList(
+          pair: widget.pair,
+          service: widget.service,
+          onAskVitty: widget.onAskVitty,
+          onStockTap: widget.onStockTap,
+        ),
+      ],
+    );
+  }
+}
 
 

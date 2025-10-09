@@ -103,7 +103,7 @@ class TransitioningCopy extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 0),
 
             // Subtitle with fade and slide (separate from title)
             SizedBox(

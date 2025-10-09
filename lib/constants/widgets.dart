@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:collection/collection.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:vscmoney/services/theme_service.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../core/helpers/themes.dart';
 import '../models/chat_message.dart';
 import 'colors.dart';
 
@@ -493,15 +496,15 @@ class StockDetailBottomSheet extends StatelessWidget {
 class PremiumShimmerWidget extends StatefulWidget {
   final String text;
   final bool isComplete;
-  final Color baseColor;
-  final Color highlightColor;
+  final Color baseColor;        // Main text color (dark)
+  final Color highlightColor;   // Shimmer wave color (light)
 
   const PremiumShimmerWidget({
     Key? key,
     required this.text,
     this.isComplete = false,
-    this.baseColor = const Color(0xFF9CA3AF),
-    this.highlightColor =  Colors.black,
+    this.baseColor = const Color(0xFF6B7280),    // Dark gray (main text)
+    this.highlightColor = const Color(0xFF9CA3AF), // Light gray (shimmer)
   }) : super(key: key);
 
   @override
@@ -517,19 +520,20 @@ class _PremiumShimmerWidgetState extends State<PremiumShimmerWidget>
   void initState() {
     super.initState();
 
-    // Shimmer animation - continuous wave effect
     _shimmerController = AnimationController(
-      duration: const Duration(milliseconds: 3000), // Faster shimmer cycle
+      duration: const Duration(milliseconds: 2000), // Smooth 2s cycle
       vsync: this,
     );
-    _shimmerAnimation = Tween<double>(begin: -1.0, end: 2.0).animate(
-      CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
-    );
-    // Start continuous shimmer for status
-    if (!widget.isComplete) {
-      _shimmerController.repeat(
 
-      );
+    _shimmerAnimation = Tween<double>(begin: -1.0, end: 2.0).animate(
+      CurvedAnimation(
+        parent: _shimmerController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    if (!widget.isComplete) {
+      _shimmerController.repeat();
     }
   }
 
@@ -541,9 +545,7 @@ class _PremiumShimmerWidgetState extends State<PremiumShimmerWidget>
       if (widget.isComplete) {
         _shimmerController.stop();
       } else {
-        _shimmerController.repeat(
-          period: Duration(milliseconds: 200)
-        );
+        _shimmerController.repeat();
       }
     }
   }
@@ -560,37 +562,46 @@ class _PremiumShimmerWidgetState extends State<PremiumShimmerWidget>
       animation: _shimmerAnimation,
       builder: (context, child) {
         return ShaderMask(
+          blendMode: BlendMode.srcIn,
           shaderCallback: (bounds) {
             return LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [
-                widget.baseColor.withOpacity(0.4),
-                widget.highlightColor.withOpacity(0.9),
-                widget.baseColor.withOpacity(0.4),
+                widget.baseColor,           // Dark (main text)
+                widget.baseColor,           // ✅ Extended dark
+                widget.highlightColor,      // Light (shimmer wave)
+                widget.highlightColor,      // ✅ Extended light (wider wave)
+                widget.baseColor,           // ✅ Extended dark
+                widget.baseColor,           // Dark (main text)
               ],
               stops: [
+                (_shimmerAnimation.value - 0.6).clamp(0.0, 1.0),
                 (_shimmerAnimation.value - 0.3).clamp(0.0, 1.0),
-                _shimmerAnimation.value.clamp(0.0, 1.0),
+                (_shimmerAnimation.value - 0.1).clamp(0.0, 1.0), // ✅ Wave start
+                (_shimmerAnimation.value + 0.1).clamp(0.0, 1.0), // ✅ Wave end
                 (_shimmerAnimation.value + 0.3).clamp(0.0, 1.0),
+                (_shimmerAnimation.value + 0.6).clamp(0.0, 1.0),
               ],
             ).createShader(bounds);
           },
           child: Text(
             widget.text,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 16,
-              color: Colors.white, // White color for shader mask
-              fontFamily: 'DM Sans',
+              color: Colors.white,
+              fontFamily: 'SF Pro',
+              fontWeight: FontWeight.w500,
             ),
-          softWrap: true,
-          overflow: TextOverflow.visible,
+            softWrap: true,
+            overflow: TextOverflow.visible,
           ),
         );
       },
     );
   }
 }
+
 
 
 
@@ -2889,7 +2900,332 @@ class _KeyValueTableWidgetState extends State<KeyValueTableWidget>
 
 
 
+enum MenuSide { left, right }
 
+class IOSPopContextMenu extends StatefulWidget {
+  /// The bubble widget you wrap (e.g., your message bubble)
+  final Widget child;
+
+  /// Optional small preview text (not rendered by default, kept for parity)
+  final String previewText;
+
+  /// Actions
+  final VoidCallback onCopy;
+  final VoidCallback onEdit;
+
+  /// Which side of the screen the bubble lives on
+  final MenuSide side;
+
+  /// Extra horizontal shift of the menu away from the bubble.
+  /// Positive values push it further from the bubble.
+  final double horizontalNudge;
+
+  /// Small vertical trim for optical alignment (negative -> a bit up)
+  final double verticalNudge;
+
+  /// Backdrop blur sigma for the sheet
+  final double backdropSigma;
+
+  const IOSPopContextMenu({
+    Key? key,
+    required this.child,
+    required this.previewText,
+    required this.onCopy,
+    required this.onEdit,
+    this.side = MenuSide.left,
+    this.horizontalNudge = 24, // tweak 24–32 for “thoda left”
+    this.verticalNudge = -4,   // subtle up shift
+    this.backdropSigma = 8,
+  }) : super(key: key);
+
+  @override
+  State<IOSPopContextMenu> createState() => _IOSPopContextMenuState();
+}
+
+class _IOSPopContextMenuState extends State<IOSPopContextMenu>
+    with SingleTickerProviderStateMixin {
+  final LayerLink _link = LayerLink();
+  OverlayEntry? _entry;
+
+  late final AnimationController _ac;
+  late final Animation<double> _scale; // bubble pop
+  late final Animation<double> _elev;  // shadow lift
+  late final Animation<double> _fade;  // menu fade
+
+  bool _hideOriginal = false; // hide original while ghost bubble is shown
+
+  @override
+  void initState() {
+    super.initState();
+    _ac = AnimationController(vsync: this, duration: const Duration(milliseconds: 180));
+    _scale = Tween(begin: 1.0, end: 1.06)
+        .chain(CurveTween(curve: Curves.easeOutCubic))
+        .animate(_ac);
+    _elev = Tween(begin: 0.0, end: 16.0)
+        .chain(CurveTween(curve: Curves.easeOut))
+        .animate(_ac);
+    _fade = Tween(begin: 0.0, end: 1.0)
+        .chain(CurveTween(curve: Curves.easeOut))
+        .animate(_ac);
+  }
+
+  @override
+  void dispose() {
+    _removeEntry();
+    _ac.dispose();
+    super.dispose();
+  }
+
+  void _show() {
+    HapticFeedback.mediumImpact();
+    if (_entry != null) return;
+
+    setState(() => _hideOriginal = true);
+
+    // How far from the bubble edge we place the menu
+    const double baseGap = 8;
+
+    final bool bubbleOnRight = widget.side == MenuSide.right;
+
+    // When bubble is on the right, the menu should appear to its LEFT.
+    final Alignment targetEdge = bubbleOnRight ? Alignment.centerRight : Alignment.centerLeft;
+    final Alignment followerEdge = bubbleOnRight ? Alignment.centerLeft  : Alignment.centerRight;
+
+    // Horizontal nudge — positive moves menu further away from bubble.
+    final double dx = bubbleOnRight
+        ? -(baseGap + widget.horizontalNudge) // push to LEFT of bubble
+        :  (baseGap + widget.horizontalNudge); // push to RIGHT of bubble
+
+    final Offset menuOffset = Offset(dx, widget.verticalNudge);
+
+    _entry = OverlayEntry(
+      builder: (context) => SafeArea(
+        child: Stack(
+          children: [
+            // Dim/blurred backdrop (tap to dismiss)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _hide,
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(
+                    sigmaX: widget.backdropSigma,
+                    sigmaY: widget.backdropSigma,
+                  ),
+                  child: Container(color: Colors.black.withOpacity(0.12)),
+                ),
+              ),
+            ),
+
+            // Ghost “popped” bubble—exactly over the original
+            CompositedTransformFollower(
+              link: _link,
+              showWhenUnlinked: false,
+              offset: Offset.zero,
+              child: Material(
+                color: Colors.transparent,
+                child: AnimatedBuilder(
+                  animation: _ac,
+                  builder: (context, _) {
+                    return Transform.scale(
+                      alignment: bubbleOnRight ? Alignment.centerRight : Alignment.centerLeft,
+                      scale: _scale.value,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(.18),
+                              blurRadius: _elev.value,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: widget.child,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+            // iOS-like floating menu card
+            // iOS-like floating menu card
+            CompositedTransformFollower(
+              link: _link,
+              showWhenUnlinked: false,
+              targetAnchor: targetEdge,
+              followerAnchor: followerEdge,
+              offset: Offset(
+                dx,
+                widget.verticalNudge + 10, // ✅ Add constant 10px vertical gap
+              ),
+              child: FadeTransition(
+                opacity: _fade,
+                child: _CupertinoMenuCard(
+                  preview: const SizedBox.shrink(),
+                  actions: [
+                    _CupertinoRowAction(
+                      label: 'Copy',
+                      icon: CupertinoIcons.doc_on_doc,
+                      onTap: () { _hide(); widget.onCopy(); },
+                    ),
+                    _divider,
+                    _CupertinoRowAction(
+                      label: 'Edit',
+                      icon: CupertinoIcons.pencil,
+                      onTap: () { _hide(); widget.onEdit(); },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    Overlay.of(context, rootOverlay: true).insert(_entry!);
+    _ac.forward();
+  }
+
+  Future<void> _hide() async {
+    await _ac.reverse();
+    _removeEntry();
+    if (mounted) setState(() => _hideOriginal = false);
+  }
+
+  void _removeEntry() {
+    _entry?.remove();
+    _entry = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _link,
+      child: GestureDetector(
+        onLongPress: _show,
+        behavior: HitTestBehavior.translucent,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 90),
+          opacity: _hideOriginal ? 0.0 : 1.0, // hide original while ghost shows
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+
+class _CupertinoMenuCard extends StatelessWidget {
+  final Widget preview;
+  final List<Widget> actions;
+
+  const _CupertinoMenuCard({required this.preview, required this.actions});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 220, maxWidth: 260),
+          decoration: BoxDecoration(
+            color: CupertinoColors.systemBackground.withOpacity(.92),
+            boxShadow: const [
+              BoxShadow(color: Color(0x2E000000), blurRadius: 20, offset: Offset(0, 12)),
+              BoxShadow(color: Color(0x10000000), blurRadius: 4,  offset: Offset(0, 1)),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // If you ever want to show `preview`, uncomment the next two lines:
+              // Padding(padding: const EdgeInsets.fromLTRB(12, 10, 12, 8), child: preview),
+              // _divider,
+              ...actions,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const _divider = Divider(height: 1, thickness: .5, color: Color(0x14000000));
+
+class _CupertinoRowAction extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _CupertinoRowAction({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      onPressed: onTap,
+      child: Container(
+        height: 44,
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                  color: CupertinoColors.black,
+                ),
+              ),
+            ),
+            Icon(icon, size: 20, color: CupertinoColors.black),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+
+
+
+
+
+class MeasureSize extends StatefulWidget {
+  final Widget child;
+  final ValueChanged<Size?> onChange;
+  const MeasureSize({super.key, required this.child, required this.onChange});
+
+  @override
+  State<MeasureSize> createState() => _MeasureSizeState();
+}
+
+class _MeasureSizeState extends State<MeasureSize> {
+  Size? _oldSize;
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final size = context.size;
+      if (_oldSize != size) {
+        _oldSize = size;
+        widget.onChange(size);
+      }
+    });
+    return widget.child;
+  }
+}
 
 
 
@@ -2992,34 +3328,30 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
   final double flatHeight = 2;
   final List<double> _waveform = [];
 
-  Timer? _waveformTimer;
-  late AnimationController _slideController;
-  late Animation<double> _slideAnimation;
+  // ✅ For smooth height transitions
+  final List<double> _targetHeights = [];
+  final List<double> _currentHeights = [];
 
-  // 🔄 Speech continuity tracking
+  Timer? _waveformTimer;
+  late AnimationController _animController;
+
+  // Smooth sliding offset
+  double _slideOffset = 0.0;
+
   bool _wasRecentlySpeaking = false;
   DateTime _lastSpeechTime = DateTime.now();
 
   @override
   void initState() {
     super.initState();
-
-    // Start with empty waveform
     _waveform.clear();
 
-    // Setup slide animation for smooth right-to-left movement
-    _slideController = AnimationController(
-      duration: frameRate,
+    _animController = AnimationController(
       vsync: this,
-    );
-
-    _slideAnimation = Tween<double>(
-      begin: 0.0,
-      end: 6.0, // Distance each bar slides (width + padding)
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.linear,
-    ));
+      duration: frameRate,
+    )..addListener(() {
+      if (mounted) setState(() {});
+    });
 
     _startWaveformLoop();
   }
@@ -3030,24 +3362,20 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
 
       final now = DateTime.now();
 
-      // 🎯 LOWER threshold for better continuity
-      const double minRmsThreshold = 0.005; // Reduced from 0.015 for better detection
+      const double minRmsThreshold = 0.005;
       bool actualSpeechDetected = widget.isSpeech && widget.rms > minRmsThreshold;
 
-      // 🔄 Update speech tracking
       if (actualSpeechDetected) {
         _lastSpeechTime = now;
         _wasRecentlySpeaking = true;
       }
 
-      // 📏 LONGER grace period for better continuity
-      bool withinGracePeriod = now.difference(_lastSpeechTime) < Duration(milliseconds: 300); // Increased from 150ms
+      bool withinGracePeriod = now.difference(_lastSpeechTime) < Duration(milliseconds: 300);
 
-      // 🌊 More lenient continuity check
-      bool hasAnyAudio = widget.rms > 0.003; // Very low threshold for minimal audio
+      bool hasAnyAudio = widget.rms > 0.003;
       bool shouldShowWaves = actualSpeechDetected ||
           (_wasRecentlySpeaking && withinGracePeriod && hasAnyAudio) ||
-          (_wasRecentlySpeaking && withinGracePeriod && widget.isSpeech); // Keep going if isSpeech is still true
+          (_wasRecentlySpeaking && withinGracePeriod && widget.isSpeech);
 
       if (!withinGracePeriod) {
         _wasRecentlySpeaking = false;
@@ -3058,94 +3386,161 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
       if (shouldShowWaves) {
         double effectiveRms = widget.rms;
 
-        // During grace period, maintain minimum wave height
         if (!actualSpeechDetected && _wasRecentlySpeaking) {
-          effectiveRms = max(effectiveRms, 0.010); // Guarantee minimum during gaps
-          effectiveRms = effectiveRms * 0.9; // Slight fade during gap
+          effectiveRms = max(effectiveRms, 0.010);
+          effectiveRms = effectiveRms * 0.9;
         }
 
-        nextHeight = (pow(effectiveRms + 0.03, 0.68).toDouble() * 85 + 12).clamp(8.0, 35.0);
+        // PLATFORM-SPECIFIC CALIBRATION
+        if (Platform.isIOS) {
+          effectiveRms = effectiveRms * 2.5;
+          effectiveRms = effectiveRms.clamp(0.0, 1.0);
+        }
+
+        // ✅ MUCH MORE CONSERVATIVE HEIGHT RANGES
+        if (effectiveRms < 0.05) {
+          // Very quiet / whisper
+          nextHeight = 8.0 + (effectiveRms * 160); // 8-16px (reduced from 8-23px)
+
+        } else if (effectiveRms < 0.12) {
+          // Quiet speech
+          nextHeight = 16.0 + ((effectiveRms - 0.05) * 280); // 16-35.6px (reduced from 23-58px)
+
+        } else if (effectiveRms < 0.25) {
+          // Normal speech (most common range)
+          nextHeight = 35.6 + ((effectiveRms - 0.12) * 300); // 35.6-74.6px (reduced from 58-136px)
+
+        } else if (effectiveRms < 0.40) {
+          // Loud speech
+          nextHeight = 74.6 + ((effectiveRms - 0.25) * 160); // 74.6-98.6px (reduced from 76-196px)
+
+        } else {
+          // Very loud / shouting
+          nextHeight = 98.6 + ((effectiveRms - 0.40) * 100); // 98.6-158.6px (reduced from 96-376px)
+        }
+
+        // ✅ MUCH TIGHTER max clamp
+        nextHeight = nextHeight.clamp(8.0, 60.0); // Reduced from 100px to 60px
+
       } else {
-        // 🔇 IMMEDIATE FLAT - no background waves
         nextHeight = flatHeight;
       }
 
-      setState(() {
-        // Add new bar on the LEFT side (index 0)
-        _waveform.insert(0, nextHeight);
-        // Remove from RIGHT side when max capacity reached
-        if (_waveform.length > maxBars) {
-          _waveform.removeLast();
-        }
-      });
+      // Add new bar data
+      _targetHeights.insert(0, nextHeight);
+      _currentHeights.insert(0, flatHeight);
 
-      // Always animate the sliding motion
-      _slideController.forward().then((_) {
-        _slideController.reset();
-      });
+      if (_targetHeights.length > maxBars) {
+        _targetHeights.removeLast();
+        _currentHeights.removeLast();
+      }
+
+      _animController.forward(from: 0.0);
     });
   }
+
 
   @override
   void dispose() {
     _waveformTimer?.cancel();
-    _slideController.dispose();
+    _animController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // ✅ Smooth interpolation between current and target heights
+    final smoothingFactor = 0.3;
+
+    for (int i = 0; i < _currentHeights.length; i++) {
+      _currentHeights[i] += (_targetHeights[i] - _currentHeights[i]) * smoothingFactor;
+    }
+
+    // ✅ YOUR ORIGINAL SPACING
+    const barWidth = 3.0;
+    const barSpacing = 3.4; // Your horizontal padding
+    const totalBarWidth = barWidth + (barSpacing * 2); // 3 + 6.8 = 9.8
+
+    // ✅ Calculate slide distance to match original
+    _slideOffset = _animController.value * totalBarWidth;
+
     return SizedBox(
-      height: 55, // Accommodates up to 50px waves
-      child: AnimatedBuilder(
-        animation: _slideAnimation,
-        builder: (context, child) {
-          return Transform.translate(
-            // Buttery smooth slide with custom curve
-            offset: Offset(_slideAnimation.value.clamp(-300.0, 0.0), 0),
-
-            child: ListView.builder(
-              reverse: true,
-              scrollDirection: Axis.horizontal,
-              physics: const NeverScrollableScrollPhysics(),
-
-              // Performance optimizations
-              cacheExtent: 500, // Cache more items for smooth scroll
-              addRepaintBoundaries: false, // Reduce repaint boundaries
-              addAutomaticKeepAlives: false, // Don't keep items alive
-
-              itemCount: _waveform.length,
-              itemBuilder: (context, index) {
-                final barHeight = _waveform[index];
-                final isActive = barHeight > flatHeight;
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3.4),
-                  child: Center(
-                    child: TweenAnimationBuilder<double>(
-                      // Smooth height animation with custom curve
-                      duration: const Duration(milliseconds: 80), // Faster response
-                      curve: Curves.easeOutCubic, // Smooth easing
-                      tween: Tween(begin: flatHeight, end: barHeight),
-                      builder: (context, animatedHeight, child) {
-                        return Container(
-                          width: 3,
-                          height: animatedHeight,
-                          decoration: BoxDecoration(
-                            color: Color(0xFF8C571F),
-                            borderRadius: BorderRadius.circular(32),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                );
-              },
-            ),
-          );
-        },
+      height: 100,
+      child: CustomPaint(
+        painter: WaveformPainter(
+          heights: _currentHeights,
+          slideOffset: _slideOffset,
+          barWidth: barWidth,
+          barSpacing: totalBarWidth,
+          barColor: Color(0xFF8C571F),
+        ),
+        size: Size.infinite,
       ),
     );
+  }
+}
+
+// ✅ ULTRA PERFORMANT: CustomPainter (single draw call)
+class WaveformPainter extends CustomPainter {
+  final List<double> heights;
+  final double slideOffset;
+  final double barWidth;
+  final double barSpacing;
+  final Color barColor;
+
+  WaveformPainter({
+    required this.heights,
+    required this.slideOffset,
+    required this.barWidth,
+    required this.barSpacing,
+    required this.barColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (heights.isEmpty) return;
+
+    final paint = Paint()
+      ..color = barColor
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true; // ✅ Smooth edges
+
+    final centerY = size.height / 2;
+
+    // ✅ OPTIMIZED: Only draw visible bars
+    final visibleWidth = size.width + barWidth; // Add buffer
+    final maxVisibleBars = (visibleWidth / barSpacing).ceil() + 2;
+    final barsToRender = min(heights.length, maxVisibleBars);
+
+    // ✅ Draw only visible bars from right to left
+    for (int i = 0; i < barsToRender; i++) {
+      final barHeight = heights[i];
+
+      // Calculate x position (right to left, with slide offset)
+      final x = size.width - (i * barSpacing) - slideOffset;
+
+      // Skip if completely off-screen (optimization)
+      if (x < -barWidth) break;
+      if (x > size.width + barWidth) continue;
+
+      // ✅ Draw rounded rectangle bar
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(x, centerY),
+          width: barWidth,
+          height: barHeight,
+        ),
+        Radius.circular(barWidth / 2),
+      );
+
+      canvas.drawRRect(rect, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(WaveformPainter oldDelegate) {
+    return oldDelegate.slideOffset != slideOffset ||
+        oldDelegate.heights != heights;
   }
 }
 
@@ -3153,6 +3548,71 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
 
 
 
+
+class EditingChip extends StatelessWidget {
+  final VoidCallback onClose;
+  final AppTheme theme;
+
+  const EditingChip({
+    required this.onClose,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        // color: theme.card,
+        // borderRadius: const BorderRadius.only(
+        //   topLeft: Radius.circular(12),
+        //   topRight: Radius.circular(12),
+        // ),
+        // boxShadow: [
+        //   BoxShadow(
+        //     color: theme.shadow,
+        //     blurRadius: 4,
+        //     offset: const Offset(0, -2),
+        //   ),
+        // ],
+        //  border: Border.all(color: theme.border),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.edit, size: 16, color: theme.text),
+          const SizedBox(width: 8),
+          Text(
+            'Editing message',
+            style: TextStyle(
+              fontFamily: 'DM Sans',
+              fontWeight: FontWeight.w600,
+              color: theme.text,
+            ),
+          ),
+          const Spacer(),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                onClose();
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Icon(
+                  Icons.close,
+                  size: 18,
+                  color: theme.text,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 
 

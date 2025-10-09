@@ -117,40 +117,39 @@ class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateM
         children: [
           SizedBox(height: screenHeight * 0.25),
 
-          // EXACT MATCH: Same size container as splash screen
+          // ✅ SMALLER LOGO - Reduced size
           SizedBox(
-            width: VittyLogoConfig.logoWidth,
-            height: VittyLogoConfig.logoHeight, // Same as splash
+            width: 200,  // Reduced from VittyLogoConfig.logoWidth
+            height: 200, // Reduced from VittyLogoConfig.logoHeight
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center, // Same as splash
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // EXACT HERO MATCH: Same dimensions & properties as splash
+                // ✅ HERO with smaller dimensions
                 Hero(
                   tag: 'penny_logo',
                   transitionOnUserGestures: true,
                   child: Image.asset(
                     'assets/images/ying yang.png',
-                    width: VittyLogoConfig.logoWidth,     // EXACT same width
-                    height: VittyLogoConfig.vittyTextHeight, // EXACT same height as splash
-                    fit: BoxFit.contain,                  // EXACT same fit
+                    width: 150,   // Reduced logo size
+                    height: 90,  // Reduced logo size
+                    fit: BoxFit.contain,
                   ),
                 ),
 
-                // EXACT spacing as splash
-                // const SizedBox(height: 8), // Commented out same as splash
+                const SizedBox(height: 4), // Small gap
 
                 Image.asset(
                   'assets/images/Vitty.ai2.png',
-                  width: VittyLogoConfig.logoWidth,
-                  height: VittyLogoConfig.vittyTextHeight,
+                  width: 140,  // Reduced text width
+                  height: 58,  // Reduced text height
                   fit: BoxFit.contain,
                 ),
 
                 Image.asset(
                   'assets/images/वित्तीय2.png',
-                  width: VittyLogoConfig.logoWidth,
-                  height: VittyLogoConfig.hindiTextHeight,
+                  width: 120,  // Reduced text width
+                  height: 20,  // Reduced text height
                   fit: BoxFit.contain,
                 ),
               ],
@@ -159,7 +158,7 @@ class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateM
 
           SizedBox(height: screenHeight * 0.15),
 
-          // Animated options card
+          // Animated options card (unchanged)
           FadeTransition(
             opacity: _optionsOpacity,
             child: SlideTransition(
@@ -183,7 +182,6 @@ class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateM
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Google Sign In
                       googleSignIn(context),
 
                       if (showApple) ...[
@@ -208,7 +206,6 @@ class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateM
                         const SizedBox(height: 8),
                       ],
 
-                      // Terms & Privacy
                       Padding(
                         padding: EdgeInsets.symmetric(
                           horizontal: MediaQuery.of(context).size.width * 0.02,

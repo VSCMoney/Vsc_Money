@@ -28,6 +28,7 @@ PreferredSize appBar(
 
   return PreferredSize(
     preferredSize: Size.fromHeight(height),
+
     child: AnimatedAppBar(
       title: title,
       onNewChatTap: onNewChatTap,
@@ -164,109 +165,68 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
     final anchorOffset = rb.localToGlobal(Offset.zero);
     final anchorSize = rb.size;
 
-    final screen = MediaQuery.of(context).size;
+    final Size screen = MediaQuery.of(context).size;
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
-    final double cardWidth = math.min(screen.width - 32, 220);
-    final double estimatedHeight = 2 * 56.0; // Share + Copy
+    // Card sizing (same as appbar dropdown)
+    final double cardWidth = math.min(screen.width - 32, 320);
+    final double estHeight = 2 * 56.0; // Share + Copy
 
+    // Center under the title (clamped)
     final double left = ((anchorOffset.dx + anchorSize.width / 2) - cardWidth / 2)
         .clamp(16.0, screen.width - cardWidth - 16.0);
-    double top = anchorOffset.dy + anchorSize.height + 8.0;
 
-    final bool overflowBottom = (top + estimatedHeight + 24) > screen.height;
+    double top = anchorOffset.dy + anchorSize.height + 8.0;
+    final bool overflowBottom = (top + estHeight + 24) > screen.height;
     if (overflowBottom) {
-      top = math.max(24.0, anchorOffset.dy - estimatedHeight - 8.0);
+      top = math.max(24.0, anchorOffset.dy - estHeight - 8.0);
     }
 
     _dropdownEntry = OverlayEntry(
       builder: (_) {
         return Stack(
           children: [
-            // Dim background
+            // Dim background — tap to dismiss
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: _hideDropdown,
-                child: Container(color: Colors.black.withOpacity(0.05)),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 150),
+                  opacity: 1.0,
+                  child: Container(color: Colors.black.withOpacity(0.05)),
+                ),
               ),
             ),
 
-            // Floating menu card
+            // iOS-style popover (exactly like appbar)
             Positioned(
               left: left,
               top: top,
               width: cardWidth,
-              child: Material(
-                color: Colors.transparent,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: theme.box,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: theme.border, width: 1),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+              child: _CupertinoAppbarPopover(
+                bgColor: theme.box,          // your card/bg color
+                borderColor: theme.border,   // thin border
+                textColor: theme.text,
+                iconColor: theme.icon,
+                // pointer center aligned with title
+                pointerCenterX: (anchorOffset.dx + anchorSize.width / 2) - left,
+                items: [
+                  _AppbarMenuEntry(
+                    title: 'Share',
+                    onTap: () {
+                      _hideDropdown();
+                      _onShareTap();
+                    },
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      InkWell(
-                        onTap: () {
-                          _hideDropdown();
-                          _onShareTap();
-                        },
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          width: double.infinity,
-                          child: Center(
-                            child: Text(
-                              'Share',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w400,
-                                color: theme.text,
-                                fontFamily: 'DM Sans',
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Container(
-                        height: 1,
-                        color: theme.border.withOpacity(0.3),
-                        margin: const EdgeInsets.symmetric(horizontal: 0),
-                      ),
-                      InkWell(
-                        onTap: () {
-                          _hideDropdown();
-                          _onCopyTap();
-                        },
-                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          width: double.infinity,
-                          child: Center(
-                            child: Text(
-                              'Copy',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w400,
-                                color: theme.text,
-                                fontFamily: 'DM Sans',
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  _AppbarMenuEntry(
+                    title: 'Copy',
+                    onTap: () {
+                      _hideDropdown();
+                      _onCopyTap();
+                    },
                   ),
-                ),
+                ],
               ),
             ),
           ],
@@ -277,6 +237,7 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
     Overlay.of(context, rootOverlay: true).insert(_dropdownEntry!);
     setState(() => _isDropdownVisible = true);
   }
+
 
   void _hideDropdown() {
     _dropdownEntry?.remove();
@@ -357,24 +318,24 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                                           widthFactor: _textReveal.value.clamp(0.0, 1.0),
                                           child: Transform.translate(
                                             offset: const Offset(8, 0),
-                                            child: Row(
-                                              key: _titleAnchorKey, // Anchor for dropdown
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Text(
-                                                  'Vitty',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w800,
-                                                    fontFamily: "Josefin Sans",
-                                                    fontSize: 22,
-                                                    color: theme.icon,
-                                                    letterSpacing: 1.0,
+                                            child: GestureDetector(
+                                              onTap: _toggleDropdown,
+                                              child: Row(
+                                                key: _titleAnchorKey, // Anchor for dropdown
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Text(
+                                                    'Vitty',
+                                                    style: TextStyle(
+                                                      fontWeight: FontWeight.w800,
+                                                      fontFamily: "Josefin Sans",
+                                                      fontSize: 22,
+                                                      color: theme.icon,
+                                                      letterSpacing: 1.0,
+                                                    ),
                                                   ),
-                                                ),
-                                                const SizedBox(width: 0),
-                                                GestureDetector(
-                                                  onTap: _toggleDropdown,
-                                                  child: AnimatedRotation(
+                                                  const SizedBox(width: 0),
+                                                  AnimatedRotation(
                                                     turns: _isDropdownVisible ? 0.5 : 0.0,
                                                     duration: const Duration(milliseconds: 200),
                                                     child: Icon(
@@ -383,8 +344,8 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                                                       color: theme.icon?.withOpacity(0.7),
                                                     ),
                                                   ),
-                                                ),
-                                              ],
+                                                ],
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -513,7 +474,17 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
           Container(
             height: 1,
             margin: EdgeInsets.zero,
-            color: Colors.grey.withOpacity(0.1),
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
             width: double.infinity,
           ),
       ],
@@ -542,3 +513,164 @@ class _BoldNewChatIcon extends StatelessWidget {
   }
 }
 
+class _AppbarMenuEntry {
+  final String title;
+  final VoidCallback onTap;
+  _AppbarMenuEntry({required this.title, required this.onTap});
+}
+
+class _CupertinoAppbarPopover extends StatefulWidget {
+  final Color bgColor;
+  final Color borderColor;
+  final Color textColor;
+  final Color iconColor;
+  final double pointerCenterX; // where the little arrow should point
+  final List<_AppbarMenuEntry> items;
+
+  const _CupertinoAppbarPopover({
+    Key? key,
+    required this.bgColor,
+    required this.borderColor,
+    required this.textColor,
+    required this.iconColor,
+    required this.pointerCenterX,
+    required this.items,
+  }) : super(key: key);
+
+  @override
+  State<_CupertinoAppbarPopover> createState() => _CupertinoAppbarPopoverState();
+}
+
+class _CupertinoAppbarPopoverState extends State<_CupertinoAppbarPopover>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ac =
+  AnimationController(vsync: this, duration: const Duration(milliseconds: 160))
+    ..forward();
+  late final Animation<double> _scale =
+  CurvedAnimation(parent: _ac, curve: Curves.easeOutCubic);
+  late final Animation<double> _fade =
+  CurvedAnimation(parent: _ac, curve: Curves.easeOutCubic);
+
+  @override
+  void dispose() {
+    _ac.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final BorderRadius radius = BorderRadius.circular(12);
+
+    return FadeTransition(
+      opacity: _fade,
+      child: ScaleTransition(
+        alignment: Alignment.topCenter,
+        scale: _scale,
+        child: Material(
+          color: Colors.transparent,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Card
+              Container(
+                decoration: BoxDecoration(
+                  color: widget.bgColor,
+                  borderRadius: radius,
+                  border: Border.all(color: widget.borderColor, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.10),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(widget.items.length, (i) {
+                    final it = widget.items[i];
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InkWell(
+                          borderRadius: i == 0
+                              ? const BorderRadius.vertical(top: Radius.circular(12))
+                              : (i == widget.items.length - 1
+                              ? const BorderRadius.vertical(bottom: Radius.circular(12))
+                              : BorderRadius.zero),
+                          onTap: it.onTap,
+                          child: Container(
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 0),
+                            child: Text(
+                              it.title,
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w400,
+                                color: widget.textColor,
+                                fontFamily: 'DM Sans',
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (i != widget.items.length - 1)
+                          Container(
+                            height: 1,
+                            color: widget.borderColor.withOpacity(0.3),
+                          ),
+                      ],
+                    );
+                  }),
+                ),
+              ),
+
+              // Little pointer (triangle) — like appbar menu
+              Positioned(
+                top: -7,
+                left: (widget.pointerCenterX - 7).clamp(12.0, (MediaQuery.of(context).size.width - 12.0)),
+                child: CustomPaint(
+                  size: const Size(14, 7),
+                  painter: _TrianglePainter(
+                    fillColor: widget.bgColor,
+                    strokeColor: widget.borderColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TrianglePainter extends CustomPainter {
+  final Color fillColor;
+  final Color strokeColor;
+  _TrianglePainter({required this.fillColor, required this.strokeColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Path p = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..close();
+
+    // stroke (thin)
+    final Paint stroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..color = strokeColor
+      ..strokeWidth = 1;
+    canvas.drawPath(p, stroke);
+
+    // fill
+    final Paint fill = Paint()
+      ..style = PaintingStyle.fill
+      ..color = fillColor;
+    canvas.drawPath(p, fill);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}

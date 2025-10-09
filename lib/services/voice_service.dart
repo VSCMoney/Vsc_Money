@@ -663,6 +663,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:record/record.dart';
@@ -758,6 +759,7 @@ class AudioService {
   /// Start recording with VAD
   Future<bool> startRecording({String? existingText}) async {
     try {
+      // ✅ Quick checks
       if (!await _audioRecorder.hasPermission()) {
         _errorSubject.add('Microphone permission not granted');
         return false;
@@ -765,33 +767,42 @@ class AudioService {
 
       _recognizedBackupText = existingText ?? '';
 
-      final dir = await getTemporaryDirectory();
-      _recordingPath = '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.wav';
-
-      final recordConfig = RecordConfig(
-        encoder: AudioEncoder.wav,
-        bitRate: 64000,
-        sampleRate: 16000,
-        numChannels: 1,
-      );
-
-      await _audioRecorder.start(recordConfig, path: _recordingPath);
-
-      _resetVadState();
-      await _startNativeVad();
-      _startDurationTimer();
-
+      // ✅ UI state IMMEDIATELY update (ye instant hai)
       _isListeningSubject.add(true);
       _isTranscribingSubject.add(false);
       _recordingDurationSubject.add('00:00');
+      _resetVadState();
 
-      debugPrint('🎤 Recording started: $_recordingPath');
+      // ✅ Heavy operations PARALLEL mein
+      await Future.wait([
+        _prepareRecording(),  // File path setup
+        _startNativeVad(),     // VAD initialization
+      ]);
+
+      _startDurationTimer();
+
+      debugPrint('🎤 Recording started');
       return true;
     } catch (e) {
-      debugPrint('❌ Error starting recording: $e');
+      debugPrint('❌ Error: $e');
       _errorSubject.add('Failed to start recording: $e');
+      _isListeningSubject.add(false);
       return false;
     }
+  }
+
+  Future<void> _prepareRecording() async {
+    final dir = await getTemporaryDirectory();
+    _recordingPath = '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.wav';
+
+    final recordConfig = RecordConfig(
+      encoder: AudioEncoder.wav,
+      bitRate: 64000,
+      sampleRate: 16000,
+      numChannels: 1,
+    );
+
+    await _audioRecorder.start(recordConfig, path: _recordingPath);
   }
 
   void _resetVadState() {
@@ -827,80 +838,137 @@ class AudioService {
     }
   }
 
-  // ✅ ANDROID VAD: Pure RMS with rate limiting only
   void _processAndroidVadEvent(bool rawIsSpeech, double rawRms) {
     final now = DateTime.now();
-
-    // Rate limiting for waveforms (Android sends too frequently)
     final timeSinceLastUpdate = now.difference(_lastRmsUpdate).inMilliseconds;
+
     if (timeSinceLastUpdate >= _waveformUpdateIntervalMs) {
+      final amp = _normalizeRms(rawRms);
 
-      // ✅ PURE RMS: Take absolute value, no other filtering
-      final pureRms = rawRms.abs();
+      // ✅ Larger buffer = smoother transitions between loud/quiet
+      _rmsBuffer.add(amp);
+      if (_rmsBuffer.length > 5) _rmsBuffer.removeAt(0); // Increased from 3 to 5
 
-      // Optional: Add to buffer for slight smoothing (purely visual)
-      _rmsBuffer.add(pureRms);
-      if (_rmsBuffer.length > _rmsBufferSize) {
-        _rmsBuffer.removeAt(0);
-      }
+      final avg = _rmsBuffer.reduce((a, b) => a + b) / _rmsBuffer.length;
 
-      // Calculate simple moving average for smoother visuals
-      final avgRms = _rmsBuffer.isNotEmpty
-          ? _rmsBuffer.reduce((a, b) => a + b) / _rmsBuffer.length
-          : pureRms;
-
-      // ✅ UPDATE ALL RMS STREAMS with pure values
-      _currentRmsSubject.add(avgRms);
-      _waveformRmsSubject.add(avgRms);  // Dedicated waveform stream
-      _lastRawRms = avgRms;
+      _currentRmsSubject.add(avg);
+      _waveformRmsSubject.add(avg);
+      _lastRawRms = avg;
       _lastRmsUpdate = now;
 
-      debugPrint('🎙️ ANDROID RMS => ${avgRms.toStringAsFixed(4)} | isSpeech=$rawIsSpeech');
+      debugPrint('🎙️ ANDROID RMS => ${avg.toStringAsFixed(4)} | isSpeech=$rawIsSpeech');
     }
 
-    // Speech detection based on native VAD decision
+    // VAD logic unchanged
     if (rawIsSpeech) {
       _speechFrameCount++;
       _silenceFrameCount = 0;
-
       if (_speechFrameCount >= _minSpeechFrames && !_isSpeechActive) {
         _isSpeechActive = true;
         _isSpeakingSubject.add(true);
-        debugPrint('🎙️ ANDROID SPEECH START');
       }
     } else {
       _silenceFrameCount++;
       _speechFrameCount = 0;
-
       if (_silenceFrameCount >= _minSilenceFrames && _isSpeechActive) {
         _isSpeechActive = false;
         _isSpeakingSubject.add(false);
-        debugPrint('🔇 ANDROID SPEECH END');
       }
     }
   }
 
-  // ✅ iOS VAD: Pure RMS with rate limiting
+// ✅ iOS: Similar improvements
   void _processIosVadEvent(bool rawIsSpeech, double rawRms) {
     final now = DateTime.now();
-    final timeSinceLastUpdate = now.difference(_lastRmsUpdate).inMilliseconds;
+    final elapsed = now.difference(_lastRmsUpdate).inMilliseconds;
 
-    if (timeSinceLastUpdate >= _waveformUpdateIntervalMs) {
-
-      // ✅ PURE RMS: Take absolute value, no filtering
-      final pureRms = rawRms.abs();
-
-      // ✅ UPDATE ALL RMS STREAMS with pure values
-      _currentRmsSubject.add(pureRms);
-      _waveformRmsSubject.add(pureRms);  // Dedicated waveform stream
+    if (elapsed >= _waveformUpdateIntervalMs) {
+      final amp = _normalizeRms(rawRms);
+      _currentRmsSubject.add(amp);
+      _waveformRmsSubject.add(amp);
       _lastRmsUpdate = now;
 
-      debugPrint('🎙️ iOS RMS => ${pureRms.toStringAsFixed(4)} | isSpeech=$rawIsSpeech');
+      debugPrint('🎙️ iOS RMS => ${amp.toStringAsFixed(4)} | isSpeech=$rawIsSpeech');
     }
 
-    // Speech detection based on native VAD decision
     _isSpeakingSubject.add(rawIsSpeech);
   }
+
+
+  // // ✅ ANDROID VAD: Pure RMS with rate limiting only
+  // void _processAndroidVadEvent(bool rawIsSpeech, double rawRms) {
+  //   final now = DateTime.now();
+  //
+  //   // Rate limiting for waveforms (Android sends too frequently)
+  //   final timeSinceLastUpdate = now.difference(_lastRmsUpdate).inMilliseconds;
+  //   if (timeSinceLastUpdate >= _waveformUpdateIntervalMs) {
+  //
+  //     // ✅ PURE RMS: Take absolute value, no other filtering
+  //     final pureRms = rawRms.abs();
+  //
+  //     // Optional: Add to buffer for slight smoothing (purely visual)
+  //     _rmsBuffer.add(pureRms);
+  //     if (_rmsBuffer.length > _rmsBufferSize) {
+  //       _rmsBuffer.removeAt(0);
+  //     }
+  //
+  //     // Calculate simple moving average for smoother visuals
+  //     final avgRms = _rmsBuffer.isNotEmpty
+  //         ? _rmsBuffer.reduce((a, b) => a + b) / _rmsBuffer.length
+  //         : pureRms;
+  //
+  //     // ✅ UPDATE ALL RMS STREAMS with pure values
+  //     _currentRmsSubject.add(avgRms);
+  //     _waveformRmsSubject.add(avgRms);  // Dedicated waveform stream
+  //     _lastRawRms = avgRms;
+  //     _lastRmsUpdate = now;
+  //
+  //     debugPrint('🎙️ ANDROID RMS => ${avgRms.toStringAsFixed(4)} | isSpeech=$rawIsSpeech');
+  //   }
+  //
+  //   // Speech detection based on native VAD decision
+  //   if (rawIsSpeech) {
+  //     _speechFrameCount++;
+  //     _silenceFrameCount = 0;
+  //
+  //     if (_speechFrameCount >= _minSpeechFrames && !_isSpeechActive) {
+  //       _isSpeechActive = true;
+  //       _isSpeakingSubject.add(true);
+  //       debugPrint('🎙️ ANDROID SPEECH START');
+  //     }
+  //   } else {
+  //     _silenceFrameCount++;
+  //     _speechFrameCount = 0;
+  //
+  //     if (_silenceFrameCount >= _minSilenceFrames && _isSpeechActive) {
+  //       _isSpeechActive = false;
+  //       _isSpeakingSubject.add(false);
+  //       debugPrint('🔇 ANDROID SPEECH END');
+  //     }
+  //   }
+  // }
+  //
+  // // ✅ iOS VAD: Pure RMS with rate limiting
+  // void _processIosVadEvent(bool rawIsSpeech, double rawRms) {
+  //   final now = DateTime.now();
+  //   final timeSinceLastUpdate = now.difference(_lastRmsUpdate).inMilliseconds;
+  //
+  //   if (timeSinceLastUpdate >= _waveformUpdateIntervalMs) {
+  //
+  //     // ✅ PURE RMS: Take absolute value, no filtering
+  //     final pureRms = rawRms.abs();
+  //
+  //     // ✅ UPDATE ALL RMS STREAMS with pure values
+  //     _currentRmsSubject.add(pureRms);
+  //     _waveformRmsSubject.add(pureRms);  // Dedicated waveform stream
+  //     _lastRmsUpdate = now;
+  //
+  //     debugPrint('🎙️ iOS RMS => ${pureRms.toStringAsFixed(4)} | isSpeech=$rawIsSpeech');
+  //   }
+  //
+  //   // Speech detection based on native VAD decision
+  //   _isSpeakingSubject.add(rawIsSpeech);
+  // }
 
   /// Stop recording and transcribe
   Future<void> stopRecordingAndTranscribe() async {
@@ -1123,6 +1191,33 @@ class AudioService {
       _errorSubject.add('Transcription error: $e');
     }
   }
+
+
+
+
+
+
+  double _normalizeRms(num raw) {
+    double v = raw.toDouble();
+
+    // Convert dB to linear if needed
+    if (v < 0 && v >= -120.0) {
+      v = math.pow(10.0, v / 20.0).toDouble(); // -> 0..1 for -∞..0 dB
+    }
+
+    if (v.isNaN || v.isInfinite) v = 0.0;
+    v = v.abs();
+    v = v.clamp(0.0, 1.0);
+
+    // ✅ MUCH LIGHTER compression - preserves amplitude dynamics
+    // Changed from 0.6 to 0.85 for better loudness variation
+    v = math.pow(v, 0.85).toDouble();
+
+    return v;
+  }
+
+
+
 
   void dispose() {
     _vadSubscription?.cancel();
