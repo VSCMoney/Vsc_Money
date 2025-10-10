@@ -213,9 +213,9 @@ class _InputActionsBarWidgetState extends State<InputActionsBarWidget> {
   // Layout (sizes kept as you had them)
   static const double _kHit = 44;     // square tap target
   static const double _kCircle = 36;  // inner send/stop circle
-  static const double _kGap = 6;      // mic↔send gap (tight)
-  static const double _kIconH = 22;   // attach/mic svg height
-  static const double _kIconW = 25;   // attach/mic svg width
+  static const double _kGap = 20;      // mic↔send gap (tight)
+  static const double _kIconH = 24;   // attach/mic svg height
+  static const double _kIconW = 24;   // attach/mic svg width
   static const double _kArrow = 20;   // send arrow size
   static const double _kAttachNudge = -6; // shift attach slightly left
 
@@ -378,63 +378,75 @@ class _InputActionsBarWidgetState extends State<InputActionsBarWidget> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // ✅ ATTACH - Centered properly
-            SizedBox(
-              width: _kHit,
-              height: _kHit,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    HapticFeedback.mediumImpact();
-                    // attach flow
-                  },
-                  borderRadius: BorderRadius.circular(_kHit / 2),
-                  child: Center(
-                    child: Transform.translate(
-                      offset: const Offset(0, 0), // ✅ No nudge for attach
-                      child: SvgPicture.asset(
-                        "assets/images/attach.svg",
-                        color: theme.icon,
-                        height: _kIconH,
-                        width: _kIconW,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            // SizedBox(
+            //   width: _kHit,
+            //   height: _kHit,
+            //   child: Material(
+            //     color: Colors.transparent,
+            //     child: InkWell(
+            //       onTap: () {
+            //         HapticFeedback.lightImpact();
+            //         HapticFeedback.mediumImpact();
+            //         // attach flow
+            //       },
+            //       borderRadius: BorderRadius.circular(_kHit / 2),
+            //       child: Center(
+            //         child: Transform.translate(
+            //           offset: const Offset(0, 0), // ✅ No nudge for attach
+            //           child: SvgPicture.asset(
+            //             "assets/images/svgattach.svg",
+            //             color: theme.icon,
+            //             height: _kIconH,
+            //             width: _kIconW,
+            //             fit: BoxFit.contain,
+            //           ),
+            //         ),
+            //       ),
+            //     ),
+            //   ),
+            // ),
+     MaterialButton(
+       onPressed: (){},
+         child: SvgPicture.asset("assets/images/svgattach.svg", height: _kIconH,width: _kIconW,)),
+Spacer(),
+            Padding(
+              padding: EdgeInsets.only(right: showSendSlot ? 20: 30),
+              child: InkWell(
+                onTap: (){
+                  HapticFeedback.lightImpact();
+                  widget.onStartRecording();
+                },
+                  child: SvgPicture.asset("assets/images/mic.svg", height: _kIconH,width: _kIconW,)),
             ),
 
-            const Spacer(),
+            // SizedBox(
+            //   width: _kHit,
+            //   height: _kHit,
+            //   child: Material(
+            //     color: Colors.transparent,
+            //     child: InkWell(
+            //       onTap: () {
+            //         HapticFeedback.lightImpact();
+            //         widget.onStartRecording();
+            //       },
+            //       borderRadius: BorderRadius.circular(_kHit / 2),
+            //       child: Center(
+            //         child: Transform.translate(
+            //           offset: const Offset(0, 0),
+            //           child: SvgPicture.asset(
+            //             "assets/images/mic.svg",
+            //             height: _kIconH,
+            //             width: _kIconW,
+            //             color: theme.icon,
+            //             fit: BoxFit.contain,
+            //           ),
+            //         ),
+            //       ),
+            //     ),
+            //   ),
+            // ),
 
-            // ✅ MIC - Centered with same structure as attach
-            SizedBox(
-              width: _kHit,
-              height: _kHit,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    widget.onStartRecording();
-                  },
-                  borderRadius: BorderRadius.circular(_kHit / 2),
-                  child: Center(
-                    child: Transform.translate(
-                      offset: const Offset(0, 0), // ✅ Same - no nudge
-                      child: SvgPicture.asset(
-                        "assets/images/mic.svg",
-                        height: _kIconH,
-                        width: _kIconW,
-                        color: theme.icon,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+
 
             // Send/Stop slot
             AnimatedContainer(
@@ -442,7 +454,7 @@ class _InputActionsBarWidgetState extends State<InputActionsBarWidget> {
               curve: Curves.easeInOut,
               width: showSendSlot ? (_kGap + _kHit) : 0,
               height: _kHit,
-              alignment: Alignment.centerRight,
+              alignment: Alignment.centerLeft,
               child: showSendSlot
                   ? AnimatedSwitcher(
                 duration: const Duration(milliseconds: 140),

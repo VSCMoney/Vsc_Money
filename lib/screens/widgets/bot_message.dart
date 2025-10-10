@@ -17,6 +17,7 @@ import '../../services/theme_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../testpage.dart';
 import 'chat_input_widget.dart';
 import 'message_bubble.dart';
 
@@ -853,25 +854,35 @@ class _NewBotResponsesListState extends State<NewBotResponsesList> {
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOutBack,
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start, // ⬅️ top-align everything
                     children: [
-                      // Orb
-                      OrbWithBackplate(
-                        size: 25,
-                        backplatePad: 25,
-                        lottie: 'assets/images/retry3.json',
-                        nudge: const Offset(0, -2),
+                      // ORB pinned to first line top
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2), // tweak 0–3px to match cap height
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: OrbWithBackplate(
+                            size: 25,
+                            backplatePad: 25,
+                            lottie: 'assets/images/retry3.json',
+                            nudge: const Offset(0, -2),
+                          ),
+                        ),
                       ),
 
-                      // Status text
                       if (hasStatus) ...[
                         const SizedBox(width: 22),
-                        Expanded(
+
+                        // Status text can wrap; orb won't move now
+                        Flexible(
                           child: PremiumShimmerWidget(
                             text: widget.pair.currentStatus!,
                             isComplete: false,
                             baseColor: Colors.black.withOpacity(0.78),
-                            highlightColor: Color(0xFF9CA3AF),
+                            highlightColor: const Color(0xFF9CA3AF),
+                            // if your widget supports these:
+                            maxLines: 2,              // avoid 3+ line spikes
+                           // overflow: TextOverflow.fade,
                           ),
                         ),
                       ],
@@ -1075,9 +1086,25 @@ class _NewBotMessageWidgetState extends State<NewBotMessageWidget>
   }
 
   void _recomputeSegments(String full) {
-    final parts = full.split(_kPlaceholder);
-    _preFull = parts.isNotEmpty ? parts.first : '';
-    _postFull = parts.length > 1 ? parts.sublist(1).join(_kPlaceholder) : '';
+    if (!full.contains(_kPlaceholder)) {
+      _preFull = full;
+      _postFull = '';
+      print('📝 No placeholder found - all text in _preFull');
+      return;
+    }
+
+    final idx = full.indexOf(_kPlaceholder);
+    if (idx == -1) {
+      _preFull = full;
+      _postFull = '';
+    } else {
+      _preFull = full.substring(0, idx);
+      _postFull = full.substring(idx + _kPlaceholder.length);
+
+      print('📝 Split at placeholder:');
+      print('   _preFull: ${_preFull.substring(0, math.min(50, _preFull.length))}...');
+      print('   _postFull: ${_postFull.substring(0, math.min(50, _postFull.length))}...');
+    }
   }
 
   void _extractImages(String message) {
@@ -1099,7 +1126,10 @@ class _NewBotMessageWidgetState extends State<NewBotMessageWidget>
       final url = m.group(1) ?? m.group(2) ?? m.group(3) ?? m.group(4);
       if (url == null || url.isEmpty) continue;
 
-      if (m.start > pos) sb.write(message.substring(pos, m.start));
+      // ✅ Preserve text before image (including newlines)
+      if (m.start > pos) {
+        sb.write(message.substring(pos, m.start));
+      }
 
       final idx = _imageUrls.length;
       _imageUrls.add(url);
@@ -1108,9 +1138,12 @@ class _NewBotMessageWidgetState extends State<NewBotMessageWidget>
       pos = m.end;
     }
 
-    if (pos < message.length) sb.write(message.substring(pos));
+    // ✅ Don't forget remaining text
+    if (pos < message.length) {
+      sb.write(message.substring(pos));
+    }
 
-    _textWithTokens = sb.toString().trim();
+    _textWithTokens = sb.toString(); // ✅ Don't trim - preserve structure
   }
 
   void _updateTableData() {
@@ -1399,7 +1432,8 @@ class _NewBotMessageWidgetState extends State<NewBotMessageWidget>
   }
 
   Widget _buildInlineContent(String text, TextStyle base) {
-    if (text.isEmpty) return const SizedBox.shrink();
+    // ✅ Return empty for truly empty text
+    if (text.trim().isEmpty) return const SizedBox.shrink();
 
     final widgets = <Widget>[];
     final splits = text.split(_imgTokenRe);
@@ -1423,24 +1457,27 @@ class _NewBotMessageWidgetState extends State<NewBotMessageWidget>
       );
     }
 
-    // First text segment
-    if (seg < splits.length) pushText(splits[seg++]);
-
-    // For each token -> image + next text
-    for (; tok < matches.length && seg < splits.length; tok++, seg++) {
-      final tokenMatch = matches[tok];
-      final idxStr = tokenMatch.group(1);
-      final idx = int.tryParse(idxStr ?? '');
-      if (idx != null && idx >= 0 && idx < _imageUrls.length) {
-        widgets.add(_buildImageWidget(_imageUrls[idx]));
+    // ✅ Process all segments with images
+    while (seg < splits.length || tok < matches.length) {
+      // Add text segment if available
+      if (seg < splits.length) {
+        pushText(splits[seg]);
+        seg++;
       }
-      pushText(splits[seg]);
+
+      // Add image if available
+      if (tok < matches.length) {
+        final tokenMatch = matches[tok];
+        final idxStr = tokenMatch.group(1);
+        final idx = int.tryParse(idxStr ?? '');
+        if (idx != null && idx >= 0 && idx < _imageUrls.length) {
+          widgets.add(_buildImageWidget(_imageUrls[idx]));
+        }
+        tok++;
+      }
     }
 
-    // Any tail segments
-    while (seg < splits.length) {
-      pushText(splits[seg++]);
-    }
+    if (widgets.isEmpty) return const SizedBox.shrink();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1451,7 +1488,6 @@ class _NewBotMessageWidgetState extends State<NewBotMessageWidget>
         ..removeLast(),
     );
   }
-
   Widget _buildActionButtons() {
     return Row(
       children: const [
@@ -1614,8 +1650,9 @@ class _NewStreamingBotBubbleState extends State<NewStreamingBotBubble> {
     if (widget.isLatest && _isStreaming) {
       _chunkSubscription = widget.service.chunkStream.listen((chunk) {
         if (!mounted || !_isStreaming) return;
+        // ✅ APPEND, DON'T OVERWRITE
         setState(() {
-          _displayText = chunk;
+          _displayText += chunk;
         });
       });
     }
@@ -1634,7 +1671,7 @@ class _NewStreamingBotBubbleState extends State<NewStreamingBotBubble> {
               _messageType = botMsg.messageType;
 
               if (wasStreaming && !_isStreaming) {
-                _displayText = botMsg.content ?? "";
+                _displayText = botMsg.content ?? _displayText;
                 _chunkSubscription?.cancel();
                 _chunkSubscription = null;
               }
@@ -1652,6 +1689,7 @@ class _NewStreamingBotBubbleState extends State<NewStreamingBotBubble> {
     _pairSubscription?.cancel();
     super.dispose();
   }
+
 
   void _copyToClipboard(BuildContext context) {
     Clipboard.setData(ClipboardData(text: _displayText));
@@ -1829,8 +1867,9 @@ class _NewStreamingBotBubbleState extends State<NewStreamingBotBubble> {
 }
 
 class StreamMessageParser {
+  static const String kTablePlaceholder = '___TABLE_PLACEHOLDER___';
+
   static ChatMessage parseChatMessage(Map<String, dynamic> rawData) {
-    // Parse the basic ChatMessage fields
     final id = rawData['id'] ?? UniqueKey().toString();
     final text = rawData['text'] ?? '';
     final isUser = rawData['isUser'] ?? false;
@@ -1839,13 +1878,11 @@ class StreamMessageParser {
         : DateTime.now();
     final isComplete = rawData['isComplete'] ?? true;
 
-    // Parse enhanced fields
     String? currentStatus;
     bool isTable = false;
     Map<String, dynamic>? structuredData;
     String? messageType;
 
-    // Handle different stream chunk types
     if (rawData['chunk'] != null) {
       final chunk = StreamChunk.fromJson(rawData['chunk']);
 
@@ -1854,45 +1891,27 @@ class StreamMessageParser {
       }
 
       if (chunk.isResponse) {
-        final responseData = chunk.responseData;
+        // ✅ SAFE: payload ko rawData se uthao (koi custom getter nahi chahiye)
+        Map<String, dynamic>? payload;
+        if (rawData['chunk'] is Map<String, dynamic>) {
+          final m = rawData['chunk'] as Map<String, dynamic>;
+          payload = m['payload'] as Map<String, dynamic>?;
+        }
 
-        if (responseData is Map<String, dynamic>) {
-          // Check for table data
-          if (responseData['type'] == 'table' || responseData['isTable'] == true) {
+        final responseType = payload?['type'];
+        final responseData = payload?['data'];
+
+        if (responseType == 'json' && responseData is Map<String, dynamic>) {
+          final normalized = _normalizeStructured(responseData);
+          if (normalized != null) {
+            structuredData = normalized.data;
+            messageType = normalized.messageType;
             isTable = true;
-            messageType = 'table';
-            structuredData = {
-              'headers': responseData['headers'] ?? [],
-              'rows': responseData['rows'] ?? [],
-            };
-          }
-
-          // Check for cards data
-          else if (responseData['type'] == 'cards' || responseData['cards'] != null) {
-            messageType = 'cards';
-            structuredData = {
-              'cards': responseData['cards'] ?? [],
-            };
-          }
-
-          // Check for list data
-          else if (responseData['type'] == 'list' || responseData['items'] != null) {
-            messageType = 'list';
-            structuredData = {
-              'items': responseData['items'] ?? [],
-            };
-          }
-
-          // Generic structured data
-          else if (responseData['structuredData'] != null) {
-            structuredData = responseData['structuredData'];
-            messageType = responseData['messageType'] ?? 'unknown';
           }
         }
       }
     }
 
-    // Fallback: check direct fields in rawData
     currentStatus ??= rawData['currentStatus'];
     isTable = rawData['isTable'] ?? isTable;
     structuredData ??= rawData['structuredData'];
@@ -1911,7 +1930,6 @@ class StreamMessageParser {
     );
   }
 
-  // Helper method to extract status from stream chunk
   static String? extractStatusFromChunk(Map<String, dynamic> chunkData) {
     if (chunkData['type'] == 'status_update') {
       return chunkData['payload']?['reason'];
@@ -1919,8 +1937,8 @@ class StreamMessageParser {
     return null;
   }
 
-  // Helper method to extract structured data from chunk
-  static Map<String, dynamic>? extractStructuredDataFromChunk(Map<String, dynamic> chunkData) {
+  static Map<String, dynamic>? extractStructuredDataFromChunk(
+      Map<String, dynamic> chunkData) {
     if (chunkData['type'] == 'response') {
       final payload = chunkData['payload'];
       if (payload is Map<String, dynamic>) {
@@ -1932,7 +1950,52 @@ class StreamMessageParser {
     }
     return null;
   }
+
+  /// normalizes:
+  ///  - type: cards_of_* -> messageType 'cards', with list -> cards
+  ///  - type: table_of_* -> messageType 'table', rows as-is
+  ///  - keeps optional heading/columnOrder
+  static _Normalized? _normalizeStructured(Map<String, dynamic> data) {
+    final t = (data['type'] ?? '').toString().toLowerCase();
+    if (t.isEmpty) return null;
+
+    if (t.startsWith('cards')) {
+      return _Normalized(
+        messageType: 'cards',
+        data: {
+          'heading': data['heading'],
+          'cards': data['list'] ?? data['cards'] ?? [],
+          'columnOrder': data['columnOrder'],
+          // keep an easy flag for UI allowing taps on assets
+          'type': t, // original type retained
+        },
+      );
+    }
+
+    if (t.startsWith('table')) {
+      return _Normalized(
+        messageType: 'table',
+        data: {
+          'heading': data['heading'],
+          'rows': data['rows'] ?? [],
+          'columnOrder': data['columnOrder'],
+          'type': t,
+        },
+      );
+    }
+
+    return null;
+  }
 }
+
+class _Normalized {
+  final String messageType;
+  final Map<String, dynamic> data;
+  _Normalized({required this.messageType, required this.data});
+}
+
+
+
 
 // Extension to help with message type detection
 extension MessageTypeExtension on ChatMessage {

@@ -237,49 +237,38 @@ class ChatService{
           final lastIdx = pairs[pairIndex].botResponses.length - 1;
           final currentBot = pairs[pairIndex].botResponses[lastIdx];
 
-          // STRUCTURED DATA
-          if (chatMessage.structuredData != null || chatMessage.isTable == true) {
-            pairs[pairIndex].botResponses[lastIdx] = currentBot.copyWith(
-              streaming: !chatMessage.isComplete,
-              isTable: chatMessage.isTable,
-              structuredData: chatMessage.structuredData,
-              messageType: chatMessage.messageType ?? 'unknown',
-            );
+          // ✅ UPDATE: Use chatMessage.text directly (it already has placeholder)
+          final incomingText = chatMessage.text;
 
-            pairs[pairIndex].isStreaming = !chatMessage.isComplete;
-            pairs[pairIndex].currentStatus = null;
-            _pairSubject.add(List.from(pairs));
-
-            if (chatMessage.isComplete) {
-              _isTypingSubject.add(false);
-              lockScroll();
-              _checkAndNotifyFirstMessageComplete(); // ✅ ADDED
-            }
-            return;
+          print('📨 Received text (length: ${incomingText.length}):');
+          if (incomingText.contains('___TABLE_PLACEHOLDER___')) {
+            print('   ✅ Contains placeholder!');
+          } else {
+            print('   ❌ NO placeholder found');
           }
 
-          // TEXT CHUNKS
-          final incomingText = chatMessage.text;
-          if (incomingText.isNotEmpty) {
-            pairs[pairIndex].botResponses[lastIdx] = currentBot.copyWith(
-              content: incomingText,
-              streaming: !chatMessage.isComplete,
-              isTable: chatMessage.isTable,
-              structuredData: chatMessage.structuredData,
-              messageType: chatMessage.messageType,
-            );
+          pairs[pairIndex].botResponses[lastIdx] = currentBot.copyWith(
+            content: incomingText, // ✅ Use chatMessage.text directly
+            streaming: !chatMessage.isComplete,
+            isTable: chatMessage.isTable,
+            structuredData: chatMessage.structuredData,
+            messageType: chatMessage.messageType,
+          );
 
-            pairs[pairIndex].isStreaming = !chatMessage.isComplete;
-            pairs[pairIndex].currentStatus = null;
-            _pairSubject.add(List.from(pairs));
+          pairs[pairIndex].isStreaming = !chatMessage.isComplete;
+          pairs[pairIndex].currentStatus = null;
+          _pairSubject.add(List.from(pairs));
+
+          // Only send chunks for text (not for structured data)
+          if (!chatMessage.isTable && incomingText.isNotEmpty) {
             _chunkSubject.add(incomingText);
+          }
 
-            if (chatMessage.isComplete) {
-              _isTypingSubject.add(false);
-              lockScroll();
-              _checkAndNotifyFirstMessageComplete(); // ✅ ADDED
-            }
-            return;
+          if (chatMessage.isComplete) {
+            print('✅ Message complete - final content length: ${incomingText.length}');
+            _isTypingSubject.add(false);
+            lockScroll();
+            _checkAndNotifyFirstMessageComplete();
           }
         },
         onError: (e) {
@@ -305,7 +294,7 @@ class ChatService{
             _pairSubject.add(List.from(pairs));
           }
           lockScroll();
-          _checkAndNotifyFirstMessageComplete(); // ✅ ADDED
+          _checkAndNotifyFirstMessageComplete();
         },
       );
 
@@ -327,7 +316,6 @@ class ChatService{
       }
     }
   }
-
   // double _calculateKeyboardAwareAdjustment(String content, BuildContext context, {bool isThreadMode = false}) {
   //   final mediaQuery = MediaQuery.of(context);
   //   final platform = Theme.of(context).platform;
@@ -1043,22 +1031,17 @@ class ChatService{
   Future<void> loadMessages(String sessionId) async {
     print('🔍 CHAT: Loading messages for session: $sessionId');
 
-    // First check if we have cached messages for this session
     if (_sessionMessagesCache.containsKey(sessionId)) {
       print('📋 Found cached messages for session: $sessionId');
       final cachedMessages = _sessionMessagesCache[sessionId]!;
       _messagesSubject.add(List<Map<String, Object>>.from(cachedMessages));
-
-      // ✅ ADD: Convert cached messages to pairs
       _convertMessagesToPairs(cachedMessages);
-
       _hasLoadedMessagesSubject.add(true);
       _checkAndNotifyFirstMessageComplete();
       return;
     }
 
-    // Otherwise load from API
-    _messagesSubject.add([]); // Clear current messages
+    _messagesSubject.add([]);
 
     try {
       final data = await _apiService.get(endpoint: '/chat/history/$sessionId');
@@ -1099,168 +1082,205 @@ class ChatService{
           role = 'bot';
         }
 
-        print('📝 Adding message: role=$role, content=${content.substring(0, min(50, content.length))}...');
+        // ✅ Parse structured data from BOTH chunks AND infographic_data
+        bool isTable = false;
+        Map<String, dynamic>? structuredData;
+        String? messageType;
 
-        loaded.add({
+        if (role == 'bot') {
+          // ✅ PRIORITY 1: Try chunks array first (new format)
+          if (msg['chunks'] != null && msg['chunks'] is List) {
+            final chunks = msg['chunks'] as List;
+
+            for (final chunk in chunks) {
+              if (chunk is! Map<String, dynamic>) continue;
+
+              if (chunk['type'] == 'response') {
+                final payload = chunk['payload'];
+                if (payload is Map<String, dynamic> && payload['type'] == 'json') {
+                  final jsonData = payload['data'];
+                  if (jsonData is Map<String, dynamic>) {
+                    final normalized = _normalizeStructured(jsonData);
+                    if (normalized != null) {
+                      isTable = true;
+                      structuredData = normalized.data;
+                      messageType = normalized.messageType;
+                      print('✅ Found structured data in chunks: type=$messageType, rows=${structuredData?['rows']?.length ?? 0}');
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // ✅ FALLBACK: Try infographic_data (old format)
+          if (!isTable && msg['infographic_data'] != null && msg['infographic_data'] is List) {
+            final infographics = msg['infographic_data'] as List;
+
+            if (infographics.isNotEmpty) {
+              final firstInfographic = infographics[0] as Map<String, dynamic>;
+              final type = firstInfographic['type']?.toString() ?? '';
+              final dataList = firstInfographic['data'] as List?;
+
+              if (type.isNotEmpty && dataList != null && dataList.isNotEmpty) {
+                final normalized = _normalizeStructured({
+                  'type': type,
+                  'list': dataList,
+                  'heading': firstInfographic['heading'],
+                });
+
+                if (normalized != null) {
+                  isTable = true;
+                  structuredData = normalized.data;
+                  messageType = normalized.messageType;
+                  print('✅ Found structured data in infographic_data: type=$messageType, rows=${structuredData?['rows']?.length ?? 0}');
+                }
+              }
+            }
+          }
+        }
+
+        print('📝 Adding message: role=$role, content=${content.substring(0, min(50, content.length))}..., isTable=$isTable, messageType=$messageType');
+
+        final messageMap = <String, Object>{
           'role': role,
           'content': content,
           'isComplete': true,
           'isHistorical': true,
           'timestamp': msg['timestamp']?.toString() ?? DateTime.now().toIso8601String(),
           'author': author,
-          'id': '${sessionId}_${i}',
-        });
+          'id': '${sessionId}_$i',
+          'isTable': isTable,
+        };
+
+        if (structuredData != null) {
+          messageMap['structuredData'] = structuredData;
+        }
+        if (messageType != null) {
+          messageMap['messageType'] = messageType;
+        }
+
+        loaded.add(messageMap);
       }
 
       print('✅ CHAT: Successfully processed ${loaded.length} messages');
 
-      // Cache the loaded messages
       _sessionMessagesCache[sessionId] = List<Map<String, Object>>.from(loaded);
-
       _messagesSubject.add(loaded);
-
-      // ✅ ADD: Convert loaded messages to pairs
       _convertMessagesToPairs(loaded);
-
       _hasLoadedMessagesSubject.add(true);
       _checkAndNotifyFirstMessageComplete();
 
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint("❌ Failed to load messages: $e");
+      debugPrint("Stack trace: $stack");
       _hasLoadedMessagesSubject.add(true);
     }
   }
 
-// ✅ ADD: New helper method to convert messages to pairs
+  _Normalized? _normalizeStructured(Map<String, dynamic> data) {
+    final t = (data['type'] ?? '').toString().toLowerCase();
+    if (t.isEmpty) return null;
+
+    print('🔍 Normalizing structured data: type=$t');
+
+    if (t.startsWith('cards')) {
+      final rows = data['list'] ?? data['cards'] ?? data['data'] ?? [];
+      print('   Found ${rows.length} cards');
+
+      return _Normalized(
+        messageType: 'cards',
+        data: {
+          'heading': data['heading'],
+          'rows': rows,
+          'columnOrder': data['columnOrder'],
+          'type': t,
+        },
+      );
+    }
+
+    if (t.startsWith('table')) {
+      final rows = data['rows'] ?? data['list'] ?? data['data'] ?? [];
+      print('   Found ${rows.length} table rows');
+
+      return _Normalized(
+        messageType: 'table',
+        data: {
+          'heading': data['heading'],
+          'rows': rows,
+          'columnOrder': data['columnOrder'],
+          'type': t,
+        },
+      );
+    }
+
+    return null;
+  }
+
+
+
+
+
   void _convertMessagesToPairs(List<Map<String, Object>> messages) {
     pairs.clear();
 
-    for (int i = 0; i < messages.length; i++) {
-      final msg = messages[i];
-      final role = msg['role'] as String?;
+    for (int i = 0; i < messages.length; i += 2) {
+      if (i >= messages.length) break;
 
-      if (role == 'user') {
-        // Create user message
-        final userMsg = Message(
-          id: msg['id']?.toString() ?? 'msg_$i',
-          byUser: true,
-          content: msg['content']?.toString() ?? '',
-          streaming: false,
-        );
+      final userMsg = messages[i];
+      final userRole = userMsg['role']?.toString() ?? '';
 
-        // Look for next bot message
-        Message? botMsg;
-        if (i + 1 < messages.length && messages[i + 1]['role'] == 'bot') {
-          final botData = messages[i + 1];
-          botMsg = Message(
-            id: botData['id']?.toString() ?? 'msg_${i+1}',
-            byUser: false,
-            content: botData['content']?.toString() ?? '',
-            streaming: false,
-            isTable: botData['isTable'] as bool? ?? false,
-            structuredData: botData['tableData'] as Map<String, dynamic>?,
-            messageType: botData['type']?.toString(),
-          );
-        }
-
-        // Create pair
-        final pair = MessagePair(
-          userMessage: userMsg,
-          botResponses: botMsg != null ? [botMsg] : [],
-          isStreaming: false,
-        );
-
-        pairs.add(pair);
+      if (userRole != 'user') {
+        print('⚠️ Expected user message at index $i, got: $userRole');
+        continue;
       }
+
+      final userMessage = Message(
+        byUser: true,
+        content: userMsg['content']?.toString() ?? '',
+        streaming: false,
+        id: userMsg['id']?.toString() ?? UniqueKey().toString(),
+      );
+
+      final pair = MessagePair(userMessage: userMessage);
+
+      // ✅ Add bot response if available
+      if (i + 1 < messages.length) {
+        final botMsg = messages[i + 1];
+        final botRole = botMsg['role']?.toString() ?? '';
+
+        if (botRole == 'bot') {
+          final isTable = botMsg['isTable'] == true;
+          final structuredData = botMsg['structuredData'] as Map<String, dynamic>?;
+          final messageType = botMsg['messageType']?.toString();
+
+          final botMessage = Message(
+            byUser: false,
+            content: botMsg['content']?.toString() ?? '',
+            streaming: false,
+            id: botMsg['id']?.toString() ?? UniqueKey().toString(),
+            isTable: isTable,
+            structuredData: structuredData,
+            messageType: messageType,
+          );
+
+          pair.botResponses.add(botMessage);
+          pair.isStreaming = false;
+
+          print('✅ Created pair with bot response (isTable: $isTable, type: $messageType, rows: ${structuredData?['rows']?.length ?? 0})');
+        }
+      }
+
+      pairs.add(pair);
     }
 
-    print("✅ Converted ${messages.length} messages to ${pairs.length} pairs");
+    print('✅ Converted ${messages.length} messages to ${pairs.length} pairs');
     _pairSubject.add(List.from(pairs));
+    _checkAndNotifyFirstMessageComplete();
   }
 
-  // Future<void> loadMessages(String sessionId) async {
-  //   print('🔍 CHAT: Loading messages for session: $sessionId');
-  //
-  //   // First check if we have cached messages for this session
-  //   if (_sessionMessagesCache.containsKey(sessionId)) {
-  //     print('📋 Found cached messages for session: $sessionId');
-  //     final cachedMessages = _sessionMessagesCache[sessionId]!;
-  //     _messagesSubject.add(List<Map<String, Object>>.from(cachedMessages));
-  //     _hasLoadedMessagesSubject.add(true);
-  //     _checkAndNotifyFirstMessageComplete();
-  //     return;
-  //   }
-  //
-  //   // Otherwise load from API (your existing logic)
-  //   _messagesSubject.add([]); // Clear current messages
-  //
-  //   try {
-  //     final data = await _apiService.get(endpoint: '/chat/history/$sessionId');
-  //     print('🔍 CHAT: Raw API response type: ${data.runtimeType}');
-  //
-  //     if (data is! List) {
-  //       print('❌ Expected List but got ${data.runtimeType}');
-  //       _hasLoadedMessagesSubject.add(true);
-  //       return;
-  //     }
-  //
-  //     final loaded = <Map<String, Object>>[];
-  //
-  //     for (int i = 0; i < data.length; i++) {
-  //       final msg = data[i];
-  //
-  //       final author = msg['author']?.toString() ?? '';
-  //
-  //       final content = msg['message_text']?.toString() ??
-  //           msg['Content']?.toString() ??
-  //           msg['content']?.toString() ?? '';
-  //
-  //       if (content.isEmpty) {
-  //         print('⚠️ Empty content for message $i, skipping');
-  //         continue;
-  //       }
-  //
-  //       String role;
-  //       final authorLower = author.toLowerCase();
-  //
-  //       if (authorLower == 'user') {
-  //         role = 'user';
-  //       } else if (authorLower.contains('vitty') ||
-  //           authorLower.contains('bot') ||
-  //           authorLower.contains('system') ||
-  //           authorLower == 'tbd') {
-  //         role = 'bot';
-  //       } else {
-  //         role = 'bot';
-  //       }
-  //
-  //       print('📝 Adding message: role=$role, content=${content.substring(0, min(50, content.length))}...');
-  //
-  //       loaded.add({
-  //         'role': role,
-  //         'content': content,
-  //         'isComplete': true,
-  //         'isHistorical': true,
-  //         'timestamp': msg['timestamp']?.toString() ?? DateTime.now().toIso8601String(),
-  //         'author': author,
-  //         'id': '${sessionId}_${i}',
-  //       });
-  //     }
-  //
-  //     print('✅ CHAT: Successfully processed ${loaded.length} messages');
-  //
-  //     // Cache the loaded messages
-  //     _sessionMessagesCache[sessionId] = List<Map<String, Object>>.from(loaded);
-  //
-  //     _messagesSubject.add(loaded);
-  //     _hasLoadedMessagesSubject.add(true);
-  //     _checkAndNotifyFirstMessageComplete();
-  //
-  //   } catch (e) {
-  //     debugPrint("❌ Failed to load messages: $e");
-  //     _hasLoadedMessagesSubject.add(true);
-  //   }
-  // }
+
 
 
 
@@ -1776,7 +1796,6 @@ class ChatService{
     final DateTime _hitAtUtc = DateTime.now().toUtc();
     final String _hitAtUtcIso = _hitAtUtc.toIso8601String();
 
-    // ⏱️ Network-level timers
     final DateTime _reqStart = DateTime.now();
     DateTime? _headersAt;
     DateTime? _firstDataAt;
@@ -1792,7 +1811,6 @@ class ChatService{
     }
 
     try {
-      //final String _baseUrl = 'http://localhost:8000';
       final String _baseUrl = 'https://fastapi-app-130321581049.asia-south1.run.app';
       final url = Uri.parse('$_baseUrl/chat/respond');
       final req = http.Request('POST', url);
@@ -1878,7 +1896,6 @@ class ChatService{
           resetInactivityTimer();
           buffer += chunk;
 
-          // ⏱️ TTFB (network): first data line after headers/request
           if (_firstDataAt == null && chunk.trim().isNotEmpty) {
             _firstDataAt = DateTime.now();
             final ttfbReqToData = _firstDataAt!.difference(_reqStart).inMilliseconds;
@@ -1959,10 +1976,10 @@ class ChatService{
               final reason = (payload['reason'] ?? '').toString();
               print('STATUS REASON: "$reason"');
 
+              // ✅ FIX: Build displayText properly
               String displayText = textBeforeTable;
-              if (tableReceived) {
-                displayText += '___TABLE_PLACEHOLDER___';
-                displayText += textAfterTable;
+              if (tableReceived && textAfterTable.isNotEmpty) {
+                displayText = '${textBeforeTable}___TABLE_PLACEHOLDER___$textAfterTable';
               }
 
               currentMessage = ChatMessage(
@@ -1974,7 +1991,7 @@ class ChatService{
                 currentStatus: reason,
                 isTable: tableReceived,
                 structuredData: tableData,
-                messageType: tableReceived ? 'kv_table' : null,
+                messageType: tableData?['type']?.toString(),
               );
 
               controller.add(currentMessage);
@@ -1994,10 +2011,10 @@ class ChatService{
                   textBeforeTable += imageUrl + '\n';
                 }
 
+                // ✅ FIX: Build displayText properly
                 String displayText = textBeforeTable;
-                if (tableReceived) {
-                  displayText += '___TABLE_PLACEHOLDER___';
-                  displayText += textAfterTable;
+                if (tableReceived && textAfterTable.isNotEmpty) {
+                  displayText = '${textBeforeTable}___TABLE_PLACEHOLDER___$textAfterTable';
                 }
 
                 currentMessage = ChatMessage(
@@ -2009,7 +2026,7 @@ class ChatService{
                   currentStatus: null,
                   isTable: tableReceived,
                   structuredData: tableData,
-                  messageType: tableReceived ? 'kv_table' : null,
+                  messageType: tableData?['type']?.toString(),
                 );
 
                 controller.add(currentMessage);
@@ -2024,14 +2041,19 @@ class ChatService{
 
                 if (tableReceived) {
                   textAfterTable += data;
+                  print('✅ Added to textAfterTable: "$data"');
+                  print('📝 Current textAfterTable length: ${textAfterTable.length}');
                 } else {
                   textBeforeTable += data;
                 }
 
-                String displayText = textBeforeTable;
+                // ✅ FIX: Build displayText properly with proper concatenation
+                String displayText;
                 if (tableReceived) {
-                  displayText += '___TABLE_PLACEHOLDER___';
-                  displayText += textAfterTable;
+                  displayText = '${textBeforeTable}___TABLE_PLACEHOLDER___$textAfterTable';
+                  print('✅ Built displayText with table (length: ${displayText.length})');
+                } else {
+                  displayText = textBeforeTable;
                 }
 
                 currentMessage = ChatMessage(
@@ -2043,7 +2065,7 @@ class ChatService{
                   currentStatus: null,
                   isTable: tableReceived,
                   structuredData: tableData,
-                  messageType: tableReceived ? 'kv_table' : null,
+                  messageType: tableData?['type']?.toString(),
                 );
 
                 controller.add(currentMessage);
@@ -2058,7 +2080,10 @@ class ChatService{
                     jsonData['type'] == 'table_of_asset' ||
                     jsonData['type'] == 'table_of_market')) {
 
-                  if (!tableReceived) tableReceived = true;
+                  if (!tableReceived) {
+                    tableReceived = true;
+                    print('✅ Table received - tableReceived set to true');
+                  }
 
                   final heading = (jsonData['heading']?.toString() ?? 'Results');
                   final dataList = (jsonData['list'] as List?) ?? const [];
@@ -2078,7 +2103,9 @@ class ChatService{
                     'type': jsonData['type'].toString(),
                   };
 
-                  final displayText = textBeforeTable + '___TABLE_PLACEHOLDER___' + textAfterTable;
+                  // ✅ FIX: Build displayText with placeholder
+                  final displayText = '$textBeforeTable}___TABLE_PLACEHOLDER___$textAfterTable';
+                  print('✅ Table added - displayText length: ${displayText.length}');
 
                   currentMessage = ChatMessage(
                     id: messageId,
@@ -2089,7 +2116,8 @@ class ChatService{
                     currentStatus: null,
                     isTable: true,
                     structuredData: tableData,
-                    messageType: 'kv_table',
+                    messageType: tableData?['type']?.toString(),
+
                   );
 
                   controller.add(currentMessage);
@@ -2101,10 +2129,15 @@ class ChatService{
                 streamCompleted = true;
                 print('HANDLING COMPLETE PAYLOAD');
 
-                String displayText = textBeforeTable;
+                // ✅ FIX: Final displayText with all content
+                String displayText;
                 if (tableReceived) {
-                  displayText += '___TABLE_PLACEHOLDER___';
-                  displayText += textAfterTable;
+                  displayText = '${textBeforeTable}___TABLE_PLACEHOLDER___$textAfterTable';
+                  print('✅ COMPLETE - Final text:');
+                  print('   Before: ${textBeforeTable.substring(0, min(50, textBeforeTable.length))}');
+                  print('   After: ${textAfterTable.substring(0, min(50, textAfterTable.length))}');
+                } else {
+                  displayText = textBeforeTable;
                 }
 
                 currentMessage = ChatMessage(
@@ -2116,7 +2149,7 @@ class ChatService{
                   currentStatus: null,
                   isTable: tableReceived,
                   structuredData: tableData,
-                  messageType: tableReceived ? 'kv_table' : null,
+                  messageType: tableData?['type']?.toString(),
                 );
 
                 controller.add(currentMessage);
@@ -2128,6 +2161,10 @@ class ChatService{
         onDone: () {
           print('\n=== STREAM ON DONE ===');
           print('streamCompleted: $streamCompleted');
+          print('✅ Final state:');
+          print('   textBeforeTable length: ${textBeforeTable.length}');
+          print('   textAfterTable length: ${textAfterTable.length}');
+          print('   tableReceived: $tableReceived');
 
           resetInactivityTimer();
           inactivityTimer?.cancel();
@@ -2135,11 +2172,15 @@ class ChatService{
           if (_completeAt == null) _completeAt = DateTime.now();
 
           if (!streamCompleted) {
-            String finalText = textBeforeTable;
+            // ✅ FIX: Build final text properly
+            String finalText;
             if (tableReceived) {
-              finalText += '___TABLE_PLACEHOLDER___';
-              finalText += textAfterTable;
+              finalText = '${textBeforeTable}___TABLE_PLACEHOLDER___$textAfterTable';
+            } else {
+              finalText = textBeforeTable;
             }
+
+            print('✅ Sending final message with text length: ${finalText.length}');
 
             controller.add(ChatMessage(
               id: currentMessage.id,
@@ -2150,11 +2191,10 @@ class ChatService{
               currentStatus: null,
               isTable: tableReceived,
               structuredData: tableData,
-              messageType: tableReceived ? 'kv_table' : null,
+              messageType: tableData?['type']?.toString(),
             ));
           }
 
-          // ⏱️ Summary
           final totalMs = _completeAt!.difference(_reqStart).inMilliseconds;
           final ttfbReqToData =
           (_firstDataAt != null) ? _firstDataAt!.difference(_reqStart).inMilliseconds : -1;
@@ -2195,7 +2235,6 @@ class ChatService{
       rethrow;
     }
   }
-
 
 
 
@@ -2346,7 +2385,12 @@ class _StreamDebugStats {
 
 
 
-
+// ✅ Add helper class at class level or outside
+class _Normalized {
+  final String messageType;
+  final Map<String, dynamic> data;
+  _Normalized({required this.messageType, required this.data});
+}
 
 class Message {
   late final bool byUser;
@@ -2497,34 +2541,8 @@ class MessageMetrics {
 
 
 
-enum DroidSize { small, normal, tall, tablet }
 
-DroidSize _droidSize(BuildContext c, double availH, Orientation o) {
-  if (o == Orientation.landscape) {
-    if (availH < 420) return DroidSize.small;
-    if (availH < 520) return DroidSize.normal;
-    if (availH < 650) return DroidSize.tall;
-    return DroidSize.tablet;
-  } else {
-    if (availH < 760) return DroidSize.small;
-    if (availH < 860) return DroidSize.normal;
-    if (availH < 1000) return DroidSize.tall;
-    return DroidSize.tablet;
-  }
-}
 
-double _droidMultiplierFor(BuildContext c, double availH) {
-  final o = MediaQuery.of(c).orientation;
-  final s = _droidSize(c, availH, o);
-  double m;
-  switch (s) {
-    case DroidSize.small:  m = 0.92; break;
-    case DroidSize.normal: m = 1.00; break;
-    case DroidSize.tall:   m = 1.06; break;
-    case DroidSize.tablet: m = 1.12; break;
-  }
-  return m.clamp(0.9, 1.12);
-}
 
 
 

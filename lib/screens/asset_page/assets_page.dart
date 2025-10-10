@@ -76,6 +76,9 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _notes.initialize();
+    WidgetsBinding.instance.platformDispatcher.onPlatformBrightnessChanged = () {
+      if (mounted) setState(() {}); // rebuild when user flips system dark mode
+    };
     _tabController = TabController(length: 5, vsync: this);
 
     _streamingController = AnimationController(
@@ -195,73 +198,94 @@ class _AssetPageState extends State<AssetPage> with TickerProviderStateMixin {
     final screenSize = MediaQuery.of(context).size;
 
     const toolbarHeight = 60.0;
+    final systemBrightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
+    final isSystemDark = systemBrightness == Brightness.dark;
 
-    return MediaQuery.removePadding(
-      context: context,
-      removeTop: true,
-      child: Scaffold(
-        backgroundColor: theme.background,
-        body: DefaultTabController(
-          length: 5,
-          child: NestedScrollView(
-            headerSliverBuilder: (context, innerBoxIsScrolled) => [
-              // ✅ App Bar without any top padding
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _SliverAppBarDelegate(
-                  height: toolbarHeight,
-                  child: Container(
-                    color: theme.background,
-                    child: StockAppBar(
-                      onClose: widget.onClose,
-                      fallbackTitle: d?.basicInfo.symbol.isNotEmpty == true
-                          ? d!.basicInfo.symbol
-                          : "",
+    final navBg = isSystemDark ? Colors.black : Colors.white;
+    final iconBrightness = isSystemDark ? Brightness.light : Brightness.dark;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        // ANDROID nav bar (bottom)
+        systemNavigationBarColor: navBg,
+        systemNavigationBarIconBrightness: iconBrightness,
+        systemNavigationBarDividerColor: navBg,
+        systemNavigationBarContrastEnforced: false,
+
+        // STATUS BAR
+        statusBarColor: navBg,
+        statusBarIconBrightness: iconBrightness,        // Android
+        statusBarBrightness: isSystemDark               // iOS expects inverse semantics
+            ? Brightness.dark
+            : Brightness.light,
+      ),
+      child: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        child: Scaffold(
+          backgroundColor: theme.background,
+          body: DefaultTabController(
+            length: 5,
+            child: NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                // ✅ App Bar without any top padding
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _SliverAppBarDelegate(
+                    height: toolbarHeight,
+                    child: Container(
+                      color: theme.background,
+                      child: StockAppBar(
+                        onClose: widget.onClose,
+                        fallbackTitle: d?.basicInfo.symbol.isNotEmpty == true
+                            ? d!.basicInfo.symbol
+                            : "",
+                      ),
                     ),
                   ),
                 ),
-              ),
 
-              // Stock Header
-              SliverToBoxAdapter(
-                child: _buildResponsiveStockHeader(d, currency, screenSize),
-              ),
+                // Stock Header
+                SliverToBoxAdapter(
+                  child: _buildResponsiveStockHeader(d, currency, screenSize),
+                ),
 
-              // Chart
-              SliverToBoxAdapter(
-                child: _buildResponsiveChart(currency, screenSize),
-              ),
+                // Chart
+                SliverToBoxAdapter(
+                  child: _buildResponsiveChart(currency, screenSize),
+                ),
 
-              // Period Selector
-              SliverToBoxAdapter(child: _buildPeriodSelector()),
+                // Period Selector
+                SliverToBoxAdapter(child: _buildPeriodSelector()),
 
-              // Portfolio Card
-              SliverToBoxAdapter(child: _buildPortfolioCardFromService()),
+                // Portfolio Card
+                SliverToBoxAdapter(child: _buildPortfolioCardFromService()),
 
-              // Tabs
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _SliverAppBarDelegate(
-                  height: 48,
-                  child: Container(
-                    color: theme.background,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenSize.width < 350 ? 8 : 12,
+                // Tabs
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _SliverAppBarDelegate(
+                    height: 48,
+                    child: Container(
+                      color: theme.background,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenSize.width < 350 ? 8 : 12,
+                      ),
+                      child: _buildResponsiveTabSection(screenSize),
                     ),
-                    child: _buildResponsiveTabSection(screenSize),
                   ),
                 ),
-              ),
-            ],
-            body: TabBarView(
-              controller: _tabController,
-              children: [
-                _wrapWithScroll(_buildSummaryTab()),
-                _wrapWithScroll(_buildOverviewTab()),
-                _wrapWithScroll(_buildNewsTab()),
-                _wrapWithScroll(_buildEventsTab()),
-                _wrapWithScroll(_buildFOTab()),
               ],
+              body: TabBarView(
+                controller: _tabController,
+                children: [
+                  _wrapWithScroll(_buildSummaryTab()),
+                  _wrapWithScroll(_buildOverviewTab()),
+                  _wrapWithScroll(_buildNewsTab()),
+                  _wrapWithScroll(_buildEventsTab()),
+                  _wrapWithScroll(_buildFOTab()),
+                ],
+              ),
             ),
           ),
         ),

@@ -779,7 +779,7 @@ class AudioService {
         _startNativeVad(),     // VAD initialization
       ]);
 
-      _startDurationTimer();
+     // _startDurationTimer();
 
       debugPrint('🎤 Recording started');
       return true;

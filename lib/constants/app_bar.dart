@@ -396,8 +396,8 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                               padding: const EdgeInsets.symmetric(horizontal: 0),
                               child: SvgPicture.asset(
                                 "assets/images/drawer.svg",
-                                height: 32,
-                                width: 32,
+                                height: 36,
+                                width: 36,
                                 color: theme.icon,
                               ),
                             ),
@@ -408,43 +408,43 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                       // Right: Actions
                       Row(
                         children: [
-                          InkWell(
-                            borderRadius: BorderRadius.circular(24),
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              _hideDropdown();
-                              final overlay = Overlay.of(context);
-                              final renderBox = context.findRenderObject() as RenderBox;
-                              final size = renderBox.size;
-                              final offset = renderBox.localToGlobal(Offset.zero);
-
-                              final entry = OverlayEntry(
-                                builder: (context) => Positioned(
-                                  top: offset.dy + size.height + 8,
-                                  left: offset.dx + size.width / 1.5 - 60,
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: AnimatedComingSoonTooltip(),
-                                  ),
-                                ),
-                              );
-
-                              overlay.insert(entry);
-                              Future.delayed(const Duration(seconds: 2), () {
-                                entry.remove();
-                              });
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(4.0),
-                              child: SvgPicture.asset(
-                                "assets/images/new_notification.svg",
-                                width: 20,
-                                height: 20,
-                                color: theme.icon,
-                              ),
-                            ),
-                          ),
-                          if (widget.isDashboard && widget.showNewChatButton) ...[
+                          // InkWell(
+                          //   borderRadius: BorderRadius.circular(24),
+                          //   onTap: () {
+                          //     HapticFeedback.lightImpact();
+                          //     _hideDropdown();
+                          //     final overlay = Overlay.of(context);
+                          //     final renderBox = context.findRenderObject() as RenderBox;
+                          //     final size = renderBox.size;
+                          //     final offset = renderBox.localToGlobal(Offset.zero);
+                          //
+                          //     final entry = OverlayEntry(
+                          //       builder: (context) => Positioned(
+                          //         top: offset.dy + size.height + 8,
+                          //         left: offset.dx + size.width / 1.5 - 60,
+                          //         child: Material(
+                          //           color: Colors.transparent,
+                          //           child: AnimatedComingSoonTooltip(),
+                          //         ),
+                          //       ),
+                          //     );
+                          //
+                          //     overlay.insert(entry);
+                          //     Future.delayed(const Duration(seconds: 2), () {
+                          //       entry.remove();
+                          //     });
+                          //   },
+                          //   child: Padding(
+                          //     padding: const EdgeInsets.all(4.0),
+                          //     child: SvgPicture.asset(
+                          //       "assets/images/new_notification.svg",
+                          //       width: 20,
+                          //       height: 20,
+                          //       color: theme.icon,
+                          //     ),
+                          //   ),
+                          // ),
+                          if (widget.isDashboard) ...[
                             const SizedBox(width: 15),
                             Material(
                               color: Colors.transparent,
@@ -452,11 +452,22 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                                 borderRadius: BorderRadius.circular(24),
                                 onTap: () {
                                   _hideDropdown();
-                                  widget.onNewChatTap();
+                                  if (widget.showNewChatButton) {
+                                    widget.onNewChatTap();
+                                  }
                                 },
-                                child: const Padding(
-                                  padding: EdgeInsets.all(0.0),
-                                  child: _BoldNewChatIcon(),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(0.0),
+                                  // ✅ Show different icon based on showNewChatButton
+                                  child: widget.showNewChatButton
+                                      ? const _BoldNewChatIcon()  // When chat exists
+                                      : SvgPicture.asset(              // When no chat (empty state)
+                                    'assets/images/secret_chat.svg',  // Replace with your icon
+                                    width: 21,
+                                    height: 21,
+                                    color: theme.icon,
+                                    fit: BoxFit.contain,
+                                  ),
                                 ),
                               ),
                             ),
@@ -502,11 +513,11 @@ class _BoldNewChatIcon extends StatelessWidget {
     return Stack(
       alignment: Alignment.center,
       children: [
-        SvgPicture.asset("assets/images/newChat.svg", width: 28, height: 28,color: theme.icon,),
+        SvgPicture.asset("assets/images/newChat.svg", width: 32, height: 32,color: theme.icon,),
         Positioned(
           left: 0.5,
           top: 0.5,
-          child: SvgPicture.asset("assets/images/newChat.svg", height: 28, width: 28, color: theme.icon),
+          child: SvgPicture.asset("assets/images/newChat.svg", height: 32, width: 32, color: theme.icon),
         ),
       ],
     );
@@ -674,3 +685,8 @@ class _TrianglePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+
+
+
+

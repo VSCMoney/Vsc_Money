@@ -496,111 +496,134 @@ class StockDetailBottomSheet extends StatelessWidget {
 class PremiumShimmerWidget extends StatefulWidget {
   final String text;
   final bool isComplete;
-  final Color baseColor;        // Main text color (dark)
-  final Color highlightColor;   // Shimmer wave color (light)
+  final Color baseColor;        // main text tone
+  final Color highlightColor;   // shimmer wave tone
+
+  // NEW: tuning
+  final int speedMs;           // full cycle duration
+  final double waveWidth;      // 0.10–0.35 good
+  final int? maxLines;         // cap lines to avoid layout spikes
+  final TextStyle? textStyle;  // override if needed
+  final TextAlign textAlign;   // default left
 
   const PremiumShimmerWidget({
     Key? key,
     required this.text,
     this.isComplete = false,
-    this.baseColor = const Color(0xFF6B7280),    // Dark gray (main text)
-    this.highlightColor = const Color(0xFF9CA3AF), // Light gray (shimmer)
+    this.baseColor = const Color(0xFF6B7280),
+    this.highlightColor = const Color(0xFF9CA3AF),
+    this.speedMs = 1800,
+    this.waveWidth = 0.22,
+    this.maxLines,
+    this.textStyle,
+    this.textAlign = TextAlign.start,
   }) : super(key: key);
 
   @override
-  _PremiumShimmerWidgetState createState() => _PremiumShimmerWidgetState();
+  State<PremiumShimmerWidget> createState() => _PremiumShimmerWidgetState();
 }
 
 class _PremiumShimmerWidgetState extends State<PremiumShimmerWidget>
-    with TickerProviderStateMixin {
-  late AnimationController _shimmerController;
-  late Animation<double> _shimmerAnimation;
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ac;
+  late final Animation<double> _t;
 
   @override
   void initState() {
     super.initState();
-
-    _shimmerController = AnimationController(
-      duration: const Duration(milliseconds: 2000), // Smooth 2s cycle
+    _ac = AnimationController(
+      duration: Duration(milliseconds: widget.speedMs),
       vsync: this,
     );
-
-    _shimmerAnimation = Tween<double>(begin: -1.0, end: 2.0).animate(
-      CurvedAnimation(
-        parent: _shimmerController,
-        curve: Curves.easeInOut,
-      ),
+    _t = Tween<double>(begin: -1.0, end: 2.0).animate(
+      CurvedAnimation(parent: _ac, curve: Curves.easeInOut),
     );
-
-    if (!widget.isComplete) {
-      _shimmerController.repeat();
-    }
+    if (!widget.isComplete) _ac.repeat();
   }
 
   @override
-  void didUpdateWidget(PremiumShimmerWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    if (widget.isComplete != oldWidget.isComplete) {
-      if (widget.isComplete) {
-        _shimmerController.stop();
-      } else {
-        _shimmerController.repeat();
-      }
+  void didUpdateWidget(PremiumShimmerWidget old) {
+    super.didUpdateWidget(old);
+    if (widget.isComplete != old.isComplete || widget.speedMs != old.speedMs) {
+      _ac.duration = Duration(milliseconds: widget.speedMs);
+      widget.isComplete ? _ac.stop() : _ac.repeat();
     }
   }
 
   @override
   void dispose() {
-    _shimmerController.dispose();
+    _ac.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final text = Text(
+      widget.text,
+      textAlign: widget.textAlign,
+      maxLines: widget.maxLines,
+      overflow: widget.maxLines == null ? TextOverflow.visible : TextOverflow.ellipsis,
+      // Strut locks line height so 1→2 lines pe layout jump minimal
+      strutStyle: const StrutStyle(fontSize: 16, height: 1.2, leading: 0),
+      style: (widget.textStyle ??
+          const TextStyle(
+            fontSize: 16,
+            fontFamily: 'SF Pro',
+            fontWeight: FontWeight.w500,
+            color: Colors.white, // srcIn mask uses this alpha
+          )),
+      softWrap: true,
+    );
+
+    // Solid text if complete or user prefers less motion
+    if (widget.isComplete || reduceMotion) {
+      return DefaultTextStyle(
+        style: TextStyle(color: widget.baseColor),
+        child: text,
+      );
+    }
+
     return AnimatedBuilder(
-      animation: _shimmerAnimation,
-      builder: (context, child) {
+      animation: _t,
+      builder: (context, _) {
+        // moving band: stops around _t with configurable width
+        final w = widget.waveWidth.clamp(0.08, 0.5);
+        final x = _t.value;
+        final stops = <double>[
+          (x - w * 1.5).clamp(0.0, 1.0),
+          (x - w).clamp(0.0, 1.0),
+          (x - w * 0.35).clamp(0.0, 1.0),
+          (x + w * 0.35).clamp(0.0, 1.0),
+          (x + w).clamp(0.0, 1.0),
+          (x + w * 1.5).clamp(0.0, 1.0),
+        ];
+
         return ShaderMask(
           blendMode: BlendMode.srcIn,
-          shaderCallback: (bounds) {
+          shaderCallback: (Rect bounds) {
+            // gradient spans full text bounds; we just slide the bright band via stops
             return LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [
-                widget.baseColor,           // Dark (main text)
-                widget.baseColor,           // ✅ Extended dark
-                widget.highlightColor,      // Light (shimmer wave)
-                widget.highlightColor,      // ✅ Extended light (wider wave)
-                widget.baseColor,           // ✅ Extended dark
-                widget.baseColor,           // Dark (main text)
+                widget.baseColor,
+                widget.baseColor,
+                widget.highlightColor,
+                widget.highlightColor,
+                widget.baseColor,
+                widget.baseColor,
               ],
-              stops: [
-                (_shimmerAnimation.value - 0.6).clamp(0.0, 1.0),
-                (_shimmerAnimation.value - 0.3).clamp(0.0, 1.0),
-                (_shimmerAnimation.value - 0.1).clamp(0.0, 1.0), // ✅ Wave start
-                (_shimmerAnimation.value + 0.1).clamp(0.0, 1.0), // ✅ Wave end
-                (_shimmerAnimation.value + 0.3).clamp(0.0, 1.0),
-                (_shimmerAnimation.value + 0.6).clamp(0.0, 1.0),
-              ],
+              stops: stops,
             ).createShader(bounds);
           },
-          child: Text(
-            widget.text,
-            style: const TextStyle(
-              fontSize: 16,
-              color: Colors.white,
-              fontFamily: 'SF Pro',
-              fontWeight: FontWeight.w500,
-            ),
-            softWrap: true,
-            overflow: TextOverflow.visible,
-          ),
+          child: RepaintBoundary(child: text),
         );
       },
     );
   }
 }
+
 
 
 
@@ -3397,30 +3420,30 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
           effectiveRms = effectiveRms.clamp(0.0, 1.0);
         }
 
-        // ✅ MUCH MORE CONSERVATIVE HEIGHT RANGES
+        // ✅ MUCH MORE SUBTLE HEIGHT RANGES
         if (effectiveRms < 0.05) {
           // Very quiet / whisper
-          nextHeight = 8.0 + (effectiveRms * 160); // 8-16px (reduced from 8-23px)
+          nextHeight = 6.0 + (effectiveRms * 100); // 6-11px (very subtle)
 
         } else if (effectiveRms < 0.12) {
           // Quiet speech
-          nextHeight = 16.0 + ((effectiveRms - 0.05) * 280); // 16-35.6px (reduced from 23-58px)
+          nextHeight = 11.0 + ((effectiveRms - 0.05) * 140); // 11-20.8px
 
         } else if (effectiveRms < 0.25) {
           // Normal speech (most common range)
-          nextHeight = 35.6 + ((effectiveRms - 0.12) * 300); // 35.6-74.6px (reduced from 58-136px)
+          nextHeight = 20.8 + ((effectiveRms - 0.12) * 180); // 20.8-44.2px
 
         } else if (effectiveRms < 0.40) {
           // Loud speech
-          nextHeight = 74.6 + ((effectiveRms - 0.25) * 160); // 74.6-98.6px (reduced from 76-196px)
+          nextHeight = 44.2 + ((effectiveRms - 0.25) * 100); // 44.2-59.2px
 
         } else {
           // Very loud / shouting
-          nextHeight = 98.6 + ((effectiveRms - 0.40) * 100); // 98.6-158.6px (reduced from 96-376px)
+          nextHeight = 59.2 + ((effectiveRms - 0.40) * 60); // 59.2-95.2px
         }
 
-        // ✅ MUCH TIGHTER max clamp
-        nextHeight = nextHeight.clamp(8.0, 60.0); // Reduced from 100px to 60px
+        // ✅ MUCH TIGHTER max clamp - very subtle now
+        nextHeight = nextHeight.clamp(6.0, 40.0); // Reduced from 60px to 40px max
 
       } else {
         nextHeight = flatHeight;
@@ -3458,14 +3481,14 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
 
     // ✅ YOUR ORIGINAL SPACING
     const barWidth = 3.0;
-    const barSpacing = 3.4; // Your horizontal padding
-    const totalBarWidth = barWidth + (barSpacing * 2); // 3 + 6.8 = 9.8
+    const barSpacing = 3.4;
+    const totalBarWidth = barWidth + (barSpacing * 2);
 
-    // ✅ Calculate slide distance to match original
+    // ✅ Calculate slide distance
     _slideOffset = _animController.value * totalBarWidth;
 
     return SizedBox(
-      height: 100,
+      height: 80, // ✅ Reduced container height from 100 to 80
       child: CustomPaint(
         painter: WaveformPainter(
           heights: _currentHeights,

@@ -816,6 +816,15 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
                                           ),
                                         ),
                                       ),
+                                      Spacer(),
+                                      InkWell(
+                                        onTap: (){},
+                                        child: Icon(
+                                         Icons.bookmark_border,
+                                          size: 22,
+                                          color: theme.icon,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                   onTap: () => _openStockDetailSheet(asset.id), // closes + opens sheet

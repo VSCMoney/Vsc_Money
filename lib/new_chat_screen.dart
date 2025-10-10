@@ -38,11 +38,12 @@ class NewChatScreen extends StatefulWidget {
   State<NewChatScreen> createState() => _NewChatScreenState();
 }
 
-class _NewChatScreenState extends State<NewChatScreen> {
+class _NewChatScreenState extends State<NewChatScreen>with WidgetsBindingObserver {
   final FocusNode _focusNode = FocusNode();
   final _textFieldKey = GlobalKey();
   double _keyboardInset = 0;
   double _inputHeight = 0;
+  double _manualKeyboardHeight = 336.0;
 
   final AudioService _audioService = AudioService.instance;
   String? _lastLoadedSessionId;
@@ -51,12 +52,30 @@ class _NewChatScreenState extends State<NewChatScreen> {
 
   // ✅ Only flag for ghost mode
   bool _ghostMode = false;
+  bool _isKeyboardVisible = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _audioService.initialize();
     _loadMessagesIfNeeded();
+
+    _focusNode.addListener(() {
+      print('🎯 Focus changed: ${_focusNode.hasFocus}');
+
+      if (_focusNode.hasFocus && !_isKeyboardVisible) {
+        // Keyboard opening
+        Future.delayed(Duration(milliseconds: 100), () {
+          if (mounted && _focusNode.hasFocus) {
+            setState(() => _isKeyboardVisible = true);
+          }
+        });
+      } else if (!_focusNode.hasFocus && _isKeyboardVisible) {
+        // Keyboard closing
+        setState(() => _isKeyboardVisible = false);
+      }
+    });
 
     widget.chatService.pairStream.listen((_) {
       if (mounted) setState(() {});
@@ -74,6 +93,13 @@ class _NewChatScreenState extends State<NewChatScreen> {
       }
     });
   }
+
+  @override
+  void didChangeMetrics() {
+    // Force rebuild when IME shows/hides.
+      setState(() {});
+     }
+
 
   void _loadMessagesIfNeeded() {
     final session = widget.chatService.currentSession;
@@ -146,8 +172,11 @@ class _NewChatScreenState extends State<NewChatScreen> {
     final isTyping = widget.chatService.isTyping;
     final hasText = widget.chatService.textController.text.trim().isNotEmpty;
     final activeGhostMode = _ghostMode && hasText;
-    final kb = MediaQuery.viewInsetsOf(context).bottom;
-    final double suggestionsBottom = kb + _inputHeight + 8;
+    final mediaQuery = MediaQuery.of(context);
+     final viewInsets = mediaQuery.viewInsets;
+    final kb = View.of(context).viewInsets.bottom;
+
+    final double suggestionsBottom = _inputHeight + 8;
     final showNormalCards = !hasAnyMessages && !isTyping && !hasText;
 
     return Scaffold(
@@ -190,7 +219,7 @@ class _NewChatScreenState extends State<NewChatScreen> {
               focusNode: _focusNode,
               textFieldKey: _textFieldKey,
               isTyping: widget.chatService.isTyping,
-              keyboardInset: _keyboardInset,
+              keyboardInset: kb,
               isEditing: _isEditing,
               onCancelEdit: _cancelEditing,
               onSendMessage: _sendMessage,
@@ -206,15 +235,12 @@ class _NewChatScreenState extends State<NewChatScreen> {
             ],
           ),
 
-          // ✅ Cards dikhaao: normal mode YA active ghost mode
-          if (!isListening && (showNormalCards || activeGhostMode))
+          if ((showNormalCards || activeGhostMode))
             Positioned(
-              left: 0,
+              left: 20,
               right: 0,
-              // ❌ old: bottom: 135,
-              // ✅ new: stick to the live input height + keyboard
               bottom: suggestionsBottom,
-              child: SuggestionsWidget(
+              child: isListening ? SizedBox.shrink() :SuggestionsWidget(
                 ghost: activeGhostMode,
                 key: ValueKey<bool>(activeGhostMode),
                 controller: widget.chatService.textController,
@@ -233,6 +259,7 @@ class _NewChatScreenState extends State<NewChatScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _focusNode.dispose();
     super.dispose();
   }
