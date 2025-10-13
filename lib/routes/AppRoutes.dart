@@ -45,12 +45,7 @@ class AppRouter {
         name: 'splash',
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
-          child: SplashScreen(),
-         // child:  WarmHelloScreen(
-         //    name: "Piyush",
-         //  //   nextNamedRoute: '/flow',         // 👈 add this
-         //  // autoNavigateAfter: Duration(seconds: 5) // if your screen uses it
-         //  ),
+          child: EnterNameScreen(),
           transitionsBuilder: dissolveTransition,
         ),
       ),
@@ -59,6 +54,19 @@ class AppRouter {
         builder: (ctx, st) => WatchlistDetailPage(
           watchlistId: st.pathParameters['id']!,
         ),
+      ),
+      GoRoute(
+        path: '/warm/:name',
+        builder: (ctx, st) => WarmHelloScreen(
+          name: Uri.decodeComponent(st.pathParameters['name'] ?? ''),
+        ),
+      ),
+      GoRoute(
+        path: '/biometric',
+        builder: (ctx, st) {
+          final next = Uri.decodeComponent(st.uri.queryParameters['next'] ?? '/premium');
+          return BiometricEnableScreen(nextRoute: next);
+        },
       ),
 
       GoRoute(

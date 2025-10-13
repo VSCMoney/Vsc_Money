@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../constants/colors.dart';
 import '../../../services/theme_service.dart';
@@ -476,8 +477,9 @@ bool isLoading = false;
                     // ),
                     CommonButton(
                       label: 'Continue',
-                       onPressed: canContinue ? _onContinue : null, // ✅ guard
-
+                       onPressed: (){
+                         canContinue ? _onContinue : null;// ✅ guard
+                       },
                       child: isLoading
                           ? const SizedBox(
                         height: 20,
@@ -812,10 +814,6 @@ class _WeakPointsScreenState extends State<WeakPointsScreen> {
 
 
 
-
-
-
-// Public entry ---------------------------------------------------------------
 class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({super.key, this.onFinished});
   final VoidCallback? onFinished;
@@ -828,19 +826,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   final _pc = PageController();
   int _index = 0;
 
-  // Progress per page (0..3)
   final List<double> _progressByIndex = const [0.18, 0.48, 0.78, 1.0];
-
-  // Only steps 1..3 need "continue" gating
   late final List<ValueNotifier<bool>> _canContinue =
   List.generate(4, (_) => ValueNotifier(false));
 
-  // Collected answers
   String? _knowledge;
-  final Set<String> _interests = {};        // EXACTLY 3
-  final Set<String> _strong = {};           // subset of _interests
+  final Set<String> _interests = {};
+  final Set<String> _strong = {};
   final Set<String> _weak = {};
-  bool isLoading = false;// subset of _interests
+  bool isLoading = false;
 
   @override
   void dispose() {
@@ -852,15 +846,19 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   double get _progress =>
       _progressByIndex[_index.clamp(0, _progressByIndex.length - 1)];
 
+  // ✅ This now finishes the flow and calls `onFinished` at index 3
   Future<void> _next() async {
-    // step-0 me continue dikhaya hi nahi jaata
+    // Steps 1..3 are gated
     if (_index > 0 && !_canContinue[_index].value) return;
 
     if (_index == 3) {
-      widget.onFinished?.call();
-      Navigator.of(context).maybePop();
+      final next = Uri.encodeComponent('/premium');
+      if (!mounted) return;
+      context.go('/biometric?next=$next'); // 👈 query param
       return;
     }
+
+
     HapticFeedback.selectionClick();
     await _pc.nextPage(
       duration: const Duration(milliseconds: 260),
@@ -869,7 +867,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _goNextImmediate() {
-    // knowledge pick -> immediately go to interests
     _pc.nextPage(
       duration: const Duration(milliseconds: 240),
       curve: Curves.easeOutCubic,
@@ -897,10 +894,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             const SizedBox(height: 12),
             _TopBar(progress: _progress),
 
-            // common logo
-
-
-            // pages -----------------------------------------------------------
             Expanded(
               child: PageView.builder(
                 controller: _pc,
@@ -911,10 +904,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   switch (i) {
                     case 0:
                       return _StepKnowledge(
-                        canContinue: _canContinue[0], // unused but kept
+                        canContinue: _canContinue[0],
                         onSelect: (level) {
                           _knowledge = level;
-                          _goNextImmediate(); // no continue on this page
+                          _goNextImmediate(); // auto advance
                         },
                       );
                     case 1:
@@ -922,13 +915,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                         initialSelected: _interests,
                         canContinue: _canContinue[1],
                         onChanged: (sel) {
-                          // enforce ≤3
-                          _interests
-                            ..clear()
-                            ..addAll(sel.take(3));
-                          // reset strong/weak if they contain removed ones
+                          _interests..clear()..addAll(sel.take(3));
                           _strong.removeWhere((s) => !_interests.contains(s));
                           _weak.removeWhere((s) => !_interests.contains(s));
+                          _canContinue[1].value = _interests.length >= 3; // ✅ gate
                         },
                       );
                     case 2:
@@ -938,9 +928,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                         initialSelected: _strong,
                         canContinue: _canContinue[2],
                         onChanged: (sel) {
-                          _strong
-                            ..clear()
-                            ..addAll(sel);
+                          _strong..clear()..addAll(sel);
+                          _canContinue[2].value = _strong.isNotEmpty; // ✅ gate rule
                         },
                       );
                     case 3:
@@ -950,9 +939,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                         initialSelected: _weak,
                         canContinue: _canContinue[3],
                         onChanged: (sel) {
-                          _weak
-                            ..clear()
-                            ..addAll(sel);
+                          _weak..clear()..addAll(sel);
+                          _canContinue[3].value = _weak.isNotEmpty; // ✅ gate rule
                         },
                       );
                     default:
@@ -962,67 +950,40 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               ),
             ),
 
-            // bottom chrome ---------------------------------------------------
-
-
-            // STEP-0: no Continue (auto next on tap)
+            // bottom chrome
             if (_index == 0)
-              // Padding(
-              //   padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-              //   child: Row(
-              //     children: [
-              //       IconButton(
-              //         onPressed: null,
-              //         icon: const Icon(Icons.arrow_back_ios_new_rounded),
-              //       ),
-              //       const Spacer(),
-              //       Opacity(
-              //         opacity: 0.4,
-              //         child: _ctaButton(disabled: true, label: 'Continue'),
-              //       ),
-              //     ],
-              //   ),
-              // )
-              SizedBox.shrink()
+              const SizedBox.shrink()
             else
               ValueListenableBuilder<bool>(
                 valueListenable: _canContinue[_index],
                 builder: (context, canContinue, _) {
                   return Column(
                     children: [
-                      _index == 0 ? SizedBox.shrink() :  Divider(color: Colors.grey.withOpacity(0.35), height: 1),
+                      Divider(color: Colors.grey.withOpacity(0.35), height: 1),
                       Container(
-                        // decoration: BoxDecoration(
-                        //   color: Colors.white.withOpacity(0.5),
-                        //   border: const Border(
-                        //     top: BorderSide(color: Color(0x22FFFFFF)),
-                        //   ),
-                        // ),
-                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 05),
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 5),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Text(
-                              'Please select at least 3 topics to continue',
+                              // (optional) message per step
+                              _index == 1
+                                  ? 'Please select at least 3 topics to continue'
+                                  : '',
                               textAlign: TextAlign.center,
-                             // style: subTextStyle,
                             ),
                             const SizedBox(height: 12),
                             Opacity(
                               opacity: canContinue ? 1.0 : 0.5,
-                              child:
-                              CommonButton(
-                                label: 'Continue',
-                                onPressed: canContinue ? _next : null,
-
+                              child: CommonButton(
+                                label: _index == 3 ? 'Finish' : 'Continue', // ✅ label
+                                onPressed: canContinue ? _next : null,        // ✅ action
                                 child: isLoading
                                     ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
+                                  height: 20, width: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                   ),
                                 )
                                     : null,
@@ -1033,31 +994,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                       ),
                     ],
                   );
-                  //   Padding(
-                  //   padding:  EdgeInsets.symmetric(horizontal: 20),
-                  //   child: Row(
-                  //     children: [
-                  //       // IconButton(
-                  //       //   onPressed: _index == 0
-                  //       //       ? null
-                  //       //       : () => _pc.previousPage(
-                  //       //     duration: const Duration(milliseconds: 200),
-                  //       //     curve: Curves.easeOutCubic,
-                  //       //   ),
-                  //       //   icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                  //       // ),
-                  //       const Spacer(),
-                  //       Opacity(
-                  //         opacity: canContinue ? 1 : 0.5,
-                  //         child: _ctaButton(
-                  //           disabled: !canContinue,
-                  //           label: _index == 3 ? 'Finish' : 'Continue',
-                  //           onPressed: canContinue ? _next : null,
-                  //         ),
-                  //       ),
-                  //     ],
-                  //   ),
-                  // );
                 },
               ),
           ],
@@ -1065,34 +1001,287 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       ),
     );
   }
-
-  Widget _ctaButton({required bool disabled, String label = 'Continue', VoidCallback? onPressed}) {
-    return  CommonButton(
-      label: 'Continue',
-      onPressed: disabled ? null : onPressed,
-    );
-    //   FilledButton(
-    //   onPressed: disabled ? null : onPressed,
-    //   style: FilledButton.styleFrom(
-    //     backgroundColor: _brown,
-    //     padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-    //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    //   ),
-    //   child: Text(
-    //     label,
-    //     style: const TextStyle(
-    //       fontFamily: 'DM Sans',
-    //       fontWeight: FontWeight.w700,
-    //       fontSize: 16,
-    //       color: Colors.white,
-    //     ),
-    //   ),
-    // );
-
-  }
 }
 
-// Top progress bar ------------------------------------------------------------
+
+
+// // Public entry ---------------------------------------------------------------
+// class OnboardingFlow extends StatefulWidget {
+//   const OnboardingFlow({super.key, this.onFinished});
+//   final VoidCallback? onFinished;
+//
+//   @override
+//   State<OnboardingFlow> createState() => _OnboardingFlowState();
+// }
+//
+// class _OnboardingFlowState extends State<OnboardingFlow> {
+//   final _pc = PageController();
+//   int _index = 0;
+//
+//   // Progress per page (0..3)
+//   final List<double> _progressByIndex = const [0.18, 0.48, 0.78, 1.0];
+//
+//   // Only steps 1..3 need "continue" gating
+//   late final List<ValueNotifier<bool>> _canContinue =
+//   List.generate(4, (_) => ValueNotifier(false));
+//
+//   // Collected answers
+//   String? _knowledge;
+//   final Set<String> _interests = {};        // EXACTLY 3
+//   final Set<String> _strong = {};           // subset of _interests
+//   final Set<String> _weak = {};
+//   bool isLoading = false;// subset of _interests
+//
+//   @override
+//   void dispose() {
+//     _pc.dispose();
+//     for (final n in _canContinue) n.dispose();
+//     super.dispose();
+//   }
+//
+//   double get _progress =>
+//       _progressByIndex[_index.clamp(0, _progressByIndex.length - 1)];
+//
+//   Future<void> _next() async {
+//     // step-0 me continue dikhaya hi nahi jaata
+//     if (_index > 0 && !_canContinue[_index].value) return;
+//
+//     if (_index == 3) {
+//       widget.onFinished?.call();
+//       Navigator.of(context).maybePop();
+//       return;
+//     }
+//     HapticFeedback.selectionClick();
+//     await _pc.nextPage(
+//       duration: const Duration(milliseconds: 260),
+//       curve: Curves.easeOutCubic,
+//     );
+//   }
+//
+//   void _goNextImmediate() {
+//     // knowledge pick -> immediately go to interests
+//     _pc.nextPage(
+//       duration: const Duration(milliseconds: 240),
+//       curve: Curves.easeOutCubic,
+//     );
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final bg = Theme.of(context).colorScheme.background;
+//
+//     return Scaffold(
+//       backgroundColor: bg,
+//       body: SafeArea(
+//         child: Column(
+//           children: [
+//             Padding(
+//               padding: const EdgeInsets.only(top: 8),
+//               child: ClipOval(
+//                 child: SizedBox(
+//                   width: 48, height: 48,
+//                   child: Image.asset('assets/images/ying yang.png', fit: BoxFit.cover),
+//                 ),
+//               ),
+//             ),
+//             const SizedBox(height: 12),
+//             _TopBar(progress: _progress),
+//
+//             // common logo
+//
+//
+//             // pages -----------------------------------------------------------
+//             Expanded(
+//               child: PageView.builder(
+//                 controller: _pc,
+//                 physics: const ClampingScrollPhysics(),
+//                 onPageChanged: (i) => setState(() => _index = i),
+//                 itemCount: 4,
+//                 itemBuilder: (_, i) {
+//                   switch (i) {
+//                     case 0:
+//                       return _StepKnowledge(
+//                         canContinue: _canContinue[0], // unused but kept
+//                         onSelect: (level) {
+//                           _knowledge = level;
+//                           _goNextImmediate(); // no continue on this page
+//                         },
+//                       );
+//                     case 1:
+//                       return _StepInterests(
+//                         initialSelected: _interests,
+//                         canContinue: _canContinue[1],
+//                         onChanged: (sel) {
+//                           // enforce ≤3
+//                           _interests
+//                             ..clear()
+//                             ..addAll(sel.take(3));
+//                           // reset strong/weak if they contain removed ones
+//                           _strong.removeWhere((s) => !_interests.contains(s));
+//                           _weak.removeWhere((s) => !_interests.contains(s));
+//                         },
+//                       );
+//                     case 2:
+//                       return _StepPickFromChosen(
+//                         title: 'Pick your strong points',
+//                         options: _interests.toList(),
+//                         initialSelected: _strong,
+//                         canContinue: _canContinue[2],
+//                         onChanged: (sel) {
+//                           _strong
+//                             ..clear()
+//                             ..addAll(sel);
+//                         },
+//                       );
+//                     case 3:
+//                       return _StepPickFromChosen(
+//                         title: 'Pick your weak points',
+//                         options: _interests.toList(),
+//                         initialSelected: _weak,
+//                         canContinue: _canContinue[3],
+//                         onChanged: (sel) {
+//                           _weak
+//                             ..clear()
+//                             ..addAll(sel);
+//                         },
+//                       );
+//                     default:
+//                       return const SizedBox.shrink();
+//                   }
+//                 },
+//               ),
+//             ),
+//
+//             // bottom chrome ---------------------------------------------------
+//
+//
+//             // STEP-0: no Continue (auto next on tap)
+//             if (_index == 0)
+//               // Padding(
+//               //   padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+//               //   child: Row(
+//               //     children: [
+//               //       IconButton(
+//               //         onPressed: null,
+//               //         icon: const Icon(Icons.arrow_back_ios_new_rounded),
+//               //       ),
+//               //       const Spacer(),
+//               //       Opacity(
+//               //         opacity: 0.4,
+//               //         child: _ctaButton(disabled: true, label: 'Continue'),
+//               //       ),
+//               //     ],
+//               //   ),
+//               // )
+//               SizedBox.shrink()
+//             else
+//               ValueListenableBuilder<bool>(
+//                 valueListenable: _canContinue[_index],
+//                 builder: (context, canContinue, _) {
+//                   return Column(
+//                     children: [
+//                       _index == 0 ? SizedBox.shrink() :  Divider(color: Colors.grey.withOpacity(0.35), height: 1),
+//                       Container(
+//                         // decoration: BoxDecoration(
+//                         //   color: Colors.white.withOpacity(0.5),
+//                         //   border: const Border(
+//                         //     top: BorderSide(color: Color(0x22FFFFFF)),
+//                         //   ),
+//                         // ),
+//                         padding: const EdgeInsets.fromLTRB(20, 12, 20, 05),
+//                         child: Column(
+//                           crossAxisAlignment: CrossAxisAlignment.stretch,
+//                           children: [
+//                             Text(
+//                               'Please select at least 3 topics to continue',
+//                               textAlign: TextAlign.center,
+//                              // style: subTextStyle,
+//                             ),
+//                             const SizedBox(height: 12),
+//                             Opacity(
+//                               opacity: canContinue ? 1.0 : 0.5,
+//                               child:
+//                               CommonButton(
+//                                 label: 'Continue',
+//                                 onPressed: canContinue ? _next : null,
+//
+//                                 child: isLoading
+//                                     ? const SizedBox(
+//                                   height: 20,
+//                                   width: 20,
+//                                   child: CircularProgressIndicator(
+//                                     strokeWidth: 2,
+//                                     valueColor:
+//                                     AlwaysStoppedAnimation<Color>(Colors.white),
+//                                   ),
+//                                 )
+//                                     : null,
+//                               ),
+//                             ),
+//                           ],
+//                         ),
+//                       ),
+//                     ],
+//                   );
+//                   //   Padding(
+//                   //   padding:  EdgeInsets.symmetric(horizontal: 20),
+//                   //   child: Row(
+//                   //     children: [
+//                   //       // IconButton(
+//                   //       //   onPressed: _index == 0
+//                   //       //       ? null
+//                   //       //       : () => _pc.previousPage(
+//                   //       //     duration: const Duration(milliseconds: 200),
+//                   //       //     curve: Curves.easeOutCubic,
+//                   //       //   ),
+//                   //       //   icon: const Icon(Icons.arrow_back_ios_new_rounded),
+//                   //       // ),
+//                   //       const Spacer(),
+//                   //       Opacity(
+//                   //         opacity: canContinue ? 1 : 0.5,
+//                   //         child: _ctaButton(
+//                   //           disabled: !canContinue,
+//                   //           label: _index == 3 ? 'Finish' : 'Continue',
+//                   //           onPressed: canContinue ? _next : null,
+//                   //         ),
+//                   //       ),
+//                   //     ],
+//                   //   ),
+//                   // );
+//                 },
+//               ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _ctaButton({required bool disabled, String label = 'Continue', VoidCallback? onPressed}) {
+//     return  CommonButton(
+//       label: 'Continue',
+//       onPressed: disabled ? null : onPressed,
+//     );
+//     //   FilledButton(
+//     //   onPressed: disabled ? null : onPressed,
+//     //   style: FilledButton.styleFrom(
+//     //     backgroundColor: _brown,
+//     //     padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+//     //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+//     //   ),
+//     //   child: Text(
+//     //     label,
+//     //     style: const TextStyle(
+//     //       fontFamily: 'DM Sans',
+//     //       fontWeight: FontWeight.w700,
+//     //       fontSize: 16,
+//     //       color: Colors.white,
+//     //     ),
+//     //   ),
+//     // );
+//
+//   }
+// }
+
 class _TopBar extends StatelessWidget {
   const _TopBar({required this.progress});
   final double progress;

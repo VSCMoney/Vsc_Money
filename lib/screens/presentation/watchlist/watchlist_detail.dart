@@ -9,6 +9,7 @@ import 'package:vscmoney/services/locator.dart';
 import '../../../constants/colors.dart';
 import '../../../models/watchlist_modal.dart';
 import '../../../services/asset_service.dart';
+import '../../../services/theme_service.dart';
 import '../../../services/watchlist_service.dart';
 
 
@@ -258,12 +259,13 @@ class _WatchlistDetailPageState extends State<WatchlistDetailPage> {
   Widget build(BuildContext context) {
     final sortedStocks = _getSortedStocks();
     final watchlistName = _watchlist?.name ?? 'Loading...';
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
     return MediaQuery.removePadding(
       context: context,
       removeTop: true,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: theme.background,
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: _CustomAppBar(
@@ -335,9 +337,11 @@ class _CustomAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.background,
         border: Border(
           bottom: BorderSide(
             color: Colors.grey.shade200,
@@ -366,10 +370,10 @@ class _CustomAppBar extends StatelessWidget {
                     HapticFeedback.lightImpact();
                     onClose();
                   },
-                  child: const Icon(
-                    Icons.close,
-                    size: 20,
-                    color: Colors.black87,
+                  child: Image.asset(
+                    "assets/images/cancel.png",
+                    height: 30,
+                    color: theme.icon,
                   ),
                 ),
 
@@ -380,6 +384,7 @@ class _CustomAppBar extends StatelessWidget {
                       title,
                       style: const TextStyle(
                         fontFamily: 'DM Sans',
+                        
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                         color: Colors.black87,
@@ -397,11 +402,7 @@ class _CustomAppBar extends StatelessWidget {
                     HapticFeedback.lightImpact();
                     onEdit?.call();
                   },
-                  child: Icon(
-                    Icons.edit_outlined,
-                    size: 18,
-                    color: Colors.grey.shade700,
-                  ),
+                  child: Icon(Icons.edit_rounded,color: theme.icon,)
                 ),
               ],
             ),
@@ -560,6 +561,8 @@ class _ControlsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       child: Row(
@@ -583,11 +586,12 @@ class _ControlsRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                Icon(
-                  Icons.swap_vert,
-                  size: 20,
-                  color: Colors.grey.shade600,
-                ),
+                // Icon(
+                //   Icons.swap_vert,
+                //   size: 20,
+                //   color: Colors.grey.shade600,
+                // ),
+                SvgPicture.asset("assets/images/sort.svg")
               ],
             ),
           ),
@@ -603,7 +607,7 @@ class _ControlsRow extends StatelessWidget {
                 Icon(
                   Icons.add,
                   size: 20,
-                  color: Colors.grey.shade700,
+                  color: theme.icon,
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -1393,13 +1397,15 @@ class _EditWatchlistPageState extends State<EditWatchlistPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     return MediaQuery.removePadding(
         context: context,
         removeTop: true,
      child : WillPopScope(
         onWillPop: _onWillPop,
         child: Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: theme.background,
           appBar: PreferredSize(
             preferredSize: const Size.fromHeight(60),
             child: _EditAppBar(
@@ -1430,7 +1436,7 @@ class _EditWatchlistPageState extends State<EditWatchlistPage> {
                       fontFamily: 'DM Sans',
                       fontSize: 16,
                       fontWeight: FontWeight.w400,
-                      color: Colors.grey.shade400,
+                      color: theme.background,
                     ),
                     filled: true,
                    // fillColor: Colors.grey.shade50,
@@ -1489,7 +1495,7 @@ class _EditWatchlistPageState extends State<EditWatchlistPage> {
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: theme.background,
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.05),
@@ -1527,11 +1533,13 @@ class _EditAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     return Padding(
       padding: EdgeInsets.only(top: 10),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.background,
           border: Border(
             bottom: BorderSide(
               color: Colors.grey.shade200,
@@ -1662,17 +1670,13 @@ class _StockEditItem extends StatelessWidget {
                   ReorderableDragStartListener(
                     index: index,
                     child: Container(
-                      width: 32,
-                      height: 32,
+                      width: 18,
+                      height: 18,
                       // decoration: BoxDecoration(
                       //   color: Colors.grey.shade100,
                       //   borderRadius: BorderRadius.circular(6),
                       // ),
-                      child: Icon(
-                        Icons.reorder,
-                        size: 20,
-                        color: Colors.grey.shade600,
-                      ),
+                      child: SvgPicture.asset("assets/images/reorder.svg",height: 28,width: 8,fit: BoxFit.fitWidth,)
                     ),
                   ),
 

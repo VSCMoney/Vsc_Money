@@ -13,6 +13,12 @@ import '../../../services/auth_service.dart';
 import '../../../services/theme_service.dart';
 
 
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:flutter/services.dart';
+
+
 class EnterNameScreen extends StatefulWidget {
   const EnterNameScreen({super.key});
 
@@ -24,72 +30,69 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
   final TextEditingController _fullNameController = TextEditingController();
   final AuthService _authService = locator<AuthService>();
 
-  late StreamSubscription<AuthState> _stateSub;
+  late final StreamSubscription<AuthState> _stateSub;
   bool isLoading = false;
 
   @override
   void initState() {
     super.initState();
-
     _stateSub = _authService.authStateStream.listen((state) {
       if (!mounted) return;
-
       setState(() => isLoading = state.status == AuthStatus.loading);
-
       if (state.status == AuthStatus.error && state.error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.error!)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(state.error!)));
       }
     });
   }
 
+  @override
+  void dispose() {
+    _stateSub.cancel();
+    _fullNameController.dispose();
+    super.dispose();
+  }
 
-  void _submitName() async {
+  Future<void> _submitName() async {
+    HapticFeedback.selectionClick();
     final fullName = _fullNameController.text.trim();
 
-    // Check if name is empty
     if (fullName.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter your full name")),
+        const SnackBar(content: Text('Please enter your full name')),
       );
       return;
     }
 
-    // Split the name into parts and filter out empty strings
-    final parts = fullName.split(" ").where((part) => part.isNotEmpty).toList();
-
-    // Check if exactly 2 words (first name and last name only)
+    // strict rule: exactly 2 words, letters only
+    final parts = fullName.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
     if (parts.length != 2) {
       if (!mounted) return;
-      String errorMessage;
-      if (parts.length == 1) {
-        errorMessage = "Please enter both first and last name";
-      } else {
-        errorMessage = "Please enter only first and last name (2 words maximum)";
-      }
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
+        SnackBar(
+          content: Text(
+            parts.length == 1
+                ? 'Please enter both first and last name'
+                : 'Please enter only first and last name (2 words maximum)',
+          ),
+        ),
       );
       return;
     }
-
-    // Validate that each part contains only letters (optional - remove if you want to allow numbers/special chars)
-    for (final part in parts) {
-      if (!RegExp(r'^[a-zA-Z]+$').hasMatch(part)) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Name should contain only letters")),
-        );
-        return;
-      }
+    if (!RegExp(r'^[A-Za-z]+$').hasMatch(parts[0]) ||
+        !RegExp(r'^[A-Za-z]+$').hasMatch(parts[1])) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Name should contain only letters')),
+      );
+      return;
     }
 
     final firstName = parts[0];
     final lastName = parts[1];
 
     await _authService.completeUserProfile(firstName, lastName);
-
     if (!mounted) return;
 
     _authService.completeUserProfileAndNavigate((flow) {
@@ -99,9 +102,11 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
           context.go('/onboarding');
           break;
         case AuthFlow.home:
-          GoRouter.of(context).go('/premium');
+          final safe = Uri.encodeComponent(firstName);
+          context.go('/warm/$safe'); // ✅ /warm/:name
           break;
         case AuthFlow.nameEntry:
+        // stay
           break;
         case AuthFlow.login:
           context.go('/home');
@@ -110,144 +115,116 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
     });
   }
 
-  // void _submitName() async {
-  //   final fullName = _fullNameController.text.trim();
-  //   if (fullName.isEmpty || !fullName.contains(" ")) {
-  //     if (!mounted) return;
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text("Please enter full name (first & last)")),
-  //     );
-  //     return;
-  //   }
-  //
-  //   final parts = fullName.split(" ");
-  //   final firstName = parts.first;
-  //   final lastName = parts.sublist(1).join(" ");
-  //
-  //   await _authService.completeUserProfile(firstName, lastName);
-  //
-  //   if (!mounted) return; // <- ADD THIS
-  //
-  //   _authService.completeUserProfileAndNavigate((flow) {
-  //     if (!mounted) return;
-  //     switch (flow) {
-  //       case AuthFlow.onboarding:
-  //         context.go('/onboarding');
-  //         break;
-  //       case AuthFlow.home:
-  //         GoRouter.of(context).go('/premium');
-  //         break;
-  //       case AuthFlow.nameEntry:
-  //         break;
-  //       case AuthFlow.login:
-  //         context.go('/home');
-  //         break;
-  //     }
-  //   });
-  // }
-
-
-  @override
-  void dispose() {
-    _fullNameController.dispose();
-    _stateSub.cancel();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
+    final mq = MediaQuery.of(context);
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     return Scaffold(
       backgroundColor: theme.background,
       body: SafeArea(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.06),
+          padding: EdgeInsets.symmetric(horizontal: mq.size.width * 0.06),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: screenHeight * 0.05),
-              Column(
-                children: [
-                  Hero(
-                    tag: 'penny_logo',
-                    child: Image.asset(
+              SizedBox(height: mq.size.height * 0.05),
+
+              // ✅ one Hero or two unique tags (no duplicate)
+              Hero(
+                tag: 'penny_logo', // use same tag on the source/target screen
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset(
                       'assets/images/ying yang.png',
-                      width: screenWidth * 0.4,
-                      height: screenHeight * 0.09,
+                      width: mq.size.width * 0.9,
+                      height: mq.size.height * 0.08,
                     ),
-                  ),
-                  Hero(
-                    tag: 'penny_logo',
-                    child: Image.asset(
+                  //  const SizedBox(height: 8),
+                    Image.asset(
                       'assets/images/Vitty.ai2.png',
-                      width: screenWidth * 0.2,
-                      height: screenHeight * 0.1,
+                      width: mq.size.width * 0.3,
+                      height: mq.size.height * 0.1,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              SizedBox(height: screenHeight * 0.10),
-              Row(
-                children: [
-                  Text(
-                    "What should Vitty call you?",
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.042,
-                      fontWeight: FontWeight.w400,
-                      fontFamily: 'DM Sans',
-                      color: theme.text,
-                    ),
-                  ),
-                ],
+
+              SizedBox(height: mq.size.height * 0.08),
+
+              Text(
+                'What should Vitty call you?',
+                style: TextStyle(
+                  fontFamily: 'DM Sans',
+                  fontSize: mq.size.width * 0.042,
+                  fontWeight: FontWeight.w400,
+                  color: theme.text,
+                ),
               ),
               const SizedBox(height: 10),
+
               TextField(
                 controller: _fullNameController,
-                keyboardType: TextInputType.text,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => isLoading ? null : _submitName(),
                 decoration: InputDecoration(
                   hintText: 'Your Full Name',
                   hintStyle: TextStyle(
                     color: Colors.grey.shade500,
-                    fontSize: screenWidth * 0.04,
+                    fontSize: mq.size.width * 0.04,
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(5),
-                    borderSide:  BorderSide(color: theme.searchBox, width: 2),
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: theme.searchBox, width: 2),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(5),
+                    borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(color: theme.searchBox, width: 1.5),
                   ),
-                  contentPadding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: mq.size.width * 0.04,
+                    vertical: 14,
+                  ),
                   filled: true,
                   fillColor: theme.background,
                 ),
-                style: TextStyle(fontSize: screenWidth * 0.045,color: theme.text),
+                style: TextStyle(
+                  fontSize: mq.size.width * 0.045,
+                  color: theme.text,
+                ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 20,),
+
               SizedBox(
                 width: double.infinity,
+                height: 56,
                 child: ElevatedButton(
                   onPressed: isLoading ? null : _submitName,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    padding: EdgeInsets.symmetric(vertical: screenHeight * 0.015),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: isLoading
-                      ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                      : Text(
-                    "Continue",
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.045,
-                      color: Colors.white,
-                      fontFamily: "DM Sans",
-                      fontWeight: FontWeight.w500,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    textStyle: const TextStyle(
+                      fontFamily: 'DM Sans',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 18,
                     ),
                   ),
+                  child: isLoading
+                      ? const SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                      : const Text('Continue'),
                 ),
               ),
+              const SizedBox(height: 18),
             ],
           ),
         ),
@@ -255,3 +232,215 @@ class _EnterNameScreenState extends State<EnterNameScreen> {
     );
   }
 }
+
+
+// class EnterNameScreen extends StatefulWidget {
+//   const EnterNameScreen({super.key});
+//
+//   @override
+//   State<EnterNameScreen> createState() => _EnterNameScreenState();
+// }
+//
+// class _EnterNameScreenState extends State<EnterNameScreen> {
+//   final TextEditingController _fullNameController = TextEditingController();
+//   final AuthService _authService = locator<AuthService>();
+//
+//   late StreamSubscription<AuthState> _stateSub;
+//   bool isLoading = false;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//
+//     _stateSub = _authService.authStateStream.listen((state) {
+//       if (!mounted) return;
+//
+//       setState(() => isLoading = state.status == AuthStatus.loading);
+//
+//       if (state.status == AuthStatus.error && state.error != null) {
+//         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.error!)));
+//       }
+//     });
+//   }
+//
+//
+//
+//
+//   // void _submitName() async {
+//   //   final fullName = _fullNameController.text.trim();
+//   //
+//   //   // Check if name is empty
+//   //   if (fullName.isEmpty) {
+//   //     if (!mounted) return;
+//   //     ScaffoldMessenger.of(context).showSnackBar(
+//   //       const SnackBar(content: Text("Please enter your full name")),
+//   //     );
+//   //     return;
+//   //   }
+//   //
+//   //   // Split the name into parts and filter out empty strings
+//   //   final parts = fullName.split(" ").where((part) => part.isNotEmpty).toList();
+//   //
+//   //   // Check if exactly 2 words (first name and last name only)
+//   //   if (parts.length != 2) {
+//   //     if (!mounted) return;
+//   //     String errorMessage;
+//   //     if (parts.length == 1) {
+//   //       errorMessage = "Please enter both first and last name";
+//   //     } else {
+//   //       errorMessage = "Please enter only first and last name (2 words maximum)";
+//   //     }
+//   //
+//   //     ScaffoldMessenger.of(context).showSnackBar(
+//   //       SnackBar(content: Text(errorMessage)),
+//   //     );
+//   //     return;
+//   //   }
+//   //
+//   //   // Validate that each part contains only letters (optional - remove if you want to allow numbers/special chars)
+//   //   for (final part in parts) {
+//   //     if (!RegExp(r'^[a-zA-Z]+$').hasMatch(part)) {
+//   //       if (!mounted) return;
+//   //       ScaffoldMessenger.of(context).showSnackBar(
+//   //         const SnackBar(content: Text("Name should contain only letters")),
+//   //       );
+//   //       return;
+//   //     }
+//   //   }
+//   //
+//   //   final firstName = parts[0];
+//   //   final lastName = parts[1];
+//   //
+//   //   await _authService.completeUserProfile(firstName, lastName);
+//   //
+//   //   if (!mounted) return;
+//   //
+//   //   _authService.completeUserProfileAndNavigate((flow) {
+//   //     if (!mounted) return;
+//   //     switch (flow) {
+//   //       case AuthFlow.onboarding:
+//   //         context.go('/onboarding');
+//   //         break;
+//   //       case AuthFlow.home:
+//   //         GoRouter.of(context).go('/warm${firstName}');
+//   //         break;
+//   //       case AuthFlow.nameEntry:
+//   //         break;
+//   //       case AuthFlow.login:
+//   //         context.go('/home');
+//   //         break;
+//   //     }
+//   //   });
+//   // }
+//
+//
+//
+//
+//   @override
+//   void dispose() {
+//     _fullNameController.dispose();
+//     _stateSub.cancel();
+//     super.dispose();
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final screenWidth = MediaQuery.of(context).size.width;
+//     final screenHeight = MediaQuery.of(context).size.height;
+//     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+//     return Scaffold(
+//       backgroundColor: theme.background,
+//       body: SafeArea(
+//         child: Padding(
+//           padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.06),
+//           child: Column(
+//             children: [
+//               SizedBox(height: screenHeight * 0.05),
+//               Column(
+//                 children: [
+//                   Hero(
+//                     tag: 'penny_logo',
+//                     child: Image.asset(
+//                       'assets/images/ying yang.png',
+//                       width: screenWidth * 0.4,
+//                       height: screenHeight * 0.09,
+//                     ),
+//                   ),
+//                   Hero(
+//                     tag: 'penny_logo',
+//                     child: Image.asset(
+//                       'assets/images/Vitty.ai2.png',
+//                       width: screenWidth * 0.2,
+//                       height: screenHeight * 0.1,
+//                     ),
+//                   ),
+//                 ],
+//               ),
+//               SizedBox(height: screenHeight * 0.10),
+//               Row(
+//                 children: [
+//                   Text(
+//                     "What should Vitty call you?",
+//                     style: TextStyle(
+//                       fontSize: screenWidth * 0.042,
+//                       fontWeight: FontWeight.w400,
+//                       fontFamily: 'DM Sans',
+//                       color: theme.text,
+//                     ),
+//                   ),
+//                 ],
+//               ),
+//               const SizedBox(height: 10),
+//               TextField(
+//                 controller: _fullNameController,
+//                 keyboardType: TextInputType.text,
+//                 decoration: InputDecoration(
+//                   hintText: 'Your Full Name',
+//                   hintStyle: TextStyle(
+//                     color: Colors.grey.shade500,
+//                     fontSize: screenWidth * 0.04,
+//                   ),
+//                   focusedBorder: OutlineInputBorder(
+//                     borderRadius: BorderRadius.circular(5),
+//                     borderSide:  BorderSide(color: theme.searchBox, width: 2),
+//                   ),
+//                   enabledBorder: OutlineInputBorder(
+//                     borderRadius: BorderRadius.circular(5),
+//                     borderSide: BorderSide(color: theme.searchBox, width: 1.5),
+//                   ),
+//                   contentPadding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
+//                   filled: true,
+//                   fillColor: theme.background,
+//                 ),
+//                 style: TextStyle(fontSize: screenWidth * 0.045,color: theme.text),
+//               ),
+//               const SizedBox(height: 24),
+//               SizedBox(
+//                 width: double.infinity,
+//                 child: ElevatedButton(
+//                   onPressed: isLoading ? null : _submitName,
+//                   style: ElevatedButton.styleFrom(
+//                     backgroundColor: AppColors.primary,
+//                     padding: EdgeInsets.symmetric(vertical: screenHeight * 0.015),
+//                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+//                   ),
+//                   child: isLoading
+//                       ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+//                       : Text(
+//                     "Continue",
+//                     style: TextStyle(
+//                       fontSize: screenWidth * 0.045,
+//                       color: Colors.white,
+//                       fontFamily: "DM Sans",
+//                       fontWeight: FontWeight.w500,
+//                     ),
+//                   ),
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
