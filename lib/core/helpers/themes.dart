@@ -50,8 +50,15 @@ class AppTheme {
       Color(0xffFFFFFF),
     ],
     gradient: [
-      Color(0xFFFFFFFF),
-      Color(0xFFF1EAE4),
+      // Color(0xFFFFFFFF),
+      // Color(0xFFF1EAE4),
+      Color(0xFFFFFFFE), // Almost white
+      Color(0xFFFEFCFA), // Barely cream
+      Color(0xFFFCF9F6), // Very subtle cream
+      Color(0xFFF9F5F1), // Light cream
+      Color(0xFFF6F0EC), // Soft cream
+      Color(0xFFF3EDE8), // Medium cream
+      Color(0xFFF1EAE4), // Full cream
     ],
     card: Color(0xFFFAF9F7),
     notes: Color(0xFF734012),

@@ -3503,7 +3503,7 @@ class _ChatGPTScrollingWaveformState extends State<ChatGPTScrollingWaveform>
   }
 }
 
-// ✅ ULTRA PERFORMANT: CustomPainter (single draw call)
+
 class WaveformPainter extends CustomPainter {
   final List<double> heights;
   final double slideOffset;

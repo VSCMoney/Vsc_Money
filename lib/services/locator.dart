@@ -6,6 +6,7 @@ import 'package:vscmoney/services/notes_service.dart';
 
 import 'package:vscmoney/services/theme_service.dart';
 import 'package:vscmoney/services/voice_service.dart';
+import 'package:vscmoney/services/watchlist_service.dart';
 import '../services/auth_service.dart';
 import 'api_service.dart';
 import 'chat_service.dart';
@@ -22,6 +23,7 @@ void setupLocator() {
   locator.registerLazySingleton<AssetService>(() => AssetService());
   locator.registerLazySingleton<FileService>(() => FileService());
   locator.registerLazySingleton<NotesService>(() => NotesService());
+  locator.registerLazySingleton<WatchlistService>(() => WatchlistService());
 
 }
 

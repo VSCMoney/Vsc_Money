@@ -605,8 +605,8 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
   static const double _orbSize = 200;
   static const double _lottieSize = 180;
 
-  static const Duration _toVoiceDuration = Duration(milliseconds: 240);
-  static const Duration _toTextDuration = Duration(milliseconds: 380);
+  static const Duration _toVoiceDuration = Duration(milliseconds: 0);
+  static const Duration _toTextDuration = Duration(milliseconds: 0);
 
   int _textLines = 1;
   Duration _heightAnimDuration = _toVoiceDuration;
@@ -615,7 +615,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
   void initState() {
     super.initState();
     _contentController = AnimationController(
-      duration: const Duration(milliseconds: 250),
+      duration: const Duration(milliseconds: 0),
       vsync: this,
     );
 
@@ -781,8 +781,8 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
     final maxAllowed = _singleLineHeight + (_kMaxLines - 1) * _lineHeight;
     final isKeyboardOpen = kbBottom > 0;
 
-    print('   viewInsets.bottom: $kbBottom');
-    print('   widget.keyboardInset: ${widget.keyboardInset}');
+    // print('   viewInsets.bottom: $kbBottom');
+    // print('   widget.keyboardInset: ${widget.keyboardInset}');
     // ✅ Keep height consistent
     final double targetHeight = showRecorder
         ? 0.0  // ✅ Smaller height for voice UI
@@ -805,197 +805,242 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
 
         if (widget.isEditing) const SizedBox(height: 0),
 
-        Container(
-          key: widget.textFieldKey,
-          padding: EdgeInsets.symmetric(horizontal: 0, vertical: showRecorder ? 16 : 20),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque, // ✅ Captures all taps within bounds
+          onTap: () {
+            // ✅ Empty callback - just consume the tap event
+            // This prevents tap from bubbling up and closing keyboard
+            debugPrint('🖱️ ChatInput tapped - keyboard maintained');
+          },
+          child: Container(
+            key: widget.textFieldKey,
+            padding: EdgeInsets.symmetric(horizontal: 0, vertical: showRecorder ? 12 : 10),
 
-          decoration: BoxDecoration(
-            color: theme.card,
-            boxShadow: [
-              BoxShadow(
-                color: theme.shadow,
-                blurRadius: 7,
-                spreadRadius: 4,
-                offset: const Offset(0, 1),
+            decoration: BoxDecoration(
+              color: theme.card,
+              boxShadow: [
+                BoxShadow(
+                  color: theme.shadow,
+                  blurRadius: 4,
+                  spreadRadius: 2,
+                  offset: const Offset(2, 0),
+                ),
+              ],
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
               ),
-            ],
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(16),
-              topRight: Radius.circular(16),
             ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ✅ Text field area
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOutCubic,
-                height: targetHeight,
-                child: Stack(
-                  children: [
-                    AnimatedBuilder(
-                      animation: _contentController,
-                      builder: (context, _) {
-                        return Opacity(
-                          opacity: _textFieldOpacity.value,
-                          child: IgnorePointer(
-                            ignoring: _textFieldOpacity.value < 0.15,
-                            child: Padding(
-                              padding:  EdgeInsets.symmetric(horizontal: 16),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.max,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 250),
-                                    curve: Curves.easeInOutCubic,
-                                    width: showOrb ? 36 : 0,
-                                    height: 36,
-                                    decoration: const BoxDecoration(),
-                                    child: Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: AnimatedSlide(
-                                        duration: const Duration(milliseconds: 250),
-                                        curve: Curves.easeInOutCubic,
-                                        offset: showOrb ? Offset.zero : const Offset(-0.4, 0),
-                                        child: AnimatedOpacity(
-                                          duration: const Duration(milliseconds: 180),
-                                          curve: Curves.easeInOut,
-                                          opacity: showOrb ? 1 : 0,
-                                          child: IgnorePointer(
-                                            ignoring: !showOrb,
-                                            child: Padding(
-                                              padding: const EdgeInsets.only(left: 16),
-                                              child: OrbWithBackplate(
-                                                size: 32,
-                                                backplatePad: 14,
-                                                lottie: 'assets/images/retry3.json',
-                                                nudge: const Offset(0, 0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ✅ Text field area
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOutCubic,
+                  height: targetHeight,
+                  child: Stack(
+                    children: [
+                      AnimatedBuilder(
+                        animation: _contentController,
+                        builder: (context, _) {
+                          return Opacity(
+                            opacity: _textFieldOpacity.value,
+                            child: IgnorePointer(
+                              ignoring: _textFieldOpacity.value < 0.15,
+                              child: Padding(
+                                padding:  EdgeInsets.symmetric(horizontal: 0),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.max,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    AnimatedContainer(
+                                      duration: const Duration(milliseconds: 250),
+                                      curve: Curves.easeInOutCubic,
+                                      width: showOrb ? 62 : 0,
+                                      height: 36,
+                                      decoration: const BoxDecoration(),
+                                      child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: AnimatedSlide(
+                                          duration: const Duration(milliseconds: 250),
+                                          curve: Curves.easeInOutCubic,
+                                          offset: showOrb ? Offset.zero : const Offset(-0.4, 0),
+                                          child: AnimatedOpacity(
+                                            duration: const Duration(milliseconds: 180),
+                                            curve: Curves.easeInOut,
+                                            opacity: showOrb ? 1 : 0,
+                                            child: IgnorePointer(
+                                              ignoring: !showOrb,
+                                              child: Padding(
+                                                padding: const EdgeInsets.only(left: 12),
+                                                child: OrbWithBackplate(
+                                                  size: 30,
+                                                  backplatePad: 14,
+                                                  lottie: 'assets/images/retry3.json',
+                                                  nudge: const Offset(0, 0),
+                                                ),
                                               ),
                                             ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
 
-                                  Expanded(
-                                    child: TextField(
-                                      style: TextStyle(
-                                        fontFamily: "DM Sans",
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w400,
-                                        height: 1.5,
-                                        color: _isOverwritingTranscript
-                                            ? Colors.grey.shade400
-                                            : theme.text,
-                                      ),
-                                      textAlignVertical: TextAlignVertical.center,
-                                      autofocus: !_shouldPreventFocus && !showRecorder,
-                                      minLines: null,
-                                      maxLines: null,
-                                      expands: true,
-                                      controller: widget.controller,
-                                      focusNode: widget.focusNode,
-                                      decoration: InputDecoration(
-                                        hintStyle: TextStyle(
-                                          fontWeight: FontWeight.w400,
+
+                                    // AnimatedContainer(
+                                    //   duration: const Duration(milliseconds: 250),
+                                    //   curve: Curves.easeInOutCubic,
+                                    //   width: showOrb ? 62 : 16, // ✅ 16px (left margin) + 30px (orb) + 16px (gap) = 62px OR just 16px margin
+                                    //   height: 36,
+                                    //   decoration: const BoxDecoration(),
+                                    //   child: Align(
+                                    //     alignment: Alignment.centerLeft,
+                                    //     child: AnimatedSlide(
+                                    //       duration: const Duration(milliseconds: 250),
+                                    //             curve: Curves.easeInOutCubic,
+                                    //             offset: showOrb ? Offset.zero : const Offset(-0.4, 0),
+                                    //       child: AnimatedOpacity(
+                                    //         duration: const Duration(milliseconds: 180),
+                                    //         curve: Curves.easeInOut,
+                                    //         opacity: showOrb ? 1 : 0,
+                                    //         child: showOrb
+                                    //             ? Padding(
+                                    //           padding: const EdgeInsets.only(left: 16),
+                                    //           child: OrbWithBackplate(
+                                    //             size: 30,
+                                    //             backplatePad: 14,
+                                    //             lottie: 'assets/images/retry3.json',
+                                    //             nudge: const Offset(0, 0),
+                                    //           ),
+                                    //         )
+                                    //             : const SizedBox.shrink(),
+                                    //       ),
+                                    //     ),
+                                    //   ),
+                                    // ),
+
+                                    Expanded(
+                                      child: TextField(
+                                        style: TextStyle(
+                                          fontFamily: "DM Sans",
                                           fontSize: 16,
-                                          color: Colors.grey.shade600,
+                                          fontWeight: FontWeight.w400,
+                                          height: 1.5,
+                                          color: _isOverwritingTranscript
+                                              ? Colors.grey.shade400
+                                              : theme.text,
                                         ),
-                                        hintText: 'Ask anything',
-                                        border: InputBorder.none,
-                                        contentPadding: EdgeInsets.fromLTRB(22, 4, 16, 0),
-                                        isDense: true,
+                                        textAlignVertical: TextAlignVertical.center,
+                                        autofocus: !_shouldPreventFocus && !showRecorder,
+                                        minLines: null,
+                                        maxLines: null,
+                                        expands: true,
+                                        controller: widget.controller,
+                                        focusNode: widget.focusNode,
+                                        decoration: InputDecoration(
+                                          hintStyle: TextStyle(
+                                            fontWeight: FontWeight.w400,
+                                            fontSize: 16,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                          hintText: 'Ask anything',
+                                          border: InputBorder.none,
+                                          contentPadding: EdgeInsets.fromLTRB( showOrb ? 0 : 20, 4, 12, 0),
+                                          isDense: true,
+                                        ),
+
+                                        onChanged: (_) => widget.onTextChanged(),
+                                        onSubmitted: (_) => widget.onSendMessage(),
+                                        textInputAction: TextInputAction.newline,
+                                        keyboardType: TextInputType.multiline,
+                                        scrollPadding: EdgeInsets.zero,
+                                        onTap: () {
+                                          if (_shouldPreventFocus) {
+                                            setState(() => _shouldPreventFocus = false);
+                                          }
+                                        },
                                       ),
-                                      onChanged: (_) => widget.onTextChanged(),
-                                      onSubmitted: (_) => widget.onSendMessage(),
-                                      textInputAction: TextInputAction.newline,
-                                      keyboardType: TextInputType.multiline,
-                                      scrollPadding: EdgeInsets.zero,
-                                      onTap: () {
-                                        if (_shouldPreventFocus) {
-                                          setState(() => _shouldPreventFocus = false);
-                                        }
-                                      },
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
-              // ✅ FIX: Fixed spacing and container for action bar
-              const SizedBox(height: 10), // Fixed gap
+                // ✅ FIX: Fixed spacing and container for action bar
+                const SizedBox(height: 8), // Fixed gap
 
-              // ✅ Actions bar with FIXED height - no padding changes
-              SizedBox(
-                height: 44, // ✅ Fixed height
-                child: Stack(
-                  alignment: Alignment.center, // ✅ Center everything
-                  children: [
-                    // Input actions
-                    AnimatedBuilder(
-                      animation: _contentController,
-                      builder: (context, _) {
-                        return Opacity(
-                          opacity: _textFieldOpacity.value,
-                          child: IgnorePointer(
-                            ignoring: _textFieldOpacity.value < 0.1,
-                            child: InputActionsBarWidget(
-                              isTyping: widget.isTyping,
-                              hasText: widget.controller.text.isNotEmpty,
-                              isTranscribing: isTranscribing,
-                              onStartRecording: _startRecording,
-                              onSendMessage: widget.onSendMessage,
-                              onStopResponse: widget.onStopResponse,
-                              theme: theme,
+                // ✅ Actions bar with FIXED height - no padding changes
+                SizedBox(
+                  height: 44, // ✅ Fixed height
+                  child: Stack(
+                    alignment: Alignment.center, // ✅ Center everything
+                    children: [
+                      // Input actions
+                      AnimatedBuilder(
+                        animation: _contentController,
+                        builder: (context, _) {
+                          return Opacity(
+                            opacity: _textFieldOpacity.value,
+                            child: IgnorePointer(
+                              ignoring: _textFieldOpacity.value < 0.1,
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 0),
+                                child: InputActionsBarWidget(
+                                  isTyping: widget.isTyping,
+                                  hasText: widget.controller.text.isNotEmpty,
+                                  isTranscribing: isTranscribing,
+                                  onStartRecording: _startRecording,
+                                  onSendMessage: widget.onSendMessage,
+                                  onStopResponse: widget.onStopResponse,
+                                  theme: theme,
+                                ),
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      ),
 
-                    // Voice recorder - perfectly centered
-                    AnimatedBuilder(
-                      animation: _contentController,
-                      builder: (context, _) {
-                        return Opacity(
-                          opacity: _recorderOpacity.value,
-                          child: IgnorePointer(
-                            ignoring: _recorderOpacity.value < 0.1,
-                            child: (_preparing || widget.audioService.isListening)
-                                ? Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 16),
-                                  child: VoiceRecorderWidget(
-                                                                audioService: widget.audioService,
-                                                                onCancel: _onRecordingCancel,
-                                                                onComplete: _onRecordingComplete,
-                                                              ),
-                                )
-                                : const SizedBox.shrink(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                      // Voice recorder - perfectly centered
+                      AnimatedBuilder(
+                        animation: _contentController,
+                        builder: (context, _) {
+                          return Opacity(
+                            opacity: _recorderOpacity.value,
+                            child: IgnorePointer(
+                              ignoring: _recorderOpacity.value < 0.1,
+                              child: (_preparing || widget.audioService.isListening)
+                                  ? Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 6),
+                                    child: VoiceRecorderWidget(
+                                                                  audioService: widget.audioService,
+                                                                  onCancel: _onRecordingCancel,
+                                                                  onComplete: _onRecordingComplete,
+                                                                ),
+                                  )
+                                  : const SizedBox.shrink(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                height: isKeyboardOpen ? 0 : 5,
-              ),
-            ],
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  height: (isKeyboardOpen && !widget.audioService.isListening) ? 0 : widget.audioService.isListening ? 20 : 10,
+                ),
+              ],
+            ),
           ),
         ),
       ],

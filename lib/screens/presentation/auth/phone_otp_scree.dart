@@ -100,6 +100,9 @@ class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateM
     super.dispose();
   }
 
+
+
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -211,13 +214,13 @@ class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateM
                           horizontal: MediaQuery.of(context).size.width * 0.02,
                         ),
                         child: RichText(
-                          textAlign: TextAlign.center,
+                          textAlign: TextAlign.start,
                           text: TextSpan(
                             style: TextStyle(
                               fontSize: MediaQuery.of(context).size.width * 0.035,
                               fontFamily: 'DM Sans',
                               color: theme.text.withOpacity(0.7),
-                              height: 1.4,
+                              height: 1.8,
                             ),
                             children: [
                               const TextSpan(text: "By continuing, you agree to our "),

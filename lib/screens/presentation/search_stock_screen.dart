@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../constants/bottomsheet.dart';
 import '../../constants/colors.dart';
+import '../../models/watchlist_modal.dart';
 import '../../services/asset_service.dart';
 import '../../services/theme_service.dart';
 
@@ -428,9 +429,26 @@ import '../../services/theme_service.dart';
 
 
 
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../services/watchlist_service.dart';
+
+
 class StockSearchScreen extends StatefulWidget {
-  VoidCallback? onBack;
-   StockSearchScreen({super.key, this.onBack});
+  final VoidCallback? onBack;
+
+  /// REQUIRED: jisme add karna hai us watchlist ka id
+  final WatchlistId ?watchlistId;
+
+  const StockSearchScreen({
+    super.key,
+    this.onBack,
+     this.watchlistId,
+  });
 
   @override
   State<StockSearchScreen> createState() => _StockSearchScreenState();
@@ -441,9 +459,16 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
   final FocusNode _focusNode = FocusNode();
   final GlobalKey<ChatGPTBottomSheetWrapperState> _sheetKey =
   GlobalKey(debugLabel: 'BottomSheetWrapper');
-
+  final Map<AssetId, bool> _adding = {};
   late final AssetService _assetService;
   late final StreamSubscription _searchSubscription;
+
+  // --- Watchlist wiring ---
+  final WatchlistService _wl = GetIt.I<WatchlistService>();
+  StreamSubscription<WatchlistDetail?>? _wlDetailSub;
+
+  // Local projection of which assets are already in this watchlist
+  Set<AssetId> _inWatchlist = <AssetId>{};
 
   bool _loading = false;
   String _lastQuery = '';
@@ -452,44 +477,27 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
   List<String> _recentSearches = [];
   static const String _recentSearchesKey = 'recent_searches';
 
-  // ---------- UTIL: always-close keyboard (reliable on iOS & Android) ----------
+  // ---------- UTIL: always-close keyboard ----------
   void _closeKeyboard() {
-    // 1) Unfocus the text field we control
     if (_focusNode.hasFocus) _focusNode.unfocus();
-
-    // 2) Also clear any other primary focus in case AppBar has its own scope
     FocusManager.instance.primaryFocus?.unfocus();
-
-    // 3) Tell the system keyboard to hide (covers iOS cases with sheets)
     SystemChannels.textInput.invokeMethod('TextInput.hide');
   }
 
   // Handle back navigation - go to home and open drawer
   Future<bool> _handleBackNavigation() async {
-    debugPrint('Back pressed from StockSearch - navigating to home with drawer open');
-
-    _closeKeyboard(); // Close keyboard first
-
-    // Go back to home and open drawer
-    context.pop();
-
-    // Open the drawer after navigation
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final scaffoldState = Scaffold.maybeOf(context);
-      if (scaffoldState != null && scaffoldState.hasDrawer) {
-        scaffoldState.openDrawer();
-      }
-    });
-
-    return false; // Prevent default back behavior since we're handling it
+    _closeKeyboard();
+    if (widget.onBack != null) widget.onBack!.call();
+    Navigator.of(context).maybePop();
+    return false;
   }
 
   @override
   void initState() {
     super.initState();
 
+    // Assets search
     _assetService = AssetService();
-
     _searchSubscription = _assetService.searchResults.listen((results) {
       if (!mounted) return;
       setState(() {
@@ -498,12 +506,28 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
       });
     });
 
+    // Watchlist detail subscription (no StreamBuilder)
+    // Service me optimistic update hai; yahan local set update ho jayega.
+    _wlDetailSub = _wl.detailStream.listen((detail) {
+      if (!mounted) return;
+      // only track the active watchlist we're editing
+      if (detail != null && detail.id == widget.watchlistId) {
+        setState(() {
+          _inWatchlist = detail.assetIds.toSet();
+        });
+      }
+    });
+
+    // Ensure service has opened the same watchlist we are editing
+    unawaited(_wl.openDetail(widget.watchlistId ?? ""));
+
     _loadRecentSearches();
   }
 
   @override
   void dispose() {
     _searchSubscription.cancel();
+    _wlDetailSub?.cancel();
     _assetService.dispose();
     _controller.dispose();
     _focusNode.dispose();
@@ -511,13 +535,11 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
   }
 
   // ---------------- Recent searches ----------------
-
   Future<void> _loadRecentSearches() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final searches = prefs.getStringList(_recentSearchesKey);
-      if (searches != null) {
-        if (!mounted) return;
+      if (searches != null && mounted) {
         setState(() => _recentSearches = searches);
       }
     } catch (_) {}
@@ -555,7 +577,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
     } catch (_) {}
   }
 
-  // Search (keeps keyboard open while typing)
+  // ---------------- Search ----------------
   void _searchStock(String raw) {
     final keyword = raw.trim();
     if (keyword.isEmpty) {
@@ -576,16 +598,15 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
     _assetService.setSearchQuery(keyword); // debounced inside service
   }
 
-  // Submit (auto-close keyboard)
   void _onSearchSubmitted(String value) {
-    _closeKeyboard();            // <— force close
+    _closeKeyboard();
     _searchStock(value);
   }
 
+  // ---------------- Detail sheet ----------------
   void _openStockDetailSheet(String assetId) {
-    _closeKeyboard();            // <— force close before opening sheet
-
-    // Open sheet on next frame to ensure IME is already dismissed
+    _closeKeyboard();
+    // aapke BottomSheetManager ke hisaab se
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final stockSheet = BottomSheetManager.buildStockDetailSheet(
         assetId: assetId,
@@ -595,15 +616,43 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
     });
   }
 
-  // ---------------- UI ----------------
+  Future<void> _addAssetToWatchlist(AssetId assetId) async {
+    if (_inWatchlist.contains(assetId)) return;     // already added
+    if (_adding[assetId] == true) return;           // guard
 
+    // mark inflight + optional optimistic update (remove if you prefer)
+    setState(() {
+      _adding[assetId] = true;
+      _inWatchlist = {..._inWatchlist, assetId};
+    });
+
+    // fire-and-forget; UI thread free rahega
+    unawaited(_wl.addToWatchlist(id: widget.watchlistId ?? "", assetIds: [assetId]).then((_) {
+      if (!mounted) return;
+      setState(() => _adding[assetId] = false);
+      // detailStream se actual state resync ho jayegi
+    }).catchError((e, st) {
+      if (!mounted) return;
+      // rollback optimistic on error
+      setState(() {
+        _adding[assetId] = false;
+        _inWatchlist = _inWatchlist.where((id) => id != assetId).toSet();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to add — try again')),
+      );
+    }));
+  }
+
+
+  // ---------------- UI helpers ----------------
   List<String> trendingStocks = const ["Tata Motors", "Reliance", "BSE", "Tata Steel"];
 
   Widget _buildChip(String label, {bool selected = false, VoidCallback? onTap}) {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     return GestureDetector(
       onTap: () {
-        _closeKeyboard(); // <— close when tapping filters
+        _closeKeyboard();
         onTap?.call();
       },
       child: Container(
@@ -636,219 +685,247 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
     final bool isTablet = screenWidth > 600;
     final horizontalPadding = isTablet ? 24.0 : 16.0;
 
-    return ChatGPTBottomSheetWrapper(
-      key: _sheetKey,
-      child: PopScope(
-        canPop: false,
-        onPopInvoked: (didPop) async {
-          if (!didPop) {
-            await _handleBackNavigation();
-          }
-        },
-        child: GestureDetector(
-          // Dismiss keyboard when tapping outside ANYWHERE
-          onTap: _closeKeyboard,
-          child: SafeArea(
-            top: false,
-            bottom: false,
-            child: Scaffold(
-              backgroundColor: theme.background,
-              // extendBody: true,
-              appBar: AppBar(
-                leading: IconButton(
-                  icon: Icon(Icons.arrow_back, color: theme.icon, size: 24),
-                  onPressed: () {
-                    HapticFeedback.mediumImpact();
-                    _handleBackNavigation(); // Use our custom navigation handler
-                  },
-                ),
-                titleSpacing: 0,
-                title: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  onSubmitted: _onSearchSubmitted, // closes keyboard
-                  onChanged: _searchStock,         // real-time, keep open
-                  autofocus: true,
-                  textInputAction: TextInputAction.search,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: theme.text,
-                    fontFamily: 'DM Sans',
+    return MediaQuery.removePadding(
+      context: context,
+      child: ChatGPTBottomSheetWrapper(
+        key: _sheetKey,
+        child: WillPopScope(
+          onWillPop: () async {
+            _closeKeyboard();
+
+            // if a bottom sheet from this screen is open, close it and CANCEL back
+            final isSheetOpen = _sheetKey.currentState?.isSheetOpen ?? false;
+            if (isSheetOpen) {
+              _sheetKey.currentState?.closeSheet();
+              return false; // don’t pop route now
+            }
+
+            // notify parent (e.g., open drawer there)
+            widget.onBack?.call();
+
+            return true; // allow system/gesture back to pop this route
+          },
+          child: GestureDetector(
+            onTap: _closeKeyboard,
+            child: SafeArea(
+              top: false,
+              bottom: false,
+              child: Scaffold(
+                backgroundColor: theme.background,
+                appBar: AppBar(
+                  leading: IconButton(
+                    icon: Icon(Icons.arrow_back, color: theme.icon, size: 24),
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      _closeKeyboard();
+
+                      // close sheet if open; else pop
+                      final isSheetOpen = _sheetKey.currentState?.isSheetOpen ?? false;
+                      if (isSheetOpen) {
+                        _sheetKey.currentState?.closeSheet();
+                        return;
+                      }
+
+                      widget.onBack?.call();     // parent may open drawer
+                      Navigator.of(context).pop(); // just pop; no await
+                    },
                   ),
-                  decoration: InputDecoration(
-                    hintText: 'Search stocks',
-                    hintStyle: TextStyle(
-                      color: theme.text.withOpacity(0.6),
+                  titleSpacing: 0,
+                  title: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    onSubmitted: _onSearchSubmitted,
+                    onChanged: _searchStock,
+                    autofocus: true,
+                    textInputAction: TextInputAction.search,
+                    style: TextStyle(
                       fontSize: 16,
+                      color: theme.text,
                       fontFamily: 'DM Sans',
                     ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                    decoration: InputDecoration(
+                      hintText: 'Search stocks',
+                      hintStyle: TextStyle(
+                        color: theme.text.withOpacity(0.6),
+                        fontSize: 16,
+                        fontFamily: 'DM Sans',
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                    ),
+                  ),
+                  backgroundColor: theme.background,
+                  surfaceTintColor: theme.background,
+                  shadowColor: Colors.transparent,
+                  systemOverlayStyle: SystemUiOverlayStyle(
+                    statusBarColor: theme.background,
+                    statusBarIconBrightness: Brightness.dark,
                   ),
                 ),
-                backgroundColor: theme.background,
-                surfaceTintColor: theme.background,
-                shadowColor: Colors.transparent,
-                systemOverlayStyle: SystemUiOverlayStyle(
-                  statusBarColor: theme.background,
-                  statusBarIconBrightness: Brightness.dark,
-                ),
-              ),
-              body: SafeArea(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
-                  child: SingleChildScrollView(
-                    // Also dismiss on scroll gestures
-                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Divider(thickness: 0, color: Colors.grey.withOpacity(0.5)),
-                        const SizedBox(height: 16),
+                body: SafeArea(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
+                    child: SingleChildScrollView(
+                      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Divider(thickness: 0, color: Colors.grey.withOpacity(0.5)),
+                          const SizedBox(height: 16),
 
-                        // Filter chips
-                        SizedBox(
-                          height: 30,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            children: [
-                              const SizedBox(width: 8),
-                              _buildChip("All", selected: true),
-                              _buildChip("Stocks"),
-                              _buildChip("MF"),
-                              _buildChip("ETF"),
-                              const SizedBox(width: 8),
-                            ],
+                          // Filter chips
+                          SizedBox(
+                            height: 30,
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
+                              children: [
+                                const SizedBox(width: 8),
+                                _buildChip("All", selected: true),
+                                _buildChip("Stocks"),
+                                _buildChip("MF"),
+                                _buildChip("ETF"),
+                                const SizedBox(width: 8),
+                              ],
+                            ),
                           ),
-                        ),
 
-                        const SizedBox(height: 20),
+                          const SizedBox(height: 20),
 
-                        // Recent searches
-                        if (!_loading && _results.isEmpty && _lastQuery.isEmpty && _recentSearches.isNotEmpty)
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ..._recentSearches.take(3).map(
-                                    (term) => InkWell(
-                                  onTap: () {
-                                    _controller.text = term;
-                                    _onSearchSubmitted(term); // closes inside
-                                  },
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: horizontalPadding,
-                                      vertical: 8,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey.shade200,
-                                            shape: BoxShape.circle,
+                          // Recent searches
+                          if (!_loading && _results.isEmpty && _lastQuery.isEmpty && _recentSearches.isNotEmpty)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ..._recentSearches.take(3).map(
+                                      (term) => InkWell(
+                                    onTap: () {
+                                      _controller.text = term;
+                                      _onSearchSubmitted(term);
+                                    },
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: horizontalPadding,
+                                        vertical: 8,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.shade200,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(Icons.history, size: 18, color: Colors.black54),
                                           ),
-                                          child: const Icon(Icons.history, size: 18, color: Colors.black54),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              term,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontFamily: 'DM Sans',
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(Icons.close, size: 18, color: Colors.grey.shade600),
+                                            onPressed: () {
+                                              _closeKeyboard();
+                                              _removeRecentSearch(term);
+                                            },
+                                            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                            padding: EdgeInsets.zero,
+                                            splashRadius: 20,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                          // Loading
+                          if (_loading)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(24.0),
+                                child: CircularProgressIndicator(color: Color(0xFFF66A00)),
+                              ),
+                            ),
+
+                          // Results
+                          if (!_loading && _results.isNotEmpty)
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: _results.map((asset) {
+                                  final bool inWL = _inWatchlist.contains(asset.id);
+                                  final bool busy = _adding[asset.id] == true;
+                                  return ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Row(
+                                      children: [
+                                        const CircleAvatar(
+                                          backgroundColor: Color(0xFFD9D9D9),
+                                          maxRadius: 15,
+                                          child: Icon(Icons.trending_up, size: 18, color: Colors.black),
                                         ),
                                         const SizedBox(width: 12),
                                         Expanded(
                                           child: Text(
-                                            term,
-                                            style: const TextStyle(
+                                            asset.name,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
                                               fontSize: 16,
                                               fontFamily: 'DM Sans',
+                                              color: theme.text,
                                             ),
-                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
+                                        const Spacer(),
+                                        // Bookmark icon → Add to watchlist
                                         IconButton(
-                                          icon: Icon(Icons.close, size: 18, color: Colors.grey.shade600),
-                                          onPressed: () {
-                                            _closeKeyboard();
-                                            _removeRecentSearch(term);
-                                          },
-                                          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                                          padding: EdgeInsets.zero,
-                                          splashRadius: 20,
+                                          tooltip: inWL ? 'Added' : 'Add to watchlist',
+                                          onPressed: (inWL || busy) ? null : () => _addAssetToWatchlist(asset.id),
+                                          icon: busy
+                                              ? const SizedBox(
+                                            width: 18, height: 18,
+                                            child: CircularProgressIndicator(strokeWidth: 2),
+                                          )
+                                              : Icon(
+                                            inWL ? Icons.bookmark : Icons.bookmark_border,
+                                            size: 22,
+                                            color: inWL ?  AppColors.primary : theme.icon,
+                                          ),
                                         ),
                                       ],
                                     ),
-                                  ),
+                                    onTap: () => _openStockDetailSheet(asset.id),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+
+                          // No results
+                          if (!_loading && _results.isEmpty && _lastQuery.isNotEmpty)
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
+                              child: Text(
+                                'No results for "$_lastQuery"',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 14,
+                                  fontFamily: 'DM Sans',
                                 ),
                               ),
-                            ],
-                          ),
-
-                        // Loading
-                        if (_loading)
-                          const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(24.0),
-                              child: CircularProgressIndicator(color: Color(0xFFF66A00)),
                             ),
-                          ),
 
-                        // Results
-                        if (!_loading && _results.isNotEmpty)
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: _results.map((asset) {
-                                return ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Row(
-                                    children: [
-                                      const CircleAvatar(
-                                        child: Icon(Icons.trending_up, size: 18, color: Colors.black),
-                                        backgroundColor: Color(0xFFD9D9D9),
-                                        maxRadius: 15,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          asset.name,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontFamily: 'DM Sans',
-                                            color: theme.text,
-                                          ),
-                                        ),
-                                      ),
-                                      Spacer(),
-                                      InkWell(
-                                        onTap: (){},
-                                        child: Icon(
-                                         Icons.bookmark_border,
-                                          size: 22,
-                                          color: theme.icon,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  onTap: () => _openStockDetailSheet(asset.id), // closes + opens sheet
-                                );
-                              }).toList(),
-                            ),
-                          ),
-
-                        // No results
-                        if (!_loading && _results.isEmpty && _lastQuery.isNotEmpty)
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
-                            child: Text(
-                              'No results for "$_lastQuery"',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 14,
-                                fontFamily: 'DM Sans',
-                              ),
-                            ),
-                          ),
-
-                        const SizedBox(height: 24),
-                      ],
+                          const SizedBox(height: 24),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -883,7 +960,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
               return InkWell(
                 onTap: () {
                   _controller.text = label;
-                  _onSearchSubmitted(label); // closes inside
+                  _onSearchSubmitted(label);
                 },
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
@@ -920,4 +997,5 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
     );
   }
 }
+
 

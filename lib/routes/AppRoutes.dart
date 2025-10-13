@@ -10,6 +10,9 @@ import 'package:vscmoney/screens/asset_page/assets_page.dart';
 
 import '../models/chat_session.dart';
 import '../new_chat_screen.dart';
+import '../screens/presentation/auth/biometric_enable_screen.dart';
+import '../screens/presentation/onboarding/hello_screen.dart';
+import '../screens/presentation/onboarding/level_screen.dart';
 import '../screens/presentation/onboarding/onoarding_page.dart';
 
 
@@ -22,6 +25,8 @@ import 'package:vscmoney/screens/presentation/onboarding/onboarding_screen_1.dar
 import 'package:vscmoney/screens/presentation/onboarding/onboarding_screen_2.dart';
 
 import '../screens/presentation/splash_screen.dart';
+import '../screens/presentation/watchlist/watchlist_detail.dart';
+import '../screens/presentation/watchlist/watchlist_screen.dart';
 import '../services/chat_service.dart';
 import '../services/conversation_service.dart';
 import '../services/locator.dart';
@@ -29,7 +34,6 @@ import '../testpage.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
-final chatservice = locator<ChatService>();
 class AppRouter {
   static final router = GoRouter(
     navigatorKey: rootNavigatorKey,
@@ -42,9 +46,57 @@ class AppRouter {
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
           child: SplashScreen(),
-         // child:  StockDetailPage(stockName: "Zomato", stockSymbol: "Zomato", onClose: (){}),
+         // child:  WarmHelloScreen(
+         //    name: "Piyush",
+         //  //   nextNamedRoute: '/flow',         // 👈 add this
+         //  // autoNavigateAfter: Duration(seconds: 5) // if your screen uses it
+         //  ),
           transitionsBuilder: dissolveTransition,
         ),
+      ),
+      GoRoute(
+        path: '/watchlist/:id',
+        builder: (ctx, st) => WatchlistDetailPage(
+          watchlistId: st.pathParameters['id']!,
+        ),
+      ),
+
+      GoRoute(
+        path: '/flow',
+        name: 'flow',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          //child: SplashScreen(),
+          child:  OnboardingFlow(
+            onFinished: () {
+
+            },
+          ),
+          transitionsBuilder: dissolveTransition,
+        ),
+      ),
+      GoRoute(
+        path: '/asset/:assetId',  // ✅ Dynamic path parameter
+        name: 'asset',
+        pageBuilder: (context, state) {
+          // ✅ Extract assetId from path parameters
+          final assetId = state.pathParameters['assetId'] ?? '';
+
+          // ✅ Optional: Extract query parameters if needed
+          final fromWatchlist = state.uri.queryParameters['from'] == 'watchlist';
+
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: AssetPage(
+              assetId: assetId,
+              onClose: () {
+                // ✅ Navigate back using context
+                context.pop();
+              },
+            ),
+            transitionsBuilder: slideLeftTransition,
+          );
+        },
       ),
       GoRoute(
         path: '/onboarding',
@@ -251,6 +303,33 @@ class AppRouter {
           transitionsBuilder: slideLeftTransition,
         ),
       ),
+      GoRoute(
+        path: '/watchlist',
+        name: 'watchlist',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: WatchlistListPage(),
+          transitionsBuilder: slideLeftTransition,
+        ),
+      ),
+      GoRoute(
+        path: '/warm',
+        name: 'warm',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: WarmHelloScreen(name: "Piyush"),
+          transitionsBuilder: slideLeftTransition,
+        ),
+      ),
+      GoRoute(
+        path: '/info',
+        name: 'info',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: OnboardingKnowledgeScreen(),
+          transitionsBuilder: dissolveTransition,
+        ),
+      ),
     ],
 
     errorPageBuilder: (context, state) => _errorPage(state, state.error.toString()),
@@ -303,19 +382,25 @@ Widget fadeTransition(BuildContext context, Animation<double> animation,
   );
 }
 // Slide up transition
-Widget slideUpTransition(BuildContext context, Animation<double> animation,
-    Animation<double> secondaryAnimation, Widget child) {
-  return SlideTransition(
-    position: Tween<Offset>(
-      begin: const Offset(0, 1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: animation,
-      curve: Curves.easeOutQuart,
-    )),
-    child: child,
+Widget slideUpTransition(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+    ) {
+  final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+  return FadeTransition(
+    opacity: curved,
+    child: SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 0.12), // ⬆️ from bottom
+        end: Offset.zero,
+      ).animate(curved),
+      child: child,
+    ),
   );
 }
+
 
 // Slide left transition
 Widget slideLeftTransition(BuildContext context, Animation<double> animation,
@@ -364,6 +449,9 @@ Widget sharedAxisTransition(BuildContext context, Animation<double> animation,
     child: child,
   );
 }
+
+
+
 
 Widget fadeTransitions(BuildContext context, Animation<double> animation,
     Animation<double> secondaryAnimation, Widget child) {

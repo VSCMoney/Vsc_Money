@@ -444,7 +444,7 @@ class _NewPairWidgetState extends State<NewPairWidget> {
         Transform.translate(
           offset: const Offset(0, 10),
           child: Padding(
-            padding: const EdgeInsets.only(top: 0, bottom: 0, right: 10),
+            padding: const EdgeInsets.only(top: 0, bottom: 0, right: 14),
             child: Align(
               alignment: Alignment.centerRight,
               child: Row(

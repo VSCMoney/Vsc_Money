@@ -17,9 +17,6 @@ import 'constants/widgets.dart';
 import 'core/helpers/themes.dart';
 import 'models/chat_message.dart';
 
-
-
-
 class NewChatScreen extends StatefulWidget {
   final ChatService chatService;
   final Function(String)? onAskVitty;
@@ -38,21 +35,25 @@ class NewChatScreen extends StatefulWidget {
   State<NewChatScreen> createState() => _NewChatScreenState();
 }
 
-class _NewChatScreenState extends State<NewChatScreen>with WidgetsBindingObserver {
+class _NewChatScreenState extends State<NewChatScreen>
+    with WidgetsBindingObserver {
   final FocusNode _focusNode = FocusNode();
   final _textFieldKey = GlobalKey();
-  double _keyboardInset = 0;
+
   double _inputHeight = 0;
-  double _manualKeyboardHeight = 336.0;
 
   final AudioService _audioService = AudioService.instance;
   String? _lastLoadedSessionId;
 
   bool _isEditing = false;
-
-  // ✅ Only flag for ghost mode
   bool _ghostMode = false;
   bool _isKeyboardVisible = false;
+
+  // ✅ Local state for isListening
+  bool _isListening = false;
+
+  // ✅ Stream subscription
+  StreamSubscription<bool>? _isListeningSubscription;
 
   @override
   void initState() {
@@ -60,6 +61,14 @@ class _NewChatScreenState extends State<NewChatScreen>with WidgetsBindingObserve
     WidgetsBinding.instance.addObserver(this);
     _audioService.initialize();
     _loadMessagesIfNeeded();
+
+    // ✅ Listen to isListening stream
+    _isListeningSubscription = _audioService.isListening$.listen((listening) {
+      if (mounted && _isListening != listening) {
+        setState(() => _isListening = listening);
+        print('🎙️ isListening changed: $listening');
+      }
+    });
 
     _focusNode.addListener(() {
       print('🎯 Focus changed: ${_focusNode.hasFocus}');
@@ -97,9 +106,8 @@ class _NewChatScreenState extends State<NewChatScreen>with WidgetsBindingObserve
   @override
   void didChangeMetrics() {
     // Force rebuild when IME shows/hides.
-      setState(() {});
-     }
-
+    setState(() {});
+  }
 
   void _loadMessagesIfNeeded() {
     final session = widget.chatService.currentSession;
@@ -114,8 +122,9 @@ class _NewChatScreenState extends State<NewChatScreen>with WidgetsBindingObserve
   void beginEditing(String text) {
     setState(() => _isEditing = true);
     widget.chatService.textController.text = text;
-    widget.chatService.textController.selection =
-        TextSelection.fromPosition(TextPosition(offset: text.length));
+    widget.chatService.textController.selection = TextSelection.fromPosition(
+      TextPosition(offset: text.length),
+    );
     FocusScope.of(context).requestFocus(_focusNode);
   }
 
@@ -165,15 +174,16 @@ class _NewChatScreenState extends State<NewChatScreen>with WidgetsBindingObserve
 
   @override
   Widget build(BuildContext context) {
+    //print("rebuilt");
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
-    final isListening = _audioService.isListening;
+    final isListening = _isListening; // ✅ Use local state
 
     final hasAnyMessages = widget.chatService.pairs.isNotEmpty;
     final isTyping = widget.chatService.isTyping;
     final hasText = widget.chatService.textController.text.trim().isNotEmpty;
     final activeGhostMode = _ghostMode && hasText;
     final mediaQuery = MediaQuery.of(context);
-     final viewInsets = mediaQuery.viewInsets;
+    final viewInsets = mediaQuery.viewInsets;
     final kb = View.of(context).viewInsets.bottom;
 
     final double suggestionsBottom = _inputHeight + 8;
@@ -213,41 +223,46 @@ class _NewChatScreenState extends State<NewChatScreen>with WidgetsBindingObserve
               ),
 
               MeasureSize(
-              onChange: (sz) => setState(() => _inputHeight = (sz?.height ?? 0)),
-              child: ChatInputWidget(
-              controller: widget.chatService.textController,
-              focusNode: _focusNode,
-              textFieldKey: _textFieldKey,
-              isTyping: widget.chatService.isTyping,
-              keyboardInset: kb,
-              isEditing: _isEditing,
-              onCancelEdit: _cancelEditing,
-              onSendMessage: _sendMessage,
-              onStopResponse: _stopResponse,
-              onTextChanged: () {
-              if (_ghostMode && widget.chatService.textController.text.trim().isEmpty) {
-              _ghostMode = false;
-              }
-              if (mounted) setState(() {});
-              },
-              audioService: _audioService,
-              )),
+                onChange: (sz) => setState(() => _inputHeight = (sz?.height ?? 0)),
+                child: ChatInputWidget(
+                  controller: widget.chatService.textController,
+                  focusNode: _focusNode,
+                  textFieldKey: _textFieldKey,
+                  isTyping: widget.chatService.isTyping,
+                  keyboardInset: kb,
+                  isEditing: _isEditing,
+                  onCancelEdit: _cancelEditing,
+                  onSendMessage: _sendMessage,
+                  onStopResponse: _stopResponse,
+                  onTextChanged: () {
+                    if (_ghostMode &&
+                        widget.chatService.textController.text.trim().isEmpty) {
+                      _ghostMode = false;
+                    }
+                    if (mounted) setState(() {});
+                  },
+                  audioService: _audioService,
+                ),
+              ),
             ],
           ),
 
-          if ((showNormalCards || activeGhostMode))
+          // ✅ Cards disappear when listening
+          if ((showNormalCards || activeGhostMode) && !isListening)
             Positioned(
-              left: 20,
+              left: 16,
               right: 0,
               bottom: suggestionsBottom,
-              child: isListening ? SizedBox.shrink() :SuggestionsWidget(
+              child: SuggestionsWidget(
                 ghost: activeGhostMode,
                 key: ValueKey<bool>(activeGhostMode),
                 controller: widget.chatService.textController,
                 onAskVitty: (text) {
                   widget.chatService.textController.text = text;
                   widget.chatService.textController.selection =
-                      TextSelection.fromPosition(TextPosition(offset: text.length));
+                      TextSelection.fromPosition(
+                        TextPosition(offset: text.length),
+                      );
                 },
                 onSuggestionSelected: () => setState(() => _ghostMode = true),
               ),
@@ -261,32 +276,10 @@ class _NewChatScreenState extends State<NewChatScreen>with WidgetsBindingObserve
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _focusNode.dispose();
+    _isListeningSubscription?.cancel(); // ✅ Cancel subscription
     super.dispose();
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // class _StatusHeader extends StatefulWidget {
 //   final bool isLatest;
@@ -357,11 +350,3 @@ class _NewChatScreenState extends State<NewChatScreen>with WidgetsBindingObserve
 //     );
 //   }
 // }
-
-
-
-
-
-
-
-

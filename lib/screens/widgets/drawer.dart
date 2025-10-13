@@ -235,7 +235,11 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 title: 'Research',
                 isActive: _selectedItem == 'Research',
                 onTap: () {
-
+                  HapticFeedback.mediumImpact();
+                  Navigator.pop(context);
+                  Future.delayed(const Duration(milliseconds: 180), () {
+                    context.push('/watchlist');
+                  });
                 },
               ),
 

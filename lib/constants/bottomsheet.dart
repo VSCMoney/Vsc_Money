@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:vscmoney/screens/presentation/watchlist/watchlist_detail.dart';
 import '../screens/AskVitty.dart';
 import '../screens/presentation/settings/settings_screen.dart';
 import '../screens/asset_page/assets_page.dart';
@@ -591,7 +592,16 @@ class BottomSheetManager {
     return AssetPage(
      assetId: assetId,
       onClose: onTap,
+    );
+  }
 
+  static Widget buildWachlistDetailSheet({
+    required watchlistid,
+    required VoidCallback onTap,
+  }) {
+    return WatchlistDetailPage(
+      watchlistId: watchlistid,
+onTap: onTap,
     );
   }
 

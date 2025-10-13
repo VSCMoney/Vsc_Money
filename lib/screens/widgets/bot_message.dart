@@ -837,7 +837,7 @@ class _NewBotResponsesListState extends State<NewBotResponsesList> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1253,7 +1253,7 @@ class _NewBotMessageWidgetState extends State<NewBotMessageWidget>
           text: '${sectionHeaderMatch.group(1)?.trim()}\n',
           style: base.copyWith(
             fontWeight: FontWeight.w700,
-            fontSize: 18,
+            fontSize: 16,
             color: const Color(0xFF2C3E50),
             height: 1.8,
           ),
@@ -1558,7 +1558,7 @@ class _NewBotMessageWidgetState extends State<NewBotMessageWidget>
             !_hasEverRenderedContent;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4, top: 22),
+      padding: const EdgeInsets.only(bottom: 4, top: 22,),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

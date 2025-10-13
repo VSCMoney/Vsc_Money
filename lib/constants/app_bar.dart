@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:vscmoney/constants/colors.dart';
 import 'package:vscmoney/constants/widgets.dart';
 
 import '../services/locator.dart';
@@ -261,7 +262,7 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isTablet = screenWidth > 600;
-    final double horizontalPadding = 23.0;
+    final double horizontalPadding = 16.0;
     final double logoHeight = isTablet ? 50 : 46;
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
@@ -363,7 +364,7 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                       : Text(
                     widget.title,
                     style: TextStyle(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: theme.text,
                       fontSize: isTablet ? 22 : 20,
                       fontFamily: 'DM Sans',
@@ -393,11 +394,11 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                               }
                             },
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 0),
+                              padding: const EdgeInsets.only(right: 40),
                               child: SvgPicture.asset(
-                                "assets/images/drawer.svg",
-                                height: 36,
-                                width: 36,
+                                "assets/images/new_drawer.svg",
+                                // height: 20,
+                                // width: 20,
                                 color: theme.icon,
                               ),
                             ),
@@ -456,18 +457,18 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
                                     widget.onNewChatTap();
                                   }
                                 },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(0.0),
-                                  // ✅ Show different icon based on showNewChatButton
-                                  child: widget.showNewChatButton
-                                      ? const _BoldNewChatIcon()  // When chat exists
-                                      : SvgPicture.asset(              // When no chat (empty state)
-                                    'assets/images/secret_chat.svg',  // Replace with your icon
-                                    width: 21,
-                                    height: 21,
-                                    color: theme.icon,
-                                    fit: BoxFit.contain,
-                                  ),
+                                child: widget.showNewChatButton
+                                    ?  Padding(
+                                      padding: const EdgeInsets.only(left: 16.0),
+                                      child: _BoldNewChatIcon(),
+                                    )
+                                    :
+                                SvgPicture.asset(              // When no chat (empty state)
+                                  'assets/images/secret_chat.svg',  // Replace with your icon
+                                  width: 21,
+                                  height: 21,
+                                  color: theme.icon,
+                                  fit: BoxFit.contain,
                                 ),
                               ),
                             ),
@@ -481,7 +482,7 @@ class _AnimatedAppBarState extends State<AnimatedAppBar>
             ),
           ),
         ),
-        if (widget.showDivider)
+        // if (widget.showDivider)
           Container(
             height: 1,
             margin: EdgeInsets.zero,
@@ -511,14 +512,11 @@ class _BoldNewChatIcon extends StatelessWidget {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
     return Stack(
-      alignment: Alignment.center,
+      alignment: Alignment.centerRight,
       children: [
-        SvgPicture.asset("assets/images/newChat.svg", width: 32, height: 32,color: theme.icon,),
-        Positioned(
-          left: 0.5,
-          top: 0.5,
-          child: SvgPicture.asset("assets/images/newChat.svg", height: 32, width: 32, color: theme.icon),
-        ),
+        SvgPicture.asset("assets/images/ios_chat_create.svg",
+          width: 22, height: 22,
+          color: theme.icon,),
       ],
     );
   }

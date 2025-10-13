@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../services/locator.dart';
 import '../../services/theme_service.dart';
 
 
@@ -22,7 +23,7 @@ class SuggestionsWidget extends StatefulWidget {
   final Function(String)? onAskVitty;
   final VoidCallback? onSuggestionSelected;
 
-  /// Parent-controlled: true => show transparent “ghost” cards
+
   final bool ghost;
 
   const SuggestionsWidget({
@@ -40,8 +41,7 @@ class SuggestionsWidget extends StatefulWidget {
 class _SuggestionsWidgetState extends State<SuggestionsWidget> {
   late Timer _timer;
   int _tick = 0;
-  //double _kNormalChipWidth = 242;  // Was 260
-  double _kInlineTickerWidth = 140;
+
 
 
   // Dummy streams updating every 2s (Nifty & Sensex)
@@ -86,6 +86,7 @@ class _SuggestionsWidgetState extends State<SuggestionsWidget> {
     widget.onSuggestionSelected?.call();
   }
 
+
   Widget _buildNormalChip({
     required String title,
     required String subtitle,
@@ -97,32 +98,28 @@ class _SuggestionsWidgetState extends State<SuggestionsWidget> {
     final card = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        // gradient: LinearGradient(
-        //   colors: theme.gradient,
-        //   stops: const [0, 0.15],
+        // gradient: const LinearGradient(
+        //   begin: Alignment.topLeft,
+        //   end: Alignment.bottomRight,
+        //   colors: [
+        //     Color(0xFFFFFFFE), // Almost white
+        //     Color(0xFFFEFCFA), // Barely cream
+        //     Color(0xFFFCF9F6), // Very subtle cream
+        //     Color(0xFFF9F5F1), // Light cream
+        //     Color(0xFFF6F0EC), // Soft cream
+        //     Color(0xFFF3EDE8), // Medium cream
+        //     Color(0xFFF1EAE4), // Full cream
+        //   ],
+        //   stops: [0.0, 0.02, 0.06, 0.12, 0.20, 0.32, 1.0],
         // ),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFFFFFE), // Almost white
-            Color(0xFFFEFCFA), // Barely cream
-            Color(0xFFFCF9F6), // Very subtle cream
-            Color(0xFFF9F5F1), // Light cream
-            Color(0xFFF6F0EC), // Soft cream
-            Color(0xFFF3EDE8), // Medium cream
-            Color(0xFFF1EAE4), // Full cream
-          ],
-          stops: [0.0, 0.02, 0.06, 0.12, 0.20, 0.32, 1.0],
-        ),
-        //  color: theme.message,
-        borderRadius: BorderRadius.circular(7),
+        gradient: appBackgroundGradient(context),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Color(0x29000000),
-            blurRadius: 3,
-            spreadRadius: 1,
-            offset: const Offset(0, 3),
+            color: Color(0xFF000000).withOpacity(0.12), // ✅ Lighter opacity
+            blurRadius: 5,            // ✅ HIGH blur for rounded shadow
+            spreadRadius: 0,           // ✅ No spread
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -150,7 +147,6 @@ class _SuggestionsWidgetState extends State<SuggestionsWidget> {
                 ),
                 if (inlinePoint != null) ...[
                   const SizedBox(width: 8),
-                  // ✅ REMOVED fixed width - let it shrink to content
                   _InlineOdometerTicker(
                     label: 'Nifty50',
                     point: inlinePoint,
@@ -182,8 +178,97 @@ class _SuggestionsWidgetState extends State<SuggestionsWidget> {
     );
   }
 
+  // Widget _buildNormalChip({
+  //   required String title,
+  //   required String subtitle,
+  //   required String suggestionText,
+  //   _Point? inlinePoint,
+  // }) {
+  //   final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+  //
+  //   final card = Container(
+  //     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+  //     decoration: BoxDecoration(
+  //       gradient:   LinearGradient(
+  //         begin: Alignment.topLeft,
+  //         end: Alignment.bottomRight,
+  //         colors: [
+  //           Color(0xFFFFFFFE), // Almost white
+  //           Color(0xFFFEFCFA), // Barely cream
+  //           Color(0xFFFCF9F6), // Very subtle cream
+  //           Color(0xFFF9F5F1), // Light cream
+  //           Color(0xFFF6F0EC), // Soft cream
+  //           Color(0xFFF3EDE8), // Medium cream
+  //           Color(0xFFF1EAE4), // Full cream
+  //         ],
+  //         stops: [0.0, 0.02, 0.06, 0.12, 0.20, 0.32, 1.0],
+  //       ),
+  //       borderRadius: BorderRadius.circular(16),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Color(0xff000000).withOpacity(0.25), // ✅ Lighter opacity
+  //           blurRadius: 2,            // ✅ More blur
+  //           spreadRadius: 0,           // ✅ No spread (spread creates rectangle effect)
+  //           offset: const Offset(0, 4),
+  //         ),
+  //       ],
+  //     ),
+  //     child: IntrinsicWidth(
+  //       child: Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         mainAxisSize: MainAxisSize.min,
+  //         children: [
+  //           // Title + inline ticker area
+  //           Row(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             mainAxisSize: MainAxisSize.max,
+  //             children: [
+  //               Expanded(
+  //                 child: Text(
+  //                   title,
+  //                   maxLines: 1,
+  //                   style: TextStyle(
+  //                     fontWeight: FontWeight.bold,
+  //                     fontFamily: 'DM Sans',
+  //                     color: theme.text,
+  //                     fontSize: 14,
+  //                   ),
+  //                 ),
+  //               ),
+  //               if (inlinePoint != null) ...[
+  //                 const SizedBox(width: 8),
+  //                 _InlineOdometerTicker(
+  //                   label: 'Nifty50',
+  //                   point: inlinePoint,
+  //                 ),
+  //               ],
+  //             ],
+  //           ),
+  //           const SizedBox(height: 8),
+  //           Text(
+  //             subtitle,
+  //             maxLines: 1,
+  //             overflow: TextOverflow.ellipsis,
+  //             style: TextStyle(
+  //               fontSize: 12,
+  //               color: theme.text.withOpacity(0.85),
+  //               fontFamily: "DM Sans",
+  //               fontWeight: FontWeight.w400,
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  //
+  //   return GestureDetector(
+  //     behavior: HitTestBehavior.opaque,
+  //     onTap: () => _pickSuggestion(suggestionText),
+  //     child: card,
+  //   );
+  // }
 
-  // ---------- GHOST CHIP (glass + compact, different layout) ----------
+
   Widget _buildGhostChip({
     required String title,
     required _Point point,
@@ -786,4 +871,39 @@ class _RollingDigitState extends State<_RollingDigit>
 
 
 
+
+
+LinearGradient appBackgroundGradient(BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  if (!isDark) {
+    // LIGHT (tumhara wala)
+    return const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Color(0xFFFFFFFE), // Almost white
+        Color(0xFFFEFCFA), // Barely cream
+        Color(0xFFFCF9F6), // Very subtle cream
+        Color(0xFFF9F5F1), // Light cream
+        Color(0xFFF6F0EC), // Soft cream
+        Color(0xFFF3EDE8), // Medium cream
+        Color(0xFFF1EAE4), // Full cream
+      ],
+      stops: [0.0, 0.02, 0.06, 0.12, 0.20, 0.32, 1.0],
+    );
+  }
+
+  // DARK — charcoal with a cool tint, denser stops for smoother falloff
+  return const LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFF303030),
+      Color(0xFF303030),
+    ],
+    // Slightly tighter early blend, longer tail in the lows
+    stops: [0.0, 0.03],
+  );
+}
 
