@@ -219,10 +219,19 @@ class _InputActionsBarWidgetState extends State<InputActionsBarWidget> {
                     color: Colors.transparent,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(_kTapArea / 2),
-                      onTap: () {
-                        HapticFeedback.mediumImpact();
-                        widget.onStartRecording();
+                      // onTap: () {
+                      //   HapticFeedback.mediumImpact();
+                      //   widget.onStartRecording();
+                      // },
+                      onTapDown: (_) {                  // ✅ fire ASAP
+                        // NO heavy work here
+                        HapticFeedback.mediumImpact(); // ya hata do
+                        widget.onStartRecording();        // sirf UI flip
                       },
+                      onTap: null,                       // ripple delay avoid
+                      splashFactory: NoSplash.splashFactory, // ✅ no splash work
+                      enableFeedback: false,                 // ✅ aur fast
+                      //borderRadius: BorderRadius.circular(_kTapArea / 2),
                       child: Center(
                         child: SvgPicture.asset(
                           "assets/images/mic.svg",

@@ -72,7 +72,7 @@ class WatchlistService {
       final prefs = await SharedPreferences.getInstance();
       final jsonString = prefs.getString(_storeKey);
 
-      if (jsonString != null) {
+      if (jsonString != null && jsonString.isNotEmpty) {
         final Map<String, dynamic> decoded = jsonDecode(jsonString);
         _store.clear();
         decoded.forEach((key, value) {
@@ -80,17 +80,18 @@ class WatchlistService {
         });
         print('✅ Loaded ${_store.length} watchlists from storage');
       } else {
-        // First time - seed with sample data
-        //_seedLocalIfEmpty();
-        await _saveToStorage();
+        // ✅ First time - seed with sample data
+        print('📦 First time launch - seeding data');
+        _seedLocalIfEmpty();
+        await _saveToStorage(); // ✅ Save seeded data immediately
       }
     } catch (e) {
       print('⚠️ Error loading from storage: $e');
       _seedLocalIfEmpty();
+      await _saveToStorage(); // ✅ Save after error recovery
     }
   }
 
-  // Save to persistent storage
   Future<void> _saveToStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -106,10 +107,56 @@ class WatchlistService {
     }
   }
 
-  // Update bootstrap method
+  // ✅ Bootstrap - MUST be called on app start
   Future<void> bootstrap() async {
+    print('🚀 Bootstrapping WatchlistService...');
     await _loadFromStorage();  // ← Load saved data first
-    await refreshList();
+    await refreshList();       // ← Then refresh UI
+    print('✅ WatchlistService ready');
+  }
+
+  // ✅ FIX: Add save to reorderWatchlistAssets
+  Future<WatchlistDetail?> reorderWatchlistAssets({
+    required WatchlistId id,
+    required List<AssetId> orderedAssetIds,
+  }) async {
+    try {
+      _busy$.add(true);
+      _error$.add(null);
+
+      WatchlistDetail updated;
+
+      if (_localMode) {
+        final cur = _store[id];
+        if (cur == null) throw StateError('Watchlist not found');
+
+        // Validate that all assets exist
+        final curSet = cur.assetIds.toSet();
+        final newSet = orderedAssetIds.toSet();
+        if (!curSet.containsAll(newSet) || curSet.length != newSet.length) {
+          throw StateError('Asset list mismatch');
+        }
+
+        updated = cur.copyWith(assetIds: orderedAssetIds);
+        _store[id] = updated;
+        await _saveToStorage(); // ✅ ADDED: Save to storage!
+      } else {
+        final res = await _api.post(
+          endpoint: '/watchlist/reorder',
+          body: {'id': id, 'assets': orderedAssetIds},
+        );
+        updated = WatchlistDetail.fromJson(res as Map<String, dynamic>);
+      }
+
+      _detail$.add(updated);
+      await refreshList();
+      return updated;
+    } catch (e) {
+      _error$.add(handleApiError(e));
+      return null;
+    } finally {
+      _busy$.add(false);
+    }
   }
 
 
@@ -392,48 +439,8 @@ class WatchlistService {
     }
   }
 
-  /// Reorder assets in a watchlist
-  Future<WatchlistDetail?> reorderWatchlistAssets({
-    required WatchlistId id,
-    required List<AssetId> orderedAssetIds,
-  }) async {
-    try {
-      _busy$.add(true);
-      _error$.add(null);
 
-      WatchlistDetail updated;
 
-      if (_localMode) {
-        final cur = _store[id];
-        if (cur == null) throw StateError('Watchlist not found');
-
-        // Validate that all assets exist
-        final curSet = cur.assetIds.toSet();
-        final newSet = orderedAssetIds.toSet();
-        if (!curSet.containsAll(newSet) || curSet.length != newSet.length) {
-          throw StateError('Asset list mismatch');
-        }
-
-        updated = cur.copyWith(assetIds: orderedAssetIds);
-        _store[id] = updated;
-      } else {
-        final res = await _api.post(
-          endpoint: '/watchlist/reorder',
-          body: {'id': id, 'assets': orderedAssetIds},
-        );
-        updated = WatchlistDetail.fromJson(res as Map<String, dynamic>);
-      }
-
-      _detail$.add(updated);
-      await refreshList();
-      return updated;
-    } catch (e) {
-      _error$.add(handleApiError(e));
-      return null;
-    } finally {
-      _busy$.add(false);
-    }
-  }
 
   // ===================================================
   // Helpers

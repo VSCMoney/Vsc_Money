@@ -299,6 +299,7 @@ class _WatchlistDetailPageState extends State<WatchlistDetailPage> {
               child: sortedStocks.isEmpty
                   ? _EmptyState(onAddTap: _onAddStocks)
                   : RefreshIndicator(
+                 color: theme.background,
                 onRefresh: _refresh,
                 child: ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -382,12 +383,12 @@ class _CustomAppBar extends StatelessWidget {
                   child: Center(
                     child: Text(
                       title,
-                      style: const TextStyle(
+                      style:  TextStyle(
                         fontFamily: 'DM Sans',
                         
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: theme.text,
                         letterSpacing: -0.2,
                       ),
                       maxLines: 1,
@@ -576,13 +577,13 @@ class _ControlsRow extends StatelessWidget {
             },
             child: Row(
               children: [
-                const Text(
+                 Text(
                   'Sort',
                   style: TextStyle(
                     fontFamily: 'DM Sans',
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: theme.text,
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -591,7 +592,7 @@ class _ControlsRow extends StatelessWidget {
                 //   size: 20,
                 //   color: Colors.grey.shade600,
                 // ),
-                SvgPicture.asset("assets/images/sort.svg")
+                SvgPicture.asset("assets/images/sort.svg",color: theme.icon,)
               ],
             ),
           ),
@@ -616,7 +617,7 @@ class _ControlsRow extends StatelessWidget {
                     fontFamily: 'DM Sans',
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
+                    color: theme.text,
                   ),
                 ),
               ],
@@ -659,6 +660,7 @@ class _StockListItem extends StatelessWidget {
     final changeColor = stock.isPositive
         ? const Color(0xFF16A34A)
         : const Color(0xFFDC2626);
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
     return Dismissible(
       key: Key(stock.assetId),
@@ -723,7 +725,7 @@ class _StockListItem extends StatelessWidget {
                               fontFamily: 'DM Sans',
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
-                              color: AppColors.black,
+                              color: theme.text,
                               height: 1.3,
                               letterSpacing: -0.2,
                             ),
@@ -741,11 +743,11 @@ class _StockListItem extends StatelessWidget {
                         // Current price
                         Text(
                           _formatPrice(stock.currentPrice),
-                          style: const TextStyle(
+                          style:  TextStyle(
                             fontFamily: 'DM Sans',
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
-                            color: AppColors.black,
+                            color: theme.text,
                             height: 1.3,
                             letterSpacing: -0.3,
                           ),
@@ -987,9 +989,11 @@ class _SortBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration:  BoxDecoration(
+        color: theme.background,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: SafeArea(
@@ -1008,7 +1012,7 @@ class _SortBottomSheet extends StatelessWidget {
             ),
 
             // Title
-            const Padding(
+             Padding(
               padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
               child: Text(
                 'Sort by',
@@ -1016,7 +1020,7 @@ class _SortBottomSheet extends StatelessWidget {
                   fontFamily: 'DM Sans',
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: theme.text,
                 ),
               ),
             ),
@@ -1072,6 +1076,7 @@ class _SortOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSelected = currentSort == value;
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
     return GestureDetector(
       onTap: () {
@@ -1082,6 +1087,7 @@ class _SortOption extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
+          color: theme.background,
           border: isLast
               ? null
               : Border(
@@ -1100,15 +1106,16 @@ class _SortOption extends StatelessWidget {
                   fontFamily: 'DM Sans',
                   fontSize: 16,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: isSelected ? Colors.black87 : Colors.grey.shade700,
+                  // color: isSelected ? Colors.black87 : Colors.grey.shade700,
+                  color: theme.text
                 ),
               ),
             ),
             if (isSelected)
-              const Icon(
+               Icon(
                 Icons.check,
                 size: 20,
-                color: Color(0xFF10B981),
+                color: theme.icon,
               ),
           ],
         ),
@@ -1424,11 +1431,11 @@ class _EditWatchlistPageState extends State<EditWatchlistPage> {
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
                 child: TextField(
                   controller: _nameController,
-                  style: const TextStyle(
+                  style:  TextStyle(
                     fontFamily: 'DM Sans',
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+                    color: theme.text,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Watchlist name',
@@ -1436,13 +1443,13 @@ class _EditWatchlistPageState extends State<EditWatchlistPage> {
                       fontFamily: 'DM Sans',
                       fontSize: 16,
                       fontWeight: FontWeight.w400,
-                      color: theme.background,
+                      color: theme.secondaryText,
                     ),
                     filled: true,
-                   // fillColor: Colors.grey.shade50,
+                    fillColor: theme.box,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade200),
+                      borderSide: BorderSide(color: theme.border),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -1567,16 +1574,16 @@ class _EditAppBar extends StatelessWidget {
                     //   color: Colors.grey.shade100,
                     //   shape: BoxShape.circle,
                     // ),
-                    child: const Icon(
+                    child:  Icon(
                       Icons.arrow_back,
                       size: 20,
-                      color: Colors.black87,
+                      color: theme.icon,
                     ),
                   ),
                 ),
 
                 // Title
-                const Expanded(
+                 Expanded(
                   child: Center(
                     child: Text(
                       'Edit Watchlist',
@@ -1584,7 +1591,7 @@ class _EditAppBar extends StatelessWidget {
                         fontFamily: 'DM Sans',
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: theme.text,
                         letterSpacing: -0.2,
                       ),
                     ),
@@ -1597,7 +1604,7 @@ class _EditAppBar extends StatelessWidget {
                     HapticFeedback.mediumImpact();
                     onDelete();
                   },
-                  child: SvgPicture.asset("assets/images/delete.svg"),
+                  child: SvgPicture.asset("assets/images/delete.svg",color: theme.icon,),
                 ),
               ],
             ),
@@ -1648,6 +1655,8 @@ class _StockEditItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     return Column(
       children: [
         Container(
@@ -1676,7 +1685,7 @@ class _StockEditItem extends StatelessWidget {
                       //   color: Colors.grey.shade100,
                       //   borderRadius: BorderRadius.circular(6),
                       // ),
-                      child: SvgPicture.asset("assets/images/reorder.svg",height: 28,width: 8,fit: BoxFit.fitWidth,)
+                      child: SvgPicture.asset("assets/images/reorder.svg",height: 28,width: 8,fit: BoxFit.fitWidth,color: theme.icon,)
                     ),
                   ),
 
@@ -1686,11 +1695,11 @@ class _StockEditItem extends StatelessWidget {
                   Expanded(
                     child: Text(
                       _getStockName(displayname),
-                      style: const TextStyle(
+                      style:  TextStyle(
                         fontFamily: 'DM Sans',
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
-                        color: Colors.black87,
+                        color: theme.text,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1715,7 +1724,7 @@ class _StockEditItem extends StatelessWidget {
                       child: Icon(
                         Icons.close,
                         size: 20,
-                        color: AppColors.black,
+                        color: theme.icon,
                       ),
                     ),
                   ),

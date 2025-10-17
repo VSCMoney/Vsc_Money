@@ -75,74 +75,109 @@ class _BiometricEnableScreenState extends State<BiometricEnableScreen> {
       value: _theme.isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
       child: Scaffold(
         backgroundColor: theme?.background ?? const Color(0xFFFAF7F1),
-        body: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        body: Stack(
+          fit: StackFit.expand,
           children: [
-            const SizedBox(height: 306),
+            // Your main vertical layout
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(height: 106),
 
-            // top icon (aap apni asset laga do)
-            isIOS
-                ? SvgPicture.asset("assets/images/face_id.svg", height: 72)
-                : Icon(Icons.fingerprint, size: 72, color: AppColors.primary),
+                // ❌ REMOVE the Positioned here
+                // Positioned(...)
 
-            const SizedBox(height: 24),
+                const SizedBox(height: 200),
 
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: const Text(
-                'Your Privacy Matters',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'DM Sans', fontWeight: FontWeight.w500,
-                  fontSize: 25, height: 1.15, color: AppColors.black,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              child: Text(
                 isIOS
-                    ? 'Your Face ID data is never shared\nAuthentication happens securely on your device.'
-                    : 'Your biometric data is never shared\nAuthentication happens securely on your device.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'DM Sans', fontWeight: FontWeight.w300,
-                  fontSize: 15, height: 1.35, color: theme?.text,
+                    ? SvgPicture.asset("assets/images/face_id.svg", height: 72)
+                    : Icon(Icons.fingerprint, size: 72, color: AppColors.primary),
+
+                const SizedBox(height: 24),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    'Your Privacy Matters',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'DM Sans',
+                      fontWeight: FontWeight.w500,
+                      fontSize: 25,
+                      height: 1.15,
+                      color: theme?.text,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  child: Text(
+                    isIOS
+                        ? 'Your Fa'
+                        'ce ID data is never shared\nAuthentication happens securely on your device.'
+                        : 'Your biometric data is never shared\nAuthentication happens securely on your device.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'DM Sans',
+                      fontWeight: FontWeight.w300,
+                      fontSize: 15,
+                      height: 1.35,
+                      color: theme?.text,
+                    ),
+                  ),
+                ),
+
+                const Spacer(),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: CommonButton(
+                    onPressed: _busy ? null : _enableBiometric,
+                    label: isIOS ? 'Enable Face ID' : 'Enable Biometrics',
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                TextButton(
+                  onPressed: _busy ? null : _skip,
+                  child: Text(
+                    'Skip for now',
+                    style: TextStyle(
+                      fontFamily: 'DM Sans',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: theme?.text,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 26),
+              ],
+            ),
+
+            // ✅ Now the Positioned is a child of Stack
+            Positioned(
+              top: 30,
+              bottom: 550,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Image.asset(
+                  "assets/images/ying yang full.png",
+                  height: 108,
+                  width: 160,
                 ),
               ),
             ),
-
-            const Spacer(),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: CommonButton(
-                onPressed: _busy ? null : _enableBiometric,
-                label: isIOS ? 'Enable Face ID' : 'Enable Biometrics',
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            TextButton(
-              onPressed: _busy ? null : _skip,
-              child: Text(
-                'Skip for now',
-                style: TextStyle(
-                  fontFamily: 'DM Sans', fontSize: 14,
-                  fontWeight: FontWeight.w500, color: theme?.text,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 26),
           ],
         ),
       ),
     );
   }
+
 }
 

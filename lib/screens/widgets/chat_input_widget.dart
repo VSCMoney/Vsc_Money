@@ -614,31 +614,63 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
   @override
   void initState() {
     super.initState();
+
+    // ✅ INSTANT animation controller - 0ms duration
     _contentController = AnimationController(
-      duration: const Duration(milliseconds: 0),
+      duration: Duration.zero, // ✅ INSTANT!
       vsync: this,
     );
 
+    // ✅ Linear animations for instant switches
     _textFieldOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _contentController,
-        curve: Curves.easeInOutCubic,
-        reverseCurve: Curves.easeInOutCubic,
+        curve: Curves.linear,  // ✅ No easing delay
+        reverseCurve: Curves.linear,
       ),
     );
 
     _recorderOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _contentController,
-        curve: Curves.easeIn,
-        reverseCurve: Curves.easeOut,
+        curve: Curves.linear,  // ✅ No easing delay
+        reverseCurve: Curves.linear,
       ),
     );
-
 
     _setupAudioSubscriptions();
     widget.controller.addListener(_updateLineCount);
   }
+
+
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   _contentController = AnimationController(
+  //     duration: const Duration(milliseconds: 0),
+  //     vsync: this,
+  //   );
+  //
+  //   _textFieldOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(
+  //     CurvedAnimation(
+  //       parent: _contentController,
+  //       curve: Curves.easeInOutCubic,
+  //       reverseCurve: Curves.easeInOutCubic,
+  //     ),
+  //   );
+  //
+  //   _recorderOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+  //     CurvedAnimation(
+  //       parent: _contentController,
+  //       curve: Curves.easeIn,
+  //       reverseCurve: Curves.easeOut,
+  //     ),
+  //   );
+  //
+  //
+  //   _setupAudioSubscriptions();
+  //   widget.controller.addListener(_updateLineCount);
+  // }
 
   @override
   void dispose() {
@@ -695,73 +727,54 @@ class _ChatInputWidgetState extends State<ChatInputWidget>
   }
 
   void _startRecording() {
-    HapticFeedback.heavyImpact();
-
-    // ✅ Everything happens immediately
+    // 1) UI flip now
     if (mounted) {
       setState(() {
         _preparing = true;
         _isOverwritingTranscript = widget.controller.text.isNotEmpty;
         _shouldPreventFocus = false;
-        _heightAnimDuration = const Duration(milliseconds: 50);
       });
     }
+    _contentController.value = 1.0; // show recorder instantly
 
-    // ✅ Animation starts immediately after setState
-    _contentController.stop();
-    _contentController.animateTo(1.0,
-      duration: const Duration(milliseconds: 150),
-      curve: Curves.easeOut,
-    );
-
-    // ✅ Recording starts asynchronously (non-blocking)
-    widget.audioService
-        .startRecording(existingText: widget.controller.text.trim())
-        .catchError((e) {
-      if (mounted) {
-        _returnToNormal();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Recording failed: $e')),
+    // 2) Heavy work strictly after current frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // micro-queue to avoid blocking frame build
+      Future<void>(() {
+        widget.audioService.startRecording(
+          existingText: widget.controller.text.trim(),
         );
-      }
+      });
     });
   }
 
-// ✅ Also update return to normal
+
+// ✅ INSTANT return to normal
   void _returnToNormal() {
+    if (!mounted) return;
+
+    debugPrint('⚡ [RETURN] Returning to normal at ${DateTime.now().millisecondsSinceEpoch}');
+
     setState(() {
-      _heightAnimDuration = _toTextDuration;
       _preparing = false;
       _isOverwritingTranscript = false;
       _shouldPreventFocus = false;
     });
 
-    _contentController.animateTo(
-      0.0,
-      duration: _heightAnimDuration,
-      curve: Curves.easeInOutCubic,
-    );
+    // ✅ INSTANT jump back
+    _contentController.value = 0.0; // ✅ Direct set, no animation
   }
 
-// ✅ Update recording complete - keyboard already open
   void _onRecordingComplete() {
     _returnToNormal();
-
-    // ✅ SIMPLIFIED: No need to refocus since keyboard never closed
-    Future.delayed(_heightAnimDuration, () {
-      if (mounted) {
-        setState(() => _shouldPreventFocus = false);
-      }
-    });
   }
 
-// ✅ Cancel still closes keyboard (as it should)
   void _onRecordingCancel() {
-    HapticFeedback.mediumImpact();
+    // HapticFeedback.mediumImpact(); // ✅ Remove haptic delay
     _returnToNormal();
-
     setState(() => _shouldPreventFocus = true);
   }
+
 
 
   @override

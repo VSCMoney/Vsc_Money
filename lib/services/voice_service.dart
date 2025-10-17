@@ -680,6 +680,8 @@ class AudioService {
 
   // Audio recorder
   final AudioRecorder _audioRecorder = AudioRecorder();
+  Timer? _mockRmsTimer;
+  bool _isUsingMockRms = false;
 
   // VAD speech detection parameters (no RMS thresholds)
   int _speechFrameCount = 0;
@@ -883,44 +885,44 @@ class AudioService {
   //   }
   // }
 
-  void _processAndroidVadEvent(bool rawIsSpeech, double rawRms) {
-    final now = DateTime.now();
-    final timeSinceLastUpdate = now.difference(_lastRmsUpdate).inMilliseconds;
-
-    if (timeSinceLastUpdate >= _waveformUpdateIntervalMs) {
-      final amp = _normalizeRms(rawRms);
-
-      // ✅ Larger buffer = smoother transitions between loud/quiet
-      _rmsBuffer.add(amp);
-      if (_rmsBuffer.length > 5) _rmsBuffer.removeAt(0); // Increased from 3 to 5
-
-      final avg = _rmsBuffer.reduce((a, b) => a + b) / _rmsBuffer.length;
-
-      _currentRmsSubject.add(avg);
-      _waveformRmsSubject.add(avg);
-      _lastRawRms = avg;
-      _lastRmsUpdate = now;
-
-      debugPrint('🎙️ ANDROID RMS => ${avg.toStringAsFixed(4)} | isSpeech=$rawIsSpeech');
-    }
-
-    // VAD logic unchanged
-    if (rawIsSpeech) {
-      _speechFrameCount++;
-      _silenceFrameCount = 0;
-      if (_speechFrameCount >= _minSpeechFrames && !_isSpeechActive) {
-        _isSpeechActive = true;
-        _isSpeakingSubject.add(true);
-      }
-    } else {
-      _silenceFrameCount++;
-      _speechFrameCount = 0;
-      if (_silenceFrameCount >= _minSilenceFrames && _isSpeechActive) {
-        _isSpeechActive = false;
-        _isSpeakingSubject.add(false);
-      }
-    }
-  }
+  // void _processAndroidVadEvent(bool rawIsSpeech, double rawRms) {
+  //   final now = DateTime.now();
+  //   final timeSinceLastUpdate = now.difference(_lastRmsUpdate).inMilliseconds;
+  //
+  //   if (timeSinceLastUpdate >= _waveformUpdateIntervalMs) {
+  //     final amp = _normalizeRms(rawRms);
+  //
+  //     // ✅ Larger buffer = smoother transitions between loud/quiet
+  //     _rmsBuffer.add(amp);
+  //     if (_rmsBuffer.length > 5) _rmsBuffer.removeAt(0); // Increased from 3 to 5
+  //
+  //     final avg = _rmsBuffer.reduce((a, b) => a + b) / _rmsBuffer.length;
+  //
+  //     _currentRmsSubject.add(avg);
+  //     _waveformRmsSubject.add(avg);
+  //     _lastRawRms = avg;
+  //     _lastRmsUpdate = now;
+  //
+  //     debugPrint('🎙️ ANDROID RMS => ${avg.toStringAsFixed(4)} | isSpeech=$rawIsSpeech');
+  //   }
+  //
+  //   // VAD logic unchanged
+  //   if (rawIsSpeech) {
+  //     _speechFrameCount++;
+  //     _silenceFrameCount = 0;
+  //     if (_speechFrameCount >= _minSpeechFrames && !_isSpeechActive) {
+  //       _isSpeechActive = true;
+  //       _isSpeakingSubject.add(true);
+  //     }
+  //   } else {
+  //     _silenceFrameCount++;
+  //     _speechFrameCount = 0;
+  //     if (_silenceFrameCount >= _minSilenceFrames && _isSpeechActive) {
+  //       _isSpeechActive = false;
+  //       _isSpeakingSubject.add(false);
+  //     }
+  //   }
+  // }
 
 // ✅ iOS: Similar improvements
 //   void _processIosVadEvent(bool rawIsSpeech, double rawRms) {
@@ -1059,28 +1061,28 @@ class AudioService {
   }
 
 
-  Future<void> _stopNativeVad() async {
-    try {
-      final MethodChannel methodChannel = Platform.isIOS ? _iosMethodChannel : _androidMethodChannel;
-
-      // ✅ Stop RMS smoothing timer FIRST
-      _rmsTimer?.cancel();
-
-      await methodChannel.invokeMethod('stop');
-      await _vadSubscription?.cancel();
-      _vadSubscription = null;
-
-      _resetVadState();
-      _isSpeakingSubject.add(false);
-      _currentRmsSubject.add(0.0);
-      _waveformRmsSubject.add(0.0);
-      _displayedRmsSubject.add(0.0);
-
-      debugPrint('✅ VAD fully stopped and RMS timer cancelled');
-    } catch (e) {
-      debugPrint('❌ stopNativeVad error: $e');
-    }
-  }
+  // Future<void> _stopNativeVad() async {
+  //   try {
+  //     final MethodChannel methodChannel = Platform.isIOS ? _iosMethodChannel : _androidMethodChannel;
+  //
+  //     // ✅ Stop RMS smoothing timer FIRST
+  //     _rmsTimer?.cancel();
+  //
+  //     await methodChannel.invokeMethod('stop');
+  //     await _vadSubscription?.cancel();
+  //     _vadSubscription = null;
+  //
+  //     _resetVadState();
+  //     _isSpeakingSubject.add(false);
+  //     _currentRmsSubject.add(0.0);
+  //     _waveformRmsSubject.add(0.0);
+  //     _displayedRmsSubject.add(0.0);
+  //
+  //     debugPrint('✅ VAD fully stopped and RMS timer cancelled');
+  //   } catch (e) {
+  //     debugPrint('❌ stopNativeVad error: $e');
+  //   }
+  // }
 
   // /// Start recording with VAD
   // Future<bool> startRecording({String? existingText}) async {
@@ -1355,8 +1357,8 @@ class AudioService {
 
   Future<bool> startRecording({String? existingText}) async {
     try {
-      HapticFeedback.mediumImpact();
-      debugPrint('⏱️ [START] startRecording called at ${DateTime.now().millisecondsSinceEpoch}');
+      // ❌ REMOVE: HapticFeedback.mediumImpact(); // Duplicate & async delay
+      debugPrint('🚀 [INSTANT] UI response at ${DateTime.now().millisecondsSinceEpoch}');
 
       if (!await _audioRecorder.hasPermission()) {
         _errorSubject.add('Microphone permission not granted');
@@ -1365,128 +1367,251 @@ class AudioService {
 
       _recognizedBackupText = existingText ?? '';
 
-      debugPrint('⏱️ [UI] Setting isListening=true at ${DateTime.now().millisecondsSinceEpoch}');
+      // ✅ 1. INSTANT UI UPDATE (0ms)
       _isListeningSubject.add(true);
       _isTranscribingSubject.add(false);
       _recordingDurationSubject.add('00:00');
       _resetVadState();
       _startRmsSmoothing();
 
-      debugPrint('⏱️ [SCHEDULE] Async work queued at ${DateTime.now().millisecondsSinceEpoch}');
+      // ✅ 2. START MOCK WAVEFORMS IMMEDIATELY
+      _startMockWaveforms();
 
-      // ✅ Start VAD IMMEDIATELY - don't wait for recording
-      Future.delayed(Duration.zero, () async {
-        try {
-          debugPrint('⏱️ [VAD-ASYNC] Started at ${DateTime.now().millisecondsSinceEpoch}');
-          await _startNativeVad();
-          debugPrint('⏱️ [VAD-DONE] VAD ready');
-        } catch (e) {
-          debugPrint('❌ VAD error: $e');
-          _errorSubject.add('Voice detection failed: $e');
-        }
-      });
+      // ✅ 3. BACKGROUND VAD STARTUP
+      _startVadInBackground();
 
-      // ✅ Start Recording separately - slower but doesn't block VAD
-      Future.delayed(Duration.zero, () async {
-        try {
-          debugPrint('⏱️ [REC-ASYNC] Started at ${DateTime.now().millisecondsSinceEpoch}');
-          await _prepareRecording();
-          debugPrint('⏱️ [REC-DONE] Recording ready');
-        } catch (e) {
-          debugPrint('❌ Recording error: $e');
-          _errorSubject.add('Recording failed: $e');
-          _isListeningSubject.add(false);
-          _rmsTimer?.cancel();
-        }
-      });
+      // ✅ 4. BACKGROUND RECORDING STARTUP
+      _startRecordingInBackground();
 
-      debugPrint('⏱️ [RETURN] startRecording returning true at ${DateTime.now().millisecondsSinceEpoch}');
+      debugPrint('✅ [INSTANT] UI ready, background tasks queued');
       return true;
+
     } catch (e) {
       debugPrint('❌ startRecording error: $e');
       _errorSubject.add('Failed to start recording: $e');
       _isListeningSubject.add(false);
       _rmsTimer?.cancel();
+      _mockRmsTimer?.cancel();
       return false;
     }
   }
 
-  Future<void> _startNativeVad() async {
+
+
+  void _startMockWaveforms() {
+    _isUsingMockRms = true;
+    _mockRmsTimer?.cancel();
+
+    double mockRms = 0.0;
+    int ticks = 0;
+
+    _mockRmsTimer = Timer.periodic(const Duration(milliseconds: 33), (timer) {
+      if (!_isUsingMockRms) {
+        timer.cancel();
+        return;
+      }
+
+      // Generate smooth wave pattern (sine wave)
+      ticks++;
+      mockRms = 0.3 + 0.2 * math.sin(ticks * 0.15);
+
+      // Add some randomness for natural look
+      mockRms += (math.Random().nextDouble() - 0.5) * 0.1;
+      mockRms = mockRms.clamp(0.2, 0.6);
+
+      _currentRmsSubject.add(mockRms);
+      _waveformRmsSubject.add(mockRms);
+
+      debugPrint('🎭 MOCK RMS => ${mockRms.toStringAsFixed(3)}');
+    });
+
+    debugPrint('✅ Mock waveforms started (instant feedback)');
+  }
+
+  // ✅ STOP MOCK WAVEFORMS when real VAD connects
+  void _stopMockWaveforms() {
+    _isUsingMockRms = false;
+    _mockRmsTimer?.cancel();
+    _mockRmsTimer = null;
+    debugPrint('🛑 Mock waveforms stopped (real VAD active)');
+  }
+
+  // ✅ VAD STARTUP: Non-blocking background task
+  void _startVadInBackground() {
+    // Fire and forget - don't await
+    Future(() async {
+      try {
+        debugPrint('⏱️ [VAD-BG] Starting VAD engine...');
+        final startTime = DateTime.now().millisecondsSinceEpoch;
+
+        final MethodChannel methodChannel = Platform.isIOS
+            ? _iosMethodChannel
+            : _androidMethodChannel;
+        final EventChannel eventChannel = Platform.isIOS
+            ? _iosEventChannel
+            : _androidEventChannel;
+
+        // Cancel old subscription
+        await _vadSubscription?.cancel();
+        _vadSubscription = null;
+
+        // Stop native VAD if running
+        try {
+          await methodChannel.invokeMethod('stop');
+        } catch (e) {
+          debugPrint('⚠️ VAD stop before start: $e (normal)');
+        }
+
+        // Small cleanup delay
+        await Future.delayed(const Duration(milliseconds: 50));
+
+        // Setup event stream FIRST
+        _vadSubscription = eventChannel.receiveBroadcastStream().listen(
+              (event) {
+            // ✅ First real event = switch from mock to real
+            if (_isUsingMockRms) {
+              _stopMockWaveforms();
+            }
+
+            final rawIsSpeech = event['isSpeech'] ??
+                event['state'] == 'speech_detected' ||
+                    false;
+            final rawRms = (event['rms'] ?? event['rms_db'] ?? 0.0).toDouble();
+
+            if (Platform.isAndroid) {
+              _processAndroidVadEvent(rawIsSpeech, rawRms);
+            } else {
+              _processIosVadEvent(rawIsSpeech, rawRms);
+            }
+          },
+          onError: (error) {
+            debugPrint('❌ VAD stream error: $error');
+            _errorSubject.add('Voice detection error: $error');
+          },
+          cancelOnError: false,
+        );
+
+        // Start native VAD
+        await methodChannel.invokeMethod('start');
+
+        final endTime = DateTime.now().millisecondsSinceEpoch;
+        debugPrint('✅ [VAD-BG] VAD ready in ${endTime - startTime}ms');
+
+      } catch (e) {
+        debugPrint('❌ [VAD-BG] Error: $e');
+        _errorSubject.add('Failed to start voice detection: $e');
+        await _vadSubscription?.cancel();
+        _vadSubscription = null;
+
+        // Keep mock waveforms if VAD fails
+        if (!_isUsingMockRms) {
+          _startMockWaveforms();
+        }
+      }
+    });
+  }
+
+  // ✅ RECORDING STARTUP: Non-blocking background task
+  void _startRecordingInBackground() {
+    // Fire and forget - don't await
+    Future(() async {
+      try {
+        debugPrint('⏱️ [REC-BG] Starting audio recorder...');
+        final startTime = DateTime.now().millisecondsSinceEpoch;
+
+        final dir = await getTemporaryDirectory();
+        _recordingPath = '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.wav';
+
+        final recordConfig = RecordConfig(
+          encoder: AudioEncoder.wav,
+          bitRate: 64000,
+          sampleRate: 16000,
+          numChannels: 1,
+        );
+
+        await _audioRecorder.start(recordConfig, path: _recordingPath);
+
+        final endTime = DateTime.now().millisecondsSinceEpoch;
+        debugPrint('✅ [REC-BG] Recording ready in ${endTime - startTime}ms');
+
+      } catch (e) {
+        debugPrint('❌ [REC-BG] Error: $e');
+        _errorSubject.add('Recording failed: $e');
+        _isListeningSubject.add(false);
+        _rmsTimer?.cancel();
+        _mockRmsTimer?.cancel();
+      }
+    });
+  }
+
+  // ✅ CLEANUP: Stop both mock and real VAD
+  Future<void> _stopNativeVad() async {
     try {
-      debugPrint('⏱️ [VAD-START] _startNativeVad called at ${DateTime.now().millisecondsSinceEpoch}');
-      HapticFeedback.mediumImpact();
+      // Stop mock waveforms first
+      _stopMockWaveforms();
+
       final MethodChannel methodChannel = Platform.isIOS
           ? _iosMethodChannel
           : _androidMethodChannel;
-      final EventChannel eventChannel = Platform.isIOS
-          ? _iosEventChannel
-          : _androidEventChannel;
 
-      debugPrint('⏱️ [VAD-CANCEL] Cancelling old subscription at ${DateTime.now().millisecondsSinceEpoch}');
+      _rmsTimer?.cancel();
+
+      await methodChannel.invokeMethod('stop');
       await _vadSubscription?.cancel();
       _vadSubscription = null;
 
-      // Stop call
-      try {
-        final stopStart = DateTime.now().millisecondsSinceEpoch;
-        await methodChannel.invokeMethod('stop');
-        final stopEnd = DateTime.now().millisecondsSinceEpoch;
-        debugPrint('⏱️ [VAD-STOP] Stop call took ${stopEnd - stopStart}ms');
-      } catch (e) {
-        debugPrint('⚠️ Stop before start failed: $e (normal on first run)');
-      }
+      _resetVadState();
+      _isSpeakingSubject.add(false);
+      _currentRmsSubject.add(0.0);
+      _waveformRmsSubject.add(0.0);
+      _displayedRmsSubject.add(0.0);
 
-      debugPrint('⏱️ [VAD-DELAY] Waiting 50ms at ${DateTime.now().millisecondsSinceEpoch}');
-      await Future.delayed(const Duration(milliseconds: 50));
-
-      debugPrint('⏱️ [VAD-STREAM] Setting up event stream at ${DateTime.now().millisecondsSinceEpoch}');
-      _vadSubscription = eventChannel.receiveBroadcastStream().listen(
-            (event) {
-          debugPrint('⏱️ [VAD-EVENT] First event received at ${DateTime.now().millisecondsSinceEpoch}');
-
-          final rawIsSpeech = event['isSpeech'] ??
-              event['state'] == 'speech_detected' ||
-                  false;
-          final rawRms = (event['rms'] ?? event['rms_db'] ?? 0.0).toDouble();
-
-          if (Platform.isAndroid) {
-            _processAndroidVadEvent(rawIsSpeech, rawRms);
-          } else {
-            _processIosVadEvent(rawIsSpeech, rawRms);
-          }
-        },
-        onError: (error) {
-          debugPrint('❌ VAD stream error: $error');
-          _errorSubject.add('Voice detection error: $error');
-        },
-        cancelOnError: false,
-      );
-
-      debugPrint('⏱️ [VAD-METHOD] Calling methodChannel.start at ${DateTime.now().millisecondsSinceEpoch}');
-      final methodStart = DateTime.now().millisecondsSinceEpoch;
-      await methodChannel.invokeMethod('start');
-      final methodEnd = DateTime.now().millisecondsSinceEpoch;
-      debugPrint('⏱️ [VAD-METHOD] methodChannel.start took ${methodEnd - methodStart}ms');
-
-      debugPrint('✅ Native VAD started successfully');
-
+      debugPrint('✅ VAD fully stopped');
     } catch (e) {
-      debugPrint('❌ startNativeVad error: $e');
-      _errorSubject.add('Failed to start voice detection: $e');
+      debugPrint('❌ stopNativeVad error: $e');
+    }
+  }
 
-      await _vadSubscription?.cancel();
-      _vadSubscription = null;
+  // ✅ Keep existing VAD processing methods
+  void _processAndroidVadEvent(bool rawIsSpeech, double rawRms) {
+    final now = DateTime.now();
+    final timeSinceLastUpdate = now.difference(_lastRmsUpdate).inMilliseconds;
+
+    if (timeSinceLastUpdate >= _waveformUpdateIntervalMs) {
+      final amp = _normalizeRms(rawRms);
+
+      _rmsBuffer.add(amp);
+      if (_rmsBuffer.length > 5) _rmsBuffer.removeAt(0);
+
+      final avg = _rmsBuffer.reduce((a, b) => a + b) / _rmsBuffer.length;
+
+      _currentRmsSubject.add(avg);
+      _waveformRmsSubject.add(avg);
+      _lastRawRms = avg;
+      _lastRmsUpdate = now;
+
+      debugPrint('🎙️ REAL RMS => ${avg.toStringAsFixed(4)} | isSpeech=$rawIsSpeech');
+    }
+
+    // VAD logic
+    if (rawIsSpeech) {
+      _speechFrameCount++;
+      _silenceFrameCount = 0;
+      if (_speechFrameCount >= _minSpeechFrames && !_isSpeechActive) {
+        _isSpeechActive = true;
+        _isSpeakingSubject.add(true);
+      }
+    } else {
+      _silenceFrameCount++;
+      _speechFrameCount = 0;
+      if (_silenceFrameCount >= _minSilenceFrames && _isSpeechActive) {
+        _isSpeechActive = false;
+        _isSpeakingSubject.add(false);
+      }
     }
   }
 
   void _processIosVadEvent(bool rawIsSpeech, double rawRms) {
-    // ✅ Only log first event to avoid spam
-    bool _firstEventLogged = false;
-    if (!_firstEventLogged) {
-      debugPrint('⏱️ [iOS-FIRST-EVENT] First iOS VAD event processed at ${DateTime.now().millisecondsSinceEpoch}');
-      _firstEventLogged = true;
-    }
-
     final now = DateTime.now();
     final elapsed = now.difference(_lastRmsUpdate).inMilliseconds;
 
@@ -1496,12 +1621,11 @@ class AudioService {
       _waveformRmsSubject.add(amp);
       _lastRmsUpdate = now;
 
-      debugPrint('🎙️ iOS RMS => ${amp.toStringAsFixed(4)} | isSpeech=$rawIsSpeech');
+      debugPrint('🎙️ REAL iOS RMS => ${amp.toStringAsFixed(4)} | isSpeech=$rawIsSpeech');
     }
 
     _isSpeakingSubject.add(rawIsSpeech);
   }
-
 
 
 

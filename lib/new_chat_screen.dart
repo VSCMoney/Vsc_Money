@@ -172,6 +172,27 @@ class _NewChatScreenState extends State<NewChatScreen>
     }
   }
 
+
+  void _focusInputAndShowKeyboard() {
+    HapticFeedback.mediumImpact();
+    FocusScope.of(context).requestFocus(_focusNode);
+
+    // Next frame me OS ko keyboard dikhane bolo (reliable)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SystemChannels.textInput.invokeMethod('TextInput.show');
+    });
+
+    // (optional) chat ko bottom tak scroll kara do
+    if (widget.chatService.scrollController.hasClients) {
+      widget.chatService.scrollController.animateTo(
+        widget.chatService.scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     //print("rebuilt");
@@ -258,13 +279,20 @@ class _NewChatScreenState extends State<NewChatScreen>
                 key: ValueKey<bool>(activeGhostMode),
                 controller: widget.chatService.textController,
                 onAskVitty: (text) {
+                  HapticFeedback.mediumImpact();
                   widget.chatService.textController.text = text;
                   widget.chatService.textController.selection =
-                      TextSelection.fromPosition(
-                        TextPosition(offset: text.length),
-                      );
+                      TextSelection.fromPosition(TextPosition(offset: text.length));
+
+                  _ghostMode = true;                 // ghost chip dikhana ho to
+                  setState(() {});                   // UI update
+                  _focusInputAndShowKeyboard();      // 👈 force-open keyboard
                 },
-                onSuggestionSelected: () => setState(() => _ghostMode = true),
+                onSuggestionSelected: () {
+                  setState(() => _ghostMode = true);
+                  _focusInputAndShowKeyboard();      // 👈 yahan bhi open
+                },
+
               ),
             ),
         ],

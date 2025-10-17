@@ -177,7 +177,7 @@ class _WatchlistListPageState extends State<WatchlistListPage> {
     const itemSub = TextStyle(
       fontFamily: 'DM Sans', fontWeight: FontWeight.w400, fontSize: 12, color: Color(0xFF8C8C8C),
     );
-
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
     Widget _row({
       required IconData icon,
       required String title,
@@ -202,9 +202,13 @@ class _WatchlistListPageState extends State<WatchlistListPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: itemTitle),
+                    Text(title, style: TextStyle(
+                      fontFamily: 'DM Sans', fontWeight: FontWeight.w600, fontSize: 14, color: theme.text,
+
+                    )),
                     const SizedBox(height: 4),
-                    Text(subtitle, style: itemSub),
+                    Text(subtitle, style: TextStyle(      fontFamily: 'DM Sans', fontWeight: FontWeight.w400, fontSize: 12, color: theme.text,
+                    )),
                   ],
                 ),
               ),
@@ -215,13 +219,16 @@ class _WatchlistListPageState extends State<WatchlistListPage> {
     }
 
     return showModalBottomSheet<WatchlistCreateMode>(
+
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: theme.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) {
+
+
         final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
         return Padding(
           padding: EdgeInsets.fromLTRB(20, 16, 20, bottomInset + 20),
@@ -238,7 +245,9 @@ class _WatchlistListPageState extends State<WatchlistListPage> {
                   ),
                 ),
               ),
-               Text('Create your watchlist', style: titleStyle),
+               Text('Create your watchlist', style: TextStyle(
+                 fontFamily: 'DM Sans', fontWeight: FontWeight.w500, fontSize: 18, color: theme.text,
+               ),),
               const SizedBox(height: 18),
 
               _row(
@@ -325,12 +334,13 @@ class _WatchlistListPageState extends State<WatchlistListPage> {
       );
       return;
     }
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
     // 2) If manual -> open the existing create-name sheet
     final created = await showModalBottomSheet<WatchlistDetail>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: theme.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -363,11 +373,12 @@ class _WatchlistListPageState extends State<WatchlistListPage> {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final double sidePad = media.size.width >= 600 ? WLTokens.hPad + 12 : WLTokens.hPad;
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
     return ChatGPTBottomSheetWrapper(
       key: _sheetKey,
       child: Scaffold(
-        backgroundColor: WLTokens.bg,
+        backgroundColor: theme.background,
         drawer: CustomDrawer(
           onTap: _openSettingsSheet,
           selectedRoute: "Watchlist",
@@ -397,18 +408,29 @@ class _WatchlistListPageState extends State<WatchlistListPage> {
               padding: EdgeInsets.symmetric(horizontal: sidePad),
               child: Row(
                 children: [
-               _items.length == 0 ? SizedBox.shrink():   Text('${_items.length} Watchlists', style: WLTokens.sectionTitle),
+               _items.length == 0 ? SizedBox.shrink():   Text('${_items.length} Watchlists', style: TextStyle(
+                 fontFamily: 'DM Sans',
+                 fontSize: 16,
+                 fontWeight: FontWeight.w500,
+                 color: theme.text,
+                 height: 1.1,
+               ),),
                   const Spacer(),
                   InkWell(
                     onTap: _busy ? null : _openCreateWatchlistSheet,  // ⬅️ changed
                     borderRadius: BorderRadius.circular(6),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                       child: Row(
                         children: [
-                          Icon(Icons.add, size: 18, color: WLTokens.addBrown),
-                          SizedBox(width: 4),
-                          Text('Add watchlist', style: WLTokens.addAction),
+                          Icon(Icons.add, size: 18, color: theme.icon),
+                          const SizedBox(width: 4),
+                           Text('Add watchlist', style: TextStyle(
+                            fontFamily: 'DM Sans',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: theme.text,
+                          )),
                         ],
                       ),
                     ),
@@ -530,10 +552,10 @@ class _WatchlistCard extends StatelessWidget {
     final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
     final deco = BoxDecoration(
-      color: Colors.white,
+      color: theme.box,
       borderRadius: BorderRadius.circular(WLTokens.cardRadius),
       boxShadow: elevated ? WLTokens.cardShadowFirst : WLTokens.cardShadowRest,
-      border: outlined ? Border.all(color: WLTokens.outlineBlue, width: 2) : null,
+      border: outlined ? Border.all(color: theme.box, width: 2) : null,
     );
 
     return Material(
@@ -568,11 +590,22 @@ class _WatchlistCard extends StatelessWidget {
                   item.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: WLTokens.cardTitle,
+                  style: TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: theme.text,
+                    height: 1.0,
+                  ),
                 ),
               ),
 
-              Text('${item.stocksCount} stocks', style: WLTokens.cardMeta),
+              Text('${item.stocksCount} stocks', style: TextStyle(
+                fontFamily: 'DM Sans',
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: theme.text,
+              )),
               //const SizedBox(width: 10),
 
               // PopupMenuButton<String>(
@@ -586,7 +619,7 @@ class _WatchlistCard extends StatelessWidget {
               //   ],
               //   icon: const Icon(Icons.arrow_forward_ios, size: 22, color: Color(0xFF111111)),
               // ),
-              Icon(Icons.arrow_forward_ios, size: 22, color: Color(0xFF111111)),
+              Icon(Icons.arrow_forward_ios, size: 22, color: theme.icon),
             ],
           ),
         ),
@@ -649,6 +682,7 @@ class _CreateWatchlistSheetState extends State<CreateWatchlistSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -668,18 +702,19 @@ class _CreateWatchlistSheetState extends State<CreateWatchlistSheet> {
               height: 4,
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: Colors.black12,
+                color: theme.background,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
 
-          const Text(
+           Text(
             'Create watchlist',
             style: TextStyle(
               fontFamily: 'DM Sans',
               fontSize: 18,
               fontWeight: FontWeight.w500,
+              color: theme.text
             ),
           ),
           const SizedBox(height: 12),

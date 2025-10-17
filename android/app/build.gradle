@@ -31,8 +31,8 @@ android {
         applicationId "com.ai.vitty"
         minSdk 24
         targetSdk 35
-        versionCode 17
-        versionName "1.0.25"
+        versionCode 18
+        versionName "1.0.30"
 
         // Your CMake/native config
         externalNativeBuild {

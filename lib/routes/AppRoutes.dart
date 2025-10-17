@@ -45,7 +45,7 @@ class AppRouter {
         name: 'splash',
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
-          child: EnterNameScreen(),
+          child: SplashScreen(),
           transitionsBuilder: dissolveTransition,
         ),
       ),
@@ -327,15 +327,6 @@ class AppRouter {
           key: state.pageKey,
           child: WarmHelloScreen(name: "Piyush"),
           transitionsBuilder: slideLeftTransition,
-        ),
-      ),
-      GoRoute(
-        path: '/info',
-        name: 'info',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: OnboardingKnowledgeScreen(),
-          transitionsBuilder: dissolveTransition,
         ),
       ),
     ],

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
+import '../../../services/theme_service.dart';
 import 'level_screen.dart';
 
 // import 'onboarding_flow.dart'; // <-- your flow
@@ -10,13 +11,15 @@ class WarmHelloScreen extends StatefulWidget {
     super.key,
     required this.name,
     this.subtitle = "Let's get to know you better",
-    this.subtitleDelay = const Duration(seconds: 1), // ⬅️ 1s after title
-    this.startFlowDelayAfterSubtitle = const Duration(milliseconds: 50), // tiny buffer
-    this.onboardingFinishedRoute, // optional: where to go after flow finishes
+    this.initialDelay = const Duration(seconds: 1), // ✅ NEW: Delay before title
+    this.subtitleDelay = const Duration(seconds: 1), // After title
+    this.startFlowDelayAfterSubtitle = const Duration(seconds: 2),
+    this.onboardingFinishedRoute,
   });
 
   final String name;
   final String subtitle;
+  final Duration initialDelay; // ✅ NEW
   final Duration subtitleDelay;
   final Duration startFlowDelayAfterSubtitle;
   final String? onboardingFinishedRoute;
@@ -40,7 +43,7 @@ class _WarmHelloScreenState extends State<WarmHelloScreen>
   // 3) Hello block slide up to notch & fade out
   late final AnimationController _helloExit;
   late final Animation<double> _helloFadeOut;
-  late final Animation<Offset> _helloSlideUp; // to top/notch
+  late final Animation<Offset> _helloSlideUp;
 
   // 4) Flow in
   late final AnimationController _flowIn;
@@ -68,7 +71,6 @@ class _WarmHelloScreenState extends State<WarmHelloScreen>
     // Hello exit (to notch)
     _helloExit = AnimationController(vsync: this, duration: const Duration(milliseconds: 480));
     _helloFadeOut = CurvedAnimation(parent: _helloExit, curve: Curves.easeOut);
-    // Move roughly one full screen up so it clears under the status bar/notch
     _helloSlideUp = Tween<Offset>(begin: Offset.zero, end: const Offset(0, -1.05))
         .animate(CurvedAnimation(parent: _helloExit, curve: Curves.easeOutCubic));
 
@@ -82,6 +84,9 @@ class _WarmHelloScreenState extends State<WarmHelloScreen>
   }
 
   Future<void> _playSequence() async {
+    // ✅ NEW: Wait 1 second before showing anything
+    await Future.delayed(widget.initialDelay);
+
     // 1) Title in
     await _titleIn.forward();
 
@@ -93,7 +98,7 @@ class _WarmHelloScreenState extends State<WarmHelloScreen>
     await Future.delayed(widget.startFlowDelayAfterSubtitle);
 
     // 3) Hello slide up to notch & fade out
-    setState(() => _showFlowLayer = true); // prepare flow layer underneath
+    setState(() => _showFlowLayer = true);
     await _helloExit.forward();
 
     // 4) Flow in
@@ -113,6 +118,7 @@ class _WarmHelloScreenState extends State<WarmHelloScreen>
   Widget build(BuildContext context) {
     const creamLeft = Color(0xFFF1EAE4);
     const whiteRight = Color(0xFFFFFFFF);
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
 
     final h = MediaQuery.of(context).size.height;
 
@@ -128,11 +134,12 @@ class _WarmHelloScreenState extends State<WarmHelloScreen>
       child: CustomPaint(
         painter: _RadialGlowPainter(),
         child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: SafeArea(
+          backgroundColor: theme.background,
+          body: Padding(
+            padding:  EdgeInsets.symmetric(vertical: 50),
             child: Stack(
               children: [
-                // 4) FLOW LAYER (appears as hello goes up)
+                // 4) FLOW LAYER
                 if (_showFlowLayer)
                   FadeTransition(
                     opacity: _flowFadeIn,
@@ -158,13 +165,14 @@ class _WarmHelloScreenState extends State<WarmHelloScreen>
                   child: AnimatedBuilder(
                     animation: Listenable.merge([_titleIn, _subIn, _helloExit]),
                     builder: (context, _) {
-                      // fade out as it exits upward
                       final helloOpacity = (1.0 - _helloFadeOut.value).clamp(0.0, 1.0);
 
                       return Opacity(
                         opacity: helloOpacity,
                         child: SlideTransition(
-                          position: _helloExit.isDismissed ? const AlwaysStoppedAnimation(Offset.zero) : _helloSlideUp,
+                          position: _helloExit.isDismissed
+                              ? const AlwaysStoppedAnimation(Offset.zero)
+                              : _helloSlideUp,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24.0),
                             child: _HelloBlock(
@@ -190,7 +198,7 @@ class _WarmHelloScreenState extends State<WarmHelloScreen>
   }
 }
 
-// The two-line hello block with staggered entrance
+// Rest of the code remains same (_HelloBlock, _RadialGlowPainter)
 class _HelloBlock extends StatelessWidget {
   const _HelloBlock({
     required this.name,
@@ -210,23 +218,25 @@ class _HelloBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!.theme;
+
     const titleSize = 38.0;
     const subSize = 16.5;
 
-    final titleStyle = const TextStyle(
+    final titleStyle =  TextStyle(
       fontFamily: 'DM Sans',
       fontSize: titleSize,
       height: 1.05,
       fontWeight: FontWeight.bold,
       letterSpacing: -0.2,
-      color: Colors.black,
+      color: theme.text,
     );
-    final subStyle = const TextStyle(
+    final subStyle =  TextStyle(
       fontFamily: 'DM Sans',
       fontSize: subSize,
       height: 1.35,
       fontWeight: FontWeight.w400,
-      color: Color(0xFF4A4A4A),
+      color: theme.text,
     );
 
     return Column(
@@ -283,7 +293,6 @@ class _HelloBlock extends StatelessWidget {
   }
 }
 
-// soft radial glow (unchanged)
 class _RadialGlowPainter extends CustomPainter {
   const _RadialGlowPainter();
 

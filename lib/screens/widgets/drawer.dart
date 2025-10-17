@@ -225,7 +225,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 title: 'Wealth',
                 isActive: _selectedItem == 'Wealth',
                 onTap: () {
-
+                  context.push("/warm");
                 },
               ),
 

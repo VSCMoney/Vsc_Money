@@ -32,16 +32,22 @@ class VoiceRecorderWidget extends StatefulWidget {
   State<VoiceRecorderWidget> createState() => _VoiceRecorderWidgetState();
 }
 
+// ✅ VoiceRecorderWidget - Instant render with pre-started waveforms
+
 class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
   late StreamSubscription _isTranscribingSubscription;
   late StreamSubscription _isSpeakingSubscription;
   late StreamSubscription _displayedRmsSubscription;
 
-  double _currentRms = 0.0;
+  double _currentRms = 0.3; // ✅ Start with mock value immediately!
 
   @override
   void initState() {
     super.initState();
+
+    // ✅ INSTANT: Start with mock RMS data
+    debugPrint('🎬 VoiceRecorderWidget initialized with mock RMS');
+
     _setupSubscriptions();
   }
 
@@ -109,7 +115,7 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
       );
     }
 
-    // ====== ICON CIRCLES (center aligned, thick glyphs) ======
+    // ====== ICONS ======
     final leftCircle = Container(
       width: 35,
       height: 35,
@@ -118,13 +124,13 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
         shape: BoxShape.circle,
         border: Border.all(color: const Color(0xFF734012), width: 1),
       ),
-      alignment: Alignment.center, // ✅ pure center
+      alignment: Alignment.center,
       child: BoldThickGlyph.icon(
         icon: Icons.close,
         size: 18,
         color: theme.crossIcon,
-        spread: 0.55, // 0.5–0.8 tweak
-        copies: 9,    // 9-way spread (center + 8 around)
+        spread: 0.55,
+        copies: 9,
       ),
     );
 
@@ -136,7 +142,7 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
         shape: BoxShape.circle,
         border: Border.all(color: AppColors.primary, width: 1),
       ),
-      alignment: Alignment.center, // ✅ pure center
+      alignment: Alignment.center,
       child: BoldThickGlyph.builder(
         size: 16,
         spread: 0.55,
@@ -148,7 +154,7 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
       ),
     );
 
-    // 🔥 Transparent overlay: left half = cancel, right half = confirm
+    // ✅ Tap overlay
     Widget _halfTapOverlay() {
       return Positioned.fill(
         child: LayoutBuilder(
@@ -170,6 +176,7 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
       );
     }
 
+    // ✅ INSTANT RENDER: Everything visible immediately
     return Stack(
       key: const ValueKey('micMode'),
       clipBehavior: Clip.none,
@@ -178,30 +185,23 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
           children: [
             const SizedBox(width: 3),
 
-            // left (visual only)
+            // Left icon
             SizedBox(width: 56, child: Center(child: leftCircle)),
 
-            // waveform center
+            // ✅ WAVEFORM: Immediately visible with mock data
             Expanded(
               flex: 2,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                      //color: Colors.red,
-                    borderRadius: BorderRadius.circular(20)
-                  ),
-
-                  child: ChatGPTScrollingWaveform(
-                    key: const ValueKey('waveform'),
-                    isSpeech: isSpeaking,
-                    rms: _currentRms,
-                  ),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: ChatGPTScrollingWaveform(
+                  key: const ValueKey('waveform'),
+                  isSpeech: isSpeaking,
+                  rms: _currentRms, // ✅ Already has value (0.3)
                 ),
               ),
             ),
 
-            // right (visual only)
+            // Right icon
             SizedBox(width: 56, child: Center(child: rightCircle)),
 
             const SizedBox(width: 3),
