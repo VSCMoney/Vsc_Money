@@ -404,7 +404,6 @@
 //
 //
 //
-//    String _openAIApiKey = "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";
 //
 //   MediaType _guessMediaTypeForPath(String path) {
 //     final lower = path.toLowerCase();
